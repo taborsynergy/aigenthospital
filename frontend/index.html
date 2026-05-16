@@ -1343,7 +1343,7 @@ function submitSignup(e) {
     document.getElementById("success-login-email").textContent = data.contact_email;
     var plan = res.body.plan || "professional";
     document.getElementById("success-plan-label").textContent = PLAN_LABELS[plan] || PLAN_LABELS.professional;
-    var amount = PLAN_AMOUNTS[plan] || 299;
+    var amount = PLAN_AMOUNTS[plan] || 597;
     document.getElementById("success-paypal-btn").href = PAYPAL_ME + "/" + amount + "USD";
     document.getElementById("success-modal").classList.add("open");
     document.getElementById("signup-form").reset();
