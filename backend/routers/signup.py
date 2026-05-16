@@ -31,7 +31,7 @@ PLAN_RATES = {
 class SignupRequest(BaseModel):
     practice_name: str
     contact_email: str
-    password: str
+    password: str = ""   # default "" so FastAPI never returns a 422 array; we validate below
     specialty: str
     phone: str = ""
     plan: str = "professional"
@@ -55,8 +55,14 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
 
     trial_ends_at = datetime.utcnow() + timedelta(days=14)
 
+    if not body.practice_name.strip():
+        return JSONResponse(status_code=400, content={"error": "Practice name is required."})
+    if not body.specialty.strip():
+        return JSONResponse(status_code=400, content={"error": "Specialty is required."})
+    if not body.contact_email.strip():
+        return JSONResponse(status_code=400, content={"error": "Email is required."})
     if len(body.password) < 6:
-        return JSONResponse(status_code=422, content={"detail": "Password must be at least 6 characters."})
+        return JSONResponse(status_code=400, content={"error": "Password must be at least 6 characters."})
 
     clinic = crud.create_clinic(db, {
         "slug":                   slug,

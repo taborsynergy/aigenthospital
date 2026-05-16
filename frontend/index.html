@@ -679,6 +679,7 @@
         <input id="f-phone" name="phone" type="tel" placeholder="(512) 555-0100" />
       </div>
       <input type="hidden" id="f-plan" name="plan" value="professional" />
+      <div id="signup-error-msg" style="color:#DC2626;font-size:13px;margin-bottom:8px;min-height:18px"></div>
       <button class="btn-submit" type="submit" id="signup-submit-btn">
         Create My Free Trial →
       </button>
@@ -767,8 +768,15 @@ function openSignup(plan) {
   document.getElementById("signup-modal").classList.add("open");
   document.getElementById("f-name").focus();
 }
-function closeSignup() { document.getElementById("signup-modal").classList.remove("open"); }
+function closeSignup() {
+  document.getElementById("signup-modal").classList.remove("open");
+  document.getElementById("signup-error-msg").textContent = "";
+}
 function closeSuccess() { document.getElementById("success-modal").classList.remove("open"); }
+
+function showSignupError(msg) {
+  document.getElementById("signup-error-msg").textContent = msg;
+}
 
 function submitSignup(e) {
   e.preventDefault();
@@ -791,25 +799,32 @@ function submitSignup(e) {
     body: JSON.stringify(data),
   })
   .then(function(r) {
-    if (!r.ok) return r.json().then(function(e) { throw new Error(e.detail || "Signup failed"); });
-    return r.json();
+    return r.json().then(function(body) { return { ok: r.ok, body: body }; });
   })
   .then(function(res) {
+    if (!res.ok) {
+      var b = res.body;
+      var msg = b.error || (Array.isArray(b.detail)
+        ? b.detail.map(function(d) { return d.msg || JSON.stringify(d); }).join("; ")
+        : (b.detail || "Signup failed. Please try again."));
+      showSignupError(msg);
+      return;
+    }
     closeSignup();
-    var chatUrl = window.location.origin + "/c/" + res.slug;
+    var chatUrl = window.location.origin + "/c/" + res.body.slug;
     document.getElementById("success-url").textContent = chatUrl;
     document.getElementById("success-open-btn").href = chatUrl;
-    document.getElementById("success-trial-end").textContent = res.trial_ends_at;
+    document.getElementById("success-trial-end").textContent = res.body.trial_ends_at;
     document.getElementById("success-login-email").textContent = data.contact_email;
-    var plan = res.plan || "professional";
+    var plan = res.body.plan || "professional";
     document.getElementById("success-plan-label").textContent = PLAN_LABELS[plan] || PLAN_LABELS.professional;
     var amount = PLAN_AMOUNTS[plan] || 299;
     document.getElementById("success-paypal-btn").href = PAYPAL_ME + "/" + amount + "USD";
     document.getElementById("success-modal").classList.add("open");
     document.getElementById("signup-form").reset();
   })
-  .catch(function(err) {
-    alert("Error: " + err.message + "\nPlease try again or email admin@tabor.taborsynergy.com");
+  .catch(function() {
+    showSignupError("Network error. Please check your connection and try again.");
   })
   .finally(function() {
     btn.disabled = false;
