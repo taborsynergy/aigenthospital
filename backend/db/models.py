@@ -36,6 +36,7 @@ class Clinic(Base):
     subscription_status     = Column(String, default="trial")   # trial | active | past_due | cancelled
     monthly_rate            = Column(Float,  default=299.0)
     trial_ends_at           = Column(DateTime, nullable=True)
+    subscription_ends_at    = Column(DateTime, nullable=True)  # set when payment confirmed; expires after 30 days
 
     is_active   = Column(Boolean,  default=True)
     created_at  = Column(DateTime, default=datetime.utcnow)

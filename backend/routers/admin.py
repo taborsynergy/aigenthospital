@@ -123,6 +123,15 @@ def deactivate_clinic(slug: str, db: Session = Depends(get_db)):
     return {"deleted": slug}
 
 
+@router.post("/clinics/{slug}/activate", dependencies=[Depends(require_admin)])
+def activate_subscription(slug: str, db: Session = Depends(get_db)):
+    """Manually activate a 30-day subscription after payment is confirmed."""
+    clinic = crud.activate_subscription(db, slug)
+    if not clinic:
+        raise HTTPException(404, "Clinic not found.")
+    return _serialize(clinic)
+
+
 # ── Usage ─────────────────────────────────────────────────────────────────────
 
 @router.get("/clinics/{slug}/usage", dependencies=[Depends(require_admin)])
@@ -231,7 +240,8 @@ def _serialize(clinic) -> dict:
         "stripe_customer_id":  clinic.stripe_customer_id,
         "subscription_status": clinic.subscription_status,
         "monthly_rate":        clinic.monthly_rate,
-        "trial_ends_at":       clinic.trial_ends_at.isoformat() if clinic.trial_ends_at else None,
+        "trial_ends_at":          clinic.trial_ends_at.isoformat() if clinic.trial_ends_at else None,
+        "subscription_ends_at":   clinic.subscription_ends_at.isoformat() if clinic.subscription_ends_at else None,
         "is_active":           clinic.is_active,
         "created_at":          clinic.created_at.isoformat() if clinic.created_at else None,
     }

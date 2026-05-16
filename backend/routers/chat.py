@@ -24,18 +24,30 @@ def _greeting(clinic) -> str:
     )
 
 
-def _is_trial_expired(clinic) -> bool:
-    if clinic.subscription_status != "trial":
-        return False
-    if clinic.trial_ends_at is None:
-        return False
-    return datetime.utcnow() > clinic.trial_ends_at
+_CONTACT = "admin@tabor.taborsynergy.com"
 
 
-_TRIAL_EXPIRED_MSG = (
-    "I'm sorry, this clinic's 14-day free trial has ended. "
-    "Please contact support at admin@tabor.taborsynergy.com to activate a subscription."
-)
+def _access_blocked(clinic) -> str | None:
+    """Return a block message if the clinic cannot use the chat, else None."""
+    now = datetime.utcnow()
+    if clinic.subscription_status == "trial":
+        if clinic.trial_ends_at and now > clinic.trial_ends_at:
+            return (
+                "I'm sorry, this clinic's 14-day free trial has ended. "
+                f"Please contact us at {_CONTACT} to activate a subscription."
+            )
+    elif clinic.subscription_status == "active":
+        if clinic.subscription_ends_at and now > clinic.subscription_ends_at:
+            return (
+                "I'm sorry, this clinic's subscription has expired. "
+                f"Please contact us at {_CONTACT} to renew."
+            )
+    elif clinic.subscription_status in ("past_due", "cancelled"):
+        return (
+            f"This clinic's subscription is {clinic.subscription_status}. "
+            f"Please contact us at {_CONTACT} to restore access."
+        )
+    return None
 
 
 @router.websocket("/ws/{clinic_slug}/{session_id}")
@@ -49,8 +61,9 @@ async def websocket_chat(websocket: WebSocket, clinic_slug: str, session_id: str
     await websocket.accept()
     logger.info("WS connected: clinic=%s session=%s", clinic_slug, session_id)
 
-    if _is_trial_expired(clinic):
-        await websocket.send_json({"type": "message", "content": _TRIAL_EXPIRED_MSG, "session_id": session_id})
+    block_msg = _access_blocked(clinic)
+    if block_msg:
+        await websocket.send_json({"type": "message", "content": block_msg, "session_id": session_id})
         await websocket.close(code=4003)
         return
 
@@ -106,8 +119,9 @@ async def rest_chat(clinic_slug: str, body: ChatMessage, db: Session = Depends(g
     if not clinic:
         return JSONResponse(status_code=404, content={"error": "Clinic not found."})
 
-    if _is_trial_expired(clinic):
-        return JSONResponse(status_code=403, content={"error": _TRIAL_EXPIRED_MSG})
+    block_msg = _access_blocked(clinic)
+    if block_msg:
+        return JSONResponse(status_code=403, content={"error": block_msg})
 
     session_id = body.session_id or str(uuid.uuid4())
     try:

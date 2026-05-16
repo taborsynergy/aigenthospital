@@ -49,6 +49,18 @@ def update_clinic(db: Session, slug: str, data: dict) -> Optional[Clinic]:
     return clinic
 
 
+def activate_subscription(db: Session, slug: str) -> Optional[Clinic]:
+    """Mark a clinic as active and set subscription_ends_at 30 days from now."""
+    clinic = get_clinic(db, slug)
+    if not clinic:
+        return None
+    clinic.subscription_status = "active"
+    clinic.subscription_ends_at = datetime.utcnow() + timedelta(days=30)
+    db.commit()
+    db.refresh(clinic)
+    return clinic
+
+
 def deactivate_clinic(db: Session, slug: str) -> bool:
     clinic = get_clinic(db, slug)
     if not clinic:

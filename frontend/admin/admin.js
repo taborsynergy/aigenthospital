@@ -105,15 +105,23 @@ function renderStats(data) {
   document.getElementById("stat-mrr").textContent    = "$" + mrr.toLocaleString();
 }
 
+function daysRemaining(isoDate) {
+  if (!isoDate) return null;
+  return Math.ceil((new Date(isoDate) - Date.now()) / 86400000);
+}
+
 function statusBadge(c) {
   if (c.subscription_status === "trial") {
-    var daysLeft = "—";
-    if (c.trial_ends_at) {
-      var diff = Math.ceil((new Date(c.trial_ends_at) - Date.now()) / 86400000);
-      daysLeft = diff > 0 ? diff + "d left" : "Expired";
-    }
-    var color = daysLeft === "Expired" ? "past_due" : "trial";
-    return '<span class="badge badge-' + color + '">trial</span> <small style="color:#64748b">' + daysLeft + '</small>';
+    var diff = daysRemaining(c.trial_ends_at);
+    var label = diff === null ? "—" : diff > 0 ? diff + "d left" : "Expired";
+    var color = (diff !== null && diff <= 0) ? "past_due" : "trial";
+    return '<span class="badge badge-' + color + '">trial</span> <small style="color:#64748b">' + label + '</small>';
+  }
+  if (c.subscription_status === "active") {
+    var diff2 = daysRemaining(c.subscription_ends_at);
+    var label2 = diff2 === null ? "—" : diff2 > 0 ? diff2 + "d left" : "Expired";
+    var color2 = (diff2 !== null && diff2 <= 0) ? "past_due" : "active";
+    return '<span class="badge badge-' + color2 + '">active</span> <small style="color:#64748b">renews ' + label2 + '</small>';
   }
   return '<span class="badge badge-' + c.subscription_status + '">' + c.subscription_status + '</span>';
 }
@@ -135,6 +143,7 @@ function renderClinics(data) {
       '<td>' +
         '<button class="btn btn-outline btn-sm" onclick="editClinic(\'' + c.slug + '\')">Edit</button> ' +
         '<button class="btn btn-green btn-sm" onclick="openChat(\'' + c.slug + '\')">Chat</button> ' +
+        '<button class="btn btn-sm" style="background:#F59E0B;color:#fff" onclick="activateClinic(\'' + c.slug + '\')">Activate 30d</button> ' +
         '<button class="btn btn-danger btn-sm" onclick="deleteClinic(\'' + c.slug + '\')">Delete</button>' +
       '</td>' +
     '</tr>';
@@ -143,6 +152,17 @@ function renderClinics(data) {
 
 function openChat(slug) {
   window.open("/c/" + slug, "_blank");
+}
+
+function activateClinic(slug) {
+  if (!confirm("Activate 30-day subscription for " + slug + "?\n\nThis confirms payment has been received.")) return;
+  fetch(API + "/admin/api/clinics/" + slug + "/activate", { method: "POST", headers: authHeaders() })
+    .then(function (r) {
+      if (!r.ok) throw new Error("Failed");
+      toast("Subscription activated — expires in 30 days.");
+      loadClinics();
+    })
+    .catch(function () { toast("Error activating subscription."); });
 }
 
 function deleteClinic(slug) {
