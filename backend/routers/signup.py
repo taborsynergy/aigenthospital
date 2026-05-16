@@ -16,6 +16,7 @@ from backend.config import settings
 from backend.db.database import get_db
 from backend.db import crud
 from backend.services.email_svc import send_quote_email
+from backend.routers.clinic_auth import hash_password
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ PLAN_RATES = {
 class SignupRequest(BaseModel):
     practice_name: str
     contact_email: str
+    password: str
     specialty: str
     phone: str = ""
     plan: str = "professional"
@@ -53,16 +55,20 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
 
     trial_ends_at = datetime.utcnow() + timedelta(days=14)
 
+    if len(body.password) < 6:
+        return JSONResponse(status_code=422, content={"detail": "Password must be at least 6 characters."})
+
     clinic = crud.create_clinic(db, {
-        "slug":                slug,
-        "name":                body.practice_name,
-        "specialty":           body.specialty,
-        "agent_name":          "Aria",
-        "email":               body.contact_email,
-        "phone":               body.phone,
-        "subscription_status": "trial",
-        "monthly_rate":        rate,
-        "trial_ends_at":       trial_ends_at,
+        "slug":                   slug,
+        "name":                   body.practice_name,
+        "specialty":              body.specialty,
+        "agent_name":             "Aria",
+        "email":                  body.contact_email,
+        "phone":                  body.phone,
+        "subscription_status":    "trial",
+        "monthly_rate":           rate,
+        "trial_ends_at":          trial_ends_at,
+        "customer_password_hash": hash_password(body.password),
     })
 
     chat_url = f"{settings.base_url}/c/{slug}"

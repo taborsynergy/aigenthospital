@@ -38,6 +38,10 @@ class Clinic(Base):
     trial_ends_at           = Column(DateTime, nullable=True)
     subscription_ends_at    = Column(DateTime, nullable=True)  # set when payment confirmed; expires after 30 days
 
+    # Customer portal auth
+    customer_password_hash  = Column(String, default="")
+    session_token           = Column(String, default="", index=True)
+
     is_active   = Column(Boolean,  default=True)
     created_at  = Column(DateTime, default=datetime.utcnow)
 

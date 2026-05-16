@@ -15,6 +15,7 @@ from backend.routers.admin import router as admin_router
 from backend.routers.sms import router as sms_router
 from backend.routers.billing import router as billing_router
 from backend.routers.signup import router as signup_router
+from backend.routers.clinic_auth import router as clinic_auth_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,6 +42,7 @@ app.include_router(admin_router)
 app.include_router(sms_router)
 app.include_router(billing_router)
 app.include_router(signup_router)
+app.include_router(clinic_auth_router)
 
 # ── Clinic widget pages ───────────────────────────────────────────────────────
 @app.get("/c/{clinic_slug}", response_class=HTMLResponse)
@@ -54,23 +56,181 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>{clinic.name}</title>
+  <title>{clinic.name} — Aria</title>
   <style>
-    body {{ margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-           background: #F0F7FF; display: flex; align-items: center; justify-content: center;
-           min-height: 100vh; flex-direction: column; gap: 16px; color: #1F2937; }}
-    h1   {{ font-size: 28px; font-weight: 800; color: #1E3A5F; }}
-    p    {{ color: #6B7280; }}
-    .hint {{ background:#DBEAFE; border:1px solid #BFDBFE; border-radius:8px;
-             padding:10px 18px; font-size:13px; color:#1D4ED8; }}
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #F0F7FF; min-height: 100vh; color: #1F2937; }}
+
+    /* ── Login screen ── */
+    #login-screen {{
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 16px;
+    }}
+    .login-card {{
+      background: #fff; border-radius: 16px; padding: 40px 36px;
+      max-width: 400px; width: 100%;
+      box-shadow: 0 8px 40px rgba(0,0,0,.12);
+      text-align: center;
+    }}
+    .login-logo {{ font-size: 40px; margin-bottom: 12px; }}
+    .login-card h1 {{ font-size: 20px; font-weight: 800; color: #1E3A5F; margin-bottom: 4px; }}
+    .login-card .sub {{ font-size: 13px; color: #6B7280; margin-bottom: 28px; }}
+    .fg {{ margin-bottom: 14px; text-align: left; }}
+    .fg label {{ display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px; }}
+    .fg input {{
+      width: 100%; border: 1px solid #D1D5DB; border-radius: 8px;
+      padding: 10px 12px; font-size: 14px; outline: none;
+    }}
+    .fg input:focus {{ border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }}
+    .btn-login {{
+      width: 100%; background: #1E40AF; color: #fff; border: none;
+      border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 700;
+      cursor: pointer; margin-top: 4px; transition: background .2s;
+    }}
+    .btn-login:hover {{ background: #1E3A8A; }}
+    .btn-login:disabled {{ background: #93C5FD; cursor: not-allowed; }}
+    .login-err {{ color: #DC2626; font-size: 13px; margin-top: 10px; min-height: 18px; }}
+    .login-footer {{ font-size: 12px; color: #9CA3AF; margin-top: 20px; }}
+    .login-footer a {{ color: #3B82F6; text-decoration: none; }}
+
+    /* ── Chat screen ── */
+    #chat-screen {{ display: none; }}
+    .topbar {{
+      background: #1E40AF; color: #fff;
+      padding: 0 20px; height: 54px;
+      display: flex; align-items: center; justify-content: space-between;
+    }}
+    .topbar-brand {{ font-weight: 700; font-size: 15px; }}
+    .topbar-sub {{ font-size: 12px; opacity: .75; }}
+    .btn-logout {{
+      background: rgba(255,255,255,.15); border: none; color: #fff;
+      border-radius: 6px; padding: 5px 12px; font-size: 12px;
+      cursor: pointer; transition: background .15s;
+    }}
+    .btn-logout:hover {{ background: rgba(255,255,255,.25); }}
+    .chat-body {{
+      display: flex; align-items: center; justify-content: center;
+      min-height: calc(100vh - 54px); flex-direction: column;
+      gap: 12px; padding: 24px;
+    }}
+    .chat-hint {{
+      background: #DBEAFE; border: 1px solid #BFDBFE; border-radius: 10px;
+      padding: 12px 20px; font-size: 13px; color: #1D4ED8; text-align: center;
+    }}
   </style>
 </head>
 <body>
-  <h1>🏥 {clinic.name}</h1>
-  <p>{clinic.specialty} · {clinic.city_state}</p>
-  <div class="hint">💬 Click the chat bubble in the bottom-right to talk to {clinic.agent_name}</div>
-  <script>window.ARIA_CLINIC_SLUG = "{clinic_slug}";</script>
-  <script src="/widget.js" defer></script>
+
+<!-- ── Login screen ───────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🏥</div>
+    <h1>{clinic.name}</h1>
+    <p class="sub">{clinic.specialty} · Sign in to access your AI front desk</p>
+    <form id="login-form" onsubmit="doLogin(event)">
+      <div class="fg">
+        <label>Email</label>
+        <input id="l-email" type="email" required placeholder="you@yourpractice.com"
+               autocomplete="username" />
+      </div>
+      <div class="fg">
+        <label>Password</label>
+        <input id="l-pass" type="password" required placeholder="••••••••"
+               autocomplete="current-password" />
+      </div>
+      <button class="btn-login" type="submit" id="login-btn">Sign In →</button>
+    </form>
+    <div class="login-err" id="login-err"></div>
+    <div class="login-footer">
+      Forgot your password? Email
+      <a href="mailto:admin@tabor.taborsynergy.com">admin@tabor.taborsynergy.com</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── Chat screen (shown after login) ───────────────────── -->
+<div id="chat-screen">
+  <div class="topbar">
+    <div>
+      <div class="topbar-brand">🏥 {clinic.name}</div>
+      <div class="topbar-sub">{clinic.specialty} · Powered by Aria</div>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">Sign Out</button>
+  </div>
+  <div class="chat-body">
+    <div class="chat-hint">
+      💬 Click the chat bubble in the bottom-right corner to talk to {clinic.agent_name}
+    </div>
+  </div>
+</div>
+
+<script>
+var SLUG  = "{clinic_slug}";
+var TKEY  = "aria_token_" + SLUG;
+
+function showChat() {{
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("chat-screen").style.display  = "block";
+  if (!window._widgetLoaded) {{
+    window.ARIA_CLINIC_SLUG = SLUG;
+    var s = document.createElement("script");
+    s.src = "/widget.js";
+    document.body.appendChild(s);
+    window._widgetLoaded = true;
+  }}
+}}
+
+function doLogin(e) {{
+  e.preventDefault();
+  var btn = document.getElementById("login-btn");
+  var err = document.getElementById("login-err");
+  btn.disabled = true;
+  btn.textContent = "Signing in…";
+  err.textContent = "";
+
+  fetch("/api/clinic-auth/login", {{
+    method: "POST",
+    headers: {{ "Content-Type": "application/json" }},
+    body: JSON.stringify({{
+      email:    document.getElementById("l-email").value.trim(),
+      password: document.getElementById("l-pass").value,
+    }}),
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    if (!res.ok) {{
+      err.textContent = res.data.error || "Login failed.";
+      return;
+    }}
+    localStorage.setItem(TKEY, res.data.token);
+    showChat();
+  }})
+  .finally(function() {{
+    btn.disabled = false;
+    btn.textContent = "Sign In →";
+  }});
+}}
+
+function doLogout() {{
+  var token = localStorage.getItem(TKEY);
+  if (token) {{
+    fetch("/api/clinic-auth/logout", {{ method: "POST", headers: {{ "X-Clinic-Token": token }} }});
+    localStorage.removeItem(TKEY);
+  }}
+  document.getElementById("chat-screen").style.display  = "none";
+  document.getElementById("login-screen").style.display = "flex";
+}}
+
+// Auto-login if valid token in storage
+(function() {{
+  var token = localStorage.getItem(TKEY);
+  if (!token) return;
+  fetch("/api/clinic-auth/verify", {{ headers: {{ "X-Clinic-Token": token }} }})
+    .then(function(r) {{ if (r.ok) showChat(); else localStorage.removeItem(TKEY); }})
+    .catch(function() {{}});
+}})();
+</script>
 </body>
 </html>""")
 

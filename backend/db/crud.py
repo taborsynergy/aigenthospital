@@ -24,6 +24,23 @@ def get_clinic_by_stripe_customer(db: Session, customer_id: str) -> Optional[Cli
     return db.query(Clinic).filter(Clinic.stripe_customer_id == customer_id).first()
 
 
+def get_clinic_by_email(db: Session, email: str) -> Optional[Clinic]:
+    return db.query(Clinic).filter(Clinic.email == email, Clinic.is_active == True).first()
+
+
+def get_clinic_by_token(db: Session, token: str) -> Optional[Clinic]:
+    if not token:
+        return None
+    return db.query(Clinic).filter(Clinic.session_token == token, Clinic.is_active == True).first()
+
+
+def set_session_token(db: Session, clinic_id: int, token: str) -> None:
+    clinic = get_clinic_by_id(db, clinic_id)
+    if clinic:
+        clinic.session_token = token
+        db.commit()
+
+
 def list_clinics(db: Session) -> list[Clinic]:
     return db.query(Clinic).order_by(Clinic.created_at.desc()).all()
 

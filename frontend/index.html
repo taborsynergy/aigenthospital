@@ -648,7 +648,13 @@
       <div class="form-group">
         <label>Your Email *</label>
         <input id="f-email" name="contact_email" type="email" required placeholder="you@yourpractice.com" />
-        <div class="hint">We'll send your Aria link here.</div>
+        <div class="hint">This is your login username.</div>
+      </div>
+      <div class="form-group">
+        <label>Create Password *</label>
+        <input id="f-password" name="password" type="password" required placeholder="Min. 6 characters"
+               minlength="6" autocomplete="new-password" />
+        <div class="hint">You'll use this to sign in to your Aria portal.</div>
       </div>
       <div class="form-group">
         <label>Medical Specialty *</label>
@@ -688,7 +694,12 @@
     <div class="success-icon">🎉</div>
     <h2>Aria is ready!</h2>
     <p style="color:#6B7280;font-size:14px;margin-bottom:4px">Your 14-day free trial has started.</p>
-    <p style="color:#6B7280;font-size:13px;margin-bottom:0">Trial ends: <strong id="success-trial-end"></strong></p>
+    <p style="color:#6B7280;font-size:13px;margin-bottom:12px">Trial ends: <strong id="success-trial-end"></strong></p>
+    <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px 14px;font-size:12px;color:#92400E;text-align:left;margin-bottom:12px">
+      <strong>Your login:</strong><br>
+      Email: <span id="success-login-email" style="font-family:monospace"></span><br>
+      Password: the one you just created
+    </div>
     <div class="success-url" id="success-url"></div>
     <a id="success-open-btn" href="#" target="_blank" class="btn-open-aria">
       Open My Aria Chat →
@@ -768,6 +779,7 @@ function submitSignup(e) {
   var data = {
     practice_name:  document.getElementById("f-name").value.trim(),
     contact_email:  document.getElementById("f-email").value.trim(),
+    password:       document.getElementById("f-password").value,
     specialty:      document.getElementById("f-specialty").value,
     phone:          document.getElementById("f-phone").value.trim(),
     plan:           document.getElementById("f-plan").value,
@@ -784,9 +796,11 @@ function submitSignup(e) {
   })
   .then(function(res) {
     closeSignup();
-    document.getElementById("success-url").textContent = res.chat_url;
-    document.getElementById("success-open-btn").href = res.chat_url;
+    var chatUrl = window.location.origin + "/c/" + res.slug;
+    document.getElementById("success-url").textContent = chatUrl;
+    document.getElementById("success-open-btn").href = chatUrl;
     document.getElementById("success-trial-end").textContent = res.trial_ends_at;
+    document.getElementById("success-login-email").textContent = data.contact_email;
     var plan = res.plan || "professional";
     document.getElementById("success-plan-label").textContent = PLAN_LABELS[plan] || PLAN_LABELS.professional;
     var amount = PLAN_AMOUNTS[plan] || 299;
