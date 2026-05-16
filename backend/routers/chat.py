@@ -1,6 +1,7 @@
 import json
 import logging
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
@@ -23,6 +24,20 @@ def _greeting(clinic) -> str:
     )
 
 
+def _is_trial_expired(clinic) -> bool:
+    if clinic.subscription_status != "trial":
+        return False
+    if clinic.trial_ends_at is None:
+        return False
+    return datetime.utcnow() > clinic.trial_ends_at
+
+
+_TRIAL_EXPIRED_MSG = (
+    "I'm sorry, this clinic's 14-day free trial has ended. "
+    "Please contact support at admin@tabor.taborsynergy.com to activate a subscription."
+)
+
+
 @router.websocket("/ws/{clinic_slug}/{session_id}")
 async def websocket_chat(websocket: WebSocket, clinic_slug: str, session_id: str,
                          db: Session = Depends(get_db)):
@@ -33,6 +48,11 @@ async def websocket_chat(websocket: WebSocket, clinic_slug: str, session_id: str
 
     await websocket.accept()
     logger.info("WS connected: clinic=%s session=%s", clinic_slug, session_id)
+
+    if _is_trial_expired(clinic):
+        await websocket.send_json({"type": "message", "content": _TRIAL_EXPIRED_MSG, "session_id": session_id})
+        await websocket.close(code=4003)
+        return
 
     await websocket.send_json({
         "type": "message",
@@ -85,6 +105,9 @@ async def rest_chat(clinic_slug: str, body: ChatMessage, db: Session = Depends(g
     clinic = get_clinic(db, clinic_slug)
     if not clinic:
         return JSONResponse(status_code=404, content={"error": "Clinic not found."})
+
+    if _is_trial_expired(clinic):
+        return JSONResponse(status_code=403, content={"error": _TRIAL_EXPIRED_MSG})
 
     session_id = body.session_id or str(uuid.uuid4())
     try:

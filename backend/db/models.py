@@ -35,6 +35,7 @@ class Clinic(Base):
     stripe_subscription_id  = Column(String, default="")
     subscription_status     = Column(String, default="trial")   # trial | active | past_due | cancelled
     monthly_rate            = Column(Float,  default=299.0)
+    trial_ends_at           = Column(DateTime, nullable=True)
 
     is_active   = Column(Boolean,  default=True)
     created_at  = Column(DateTime, default=datetime.utcnow)

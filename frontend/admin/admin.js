@@ -105,6 +105,19 @@ function renderStats(data) {
   document.getElementById("stat-mrr").textContent    = "$" + mrr.toLocaleString();
 }
 
+function statusBadge(c) {
+  if (c.subscription_status === "trial") {
+    var daysLeft = "—";
+    if (c.trial_ends_at) {
+      var diff = Math.ceil((new Date(c.trial_ends_at) - Date.now()) / 86400000);
+      daysLeft = diff > 0 ? diff + "d left" : "Expired";
+    }
+    var color = daysLeft === "Expired" ? "past_due" : "trial";
+    return '<span class="badge badge-' + color + '">trial</span> <small style="color:#64748b">' + daysLeft + '</small>';
+  }
+  return '<span class="badge badge-' + c.subscription_status + '">' + c.subscription_status + '</span>';
+}
+
 function renderClinics(data) {
   var tbody = document.getElementById("clinic-tbody");
   if (!data.length) {
@@ -116,7 +129,7 @@ function renderClinics(data) {
       '<td><strong>' + esc(c.name) + '</strong><br><span style="color:#64748b;font-size:12px">/c/' + esc(c.slug) + '</span></td>' +
       '<td>' + esc(c.specialty) + '</td>' +
       '<td>' + esc(c.agent_name) + '</td>' +
-      '<td><span class="badge badge-' + c.subscription_status + '">' + c.subscription_status + '</span></td>' +
+      '<td>' + statusBadge(c) + '</td>' +
       '<td>$' + c.monthly_rate + '/mo</td>' +
       '<td>' + (c.created_at ? c.created_at.slice(0, 10) : "—") + '</td>' +
       '<td>' +

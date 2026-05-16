@@ -231,6 +231,7 @@ def _serialize(clinic) -> dict:
         "stripe_customer_id":  clinic.stripe_customer_id,
         "subscription_status": clinic.subscription_status,
         "monthly_rate":        clinic.monthly_rate,
+        "trial_ends_at":       clinic.trial_ends_at.isoformat() if clinic.trial_ends_at else None,
         "is_active":           clinic.is_active,
         "created_at":          clinic.created_at.isoformat() if clinic.created_at else None,
     }

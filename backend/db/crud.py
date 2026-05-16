@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -29,6 +29,8 @@ def list_clinics(db: Session) -> list[Clinic]:
 
 
 def create_clinic(db: Session, data: dict) -> Clinic:
+    if "trial_ends_at" not in data:
+        data = {**data, "trial_ends_at": datetime.utcnow() + timedelta(days=14)}
     clinic = Clinic(**data)
     db.add(clinic)
     db.commit()
