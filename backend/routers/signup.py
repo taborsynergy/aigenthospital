@@ -22,9 +22,9 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 PLAN_RATES = {
-    "starter":      199.0,
-    "professional": 299.0,
-    "enterprise":   499.0,
+    "starter":      297.0,
+    "professional": 597.0,
+    "enterprise":   997.0,
 }
 
 

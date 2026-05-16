@@ -934,49 +934,51 @@
   <div class="pricing-header reveal">
     <div class="section-label" style="display:inline-flex">✦ Pricing</div>
     <h2 class="section-title">Simple, transparent pricing</h2>
-    <p class="section-sub" style="margin:0 auto">One flat monthly fee per clinic — no setup costs, no per-message fees.<br>
+    <p class="section-sub" style="margin:0 auto">One flat monthly fee per clinic — no per-message fees, no surprises.<br>
     <strong style="color:var(--success);font-weight:700">✓ All plans include a 14-day free trial. No credit card required.</strong></p>
   </div>
   <div class="pricing-cards">
     <!-- Starter -->
     <div class="pricing-card reveal">
       <h3>Starter</h3>
-      <div class="price">$199<span>/mo</span></div>
+      <div class="price">$297<span>/mo</span></div>
       <div class="trial-tag">✓ 14-day free trial included</div>
       <ul>
-        <li><span class="li-check">✓</span>1 clinic location</li>
+        <li><span class="li-check">✓</span>Solo practice, 1 location</li>
         <li><span class="li-check">✓</span>Web chat widget</li>
-        <li><span class="li-check">✓</span>Scheduling &amp; insurance</li>
-        <li><span class="li-check">✓</span>Billing &amp; payments</li>
+        <li><span class="li-check">✓</span>Appointment booking chat</li>
+        <li><span class="li-check">✓</span>Basic insurance Q&amp;A</li>
         <li><span class="li-check">✓</span>Email support</li>
       </ul>
       <button class="btn-trial" onclick="openSignup('starter')">Start Free Trial →</button>
     </div>
-    <!-- Professional -->
+    <!-- Growth -->
     <div class="pricing-card popular reveal">
       <div class="badge-pop">Most Popular</div>
-      <h3>Professional</h3>
-      <div class="price">$299<span>/mo</span></div>
+      <h3>Growth</h3>
+      <div class="price">$597<span>/mo</span></div>
       <div class="trial-tag">✓ 14-day free trial included</div>
       <ul>
-        <li><span class="li-check">✓</span>Up to 3 locations</li>
-        <li><span class="li-check">✓</span>Web chat + SMS channel</li>
+        <li><span class="li-check">✓</span>2–5 doctor group practice</li>
+        <li><span class="li-check">✓</span>SMS + WhatsApp channels</li>
         <li><span class="li-check">✓</span>All Starter features</li>
-        <li><span class="li-check">✓</span>Twilio SMS integration</li>
+        <li><span class="li-check">✓</span>Custom insurance knowledge</li>
+        <li><span class="li-check">✓</span>Monthly performance report</li>
         <li><span class="li-check">✓</span>Priority support</li>
       </ul>
       <button class="btn-trial" onclick="openSignup('professional')">Start Free Trial →</button>
     </div>
-    <!-- Enterprise -->
+    <!-- Pro -->
     <div class="pricing-card reveal">
-      <h3>Enterprise</h3>
-      <div class="price">$499<span>/mo</span></div>
+      <h3>Pro</h3>
+      <div class="price">$997<span>/mo</span></div>
       <div class="trial-tag">✓ 14-day free trial included</div>
       <ul>
-        <li><span class="li-check">✓</span>Unlimited locations</li>
-        <li><span class="li-check">✓</span>All channels</li>
-        <li><span class="li-check">✓</span>Custom agent persona</li>
-        <li><span class="li-check">✓</span>Usage analytics</li>
+        <li><span class="li-check">✓</span>Multi-location practices</li>
+        <li><span class="li-check">✓</span>All Growth features</li>
+        <li><span class="li-check">✓</span>Multi-location routing</li>
+        <li><span class="li-check">✓</span>EHR system integration</li>
+        <li><span class="li-check">✓</span>Custom AI training</li>
         <li><span class="li-check">✓</span>Dedicated onboarding</li>
       </ul>
       <button class="btn-trial" onclick="openSignup('enterprise')">Start Free Trial →</button>
@@ -1144,7 +1146,7 @@
   <div class="modal-box">
     <button class="modal-close" onclick="closeSignup()">×</button>
     <h2>Start Your Free Trial</h2>
-    <div id="signup-plan-tag" class="plan-tag">Professional — $299/mo</div>
+    <div id="signup-plan-tag" class="plan-tag">Growth — $597/mo</div>
     <form id="signup-form" onsubmit="submitSignup(event)">
       <div class="form-group">
         <label>Practice Name *</label>
@@ -1281,8 +1283,8 @@ function submitQuote(e) {
 }
 
 // ── Trial signup ──────────────────────────────────────────────────
-var PLAN_LABELS = { starter: "Starter — $199/mo", professional: "Professional — $299/mo", enterprise: "Enterprise — $499/mo" };
-var PLAN_AMOUNTS = { starter: 199, professional: 299, enterprise: 499 };
+var PLAN_LABELS = { starter: "Starter — $297/mo", professional: "Growth — $597/mo", enterprise: "Pro — $997/mo" };
+var PLAN_AMOUNTS = { starter: 297, professional: 597, enterprise: 997 };
 var PAYPAL_ME = "https://paypal.me/write2dinakar";
 
 function openSignup(plan) {
