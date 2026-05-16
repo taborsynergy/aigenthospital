@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
@@ -683,18 +683,33 @@ frontend_dir = Path(__file__).parent.parent / "frontend"
 admin_dir    = frontend_dir / "admin"
 
 
+_admin_panel_path = settings.admin_panel_path.rstrip("/")
+
+
+# ── Admin panel — explicit routes (reliable at any path) ─────────────────────
+
+@app.get(_admin_panel_path, include_in_schema=False)
+@app.get(_admin_panel_path + "/", include_in_schema=False)
+async def serve_admin_html():
+    return FileResponse(str(admin_dir / "index.html"), media_type="text/html")
+
+
+@app.get(_admin_panel_path + "/admin.css", include_in_schema=False)
+async def serve_admin_css():
+    return FileResponse(str(admin_dir / "admin.css"), media_type="text/css")
+
+
+@app.get(_admin_panel_path + "/admin.js", include_in_schema=False)
+async def serve_admin_js():
+    return FileResponse(str(admin_dir / "admin.js"), media_type="application/javascript")
+
+
+# Block the default /admin path — returns blank 404 so it looks non-existent
 @app.get("/admin", include_in_schema=False)
 @app.get("/admin/", include_in_schema=False)
 async def block_admin_path():
-    """Return 404 for the default /admin path so it's not discoverable."""
-    from fastapi.responses import Response
-    return Response(status_code=404)
+    return HTMLResponse("", status_code=404)
 
-
-if admin_dir.exists():
-    app.mount(settings.admin_panel_path,
-              StaticFiles(directory=str(admin_dir), html=True), name="admin")
-    logging.getLogger(__name__).info("Admin panel mounted at %s", settings.admin_panel_path)
 
 if frontend_dir.exists():
     app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
