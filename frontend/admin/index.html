@@ -26,7 +26,8 @@
     <div class="sub">Universal Medical Front Desk</div>
   </div>
   <nav>
-    <div class="nav-item active" data-tab="clinics"><span class="icon">🏥</span> Clinics</div>
+    <div class="nav-item active" data-tab="pipeline"><span class="icon">📈</span> Sales Pipeline</div>
+    <div class="nav-item"        data-tab="clinics"><span class="icon">🏥</span> All Clinics</div>
     <div class="nav-item"        data-tab="usage">  <span class="icon">📊</span> Usage</div>
     <div class="nav-item"        data-tab="billing"><span class="icon">💳</span> Billing</div>
     <div class="nav-item"        data-tab="sms">    <span class="icon">💬</span> SMS</div>
@@ -47,6 +48,65 @@
   </div>
 
   <div class="content">
+
+    <!-- ── Pipeline tab ─────────────────────────────────────────── -->
+    <div id="tab-pipeline" class="tab-content active">
+      <div class="stat-cards" id="pipeline-stats"></div>
+
+      <!-- Expiring soon alert -->
+      <div id="expiry-alert" style="display:none;background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;padding:14px 18px;margin-bottom:20px">
+        <strong style="color:#92400E">⚠ Action required:</strong>
+        <span id="expiry-alert-text" style="color:#92400E"></span>
+      </div>
+
+      <!-- Hot leads: expiring in 7 days -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h3>🔥 Follow Up Now — Trials Expiring in 7 Days</h3>
+          <span style="font-size:12px;color:#64748b">Send these doctors a personal call/email to convert them</span>
+        </div>
+        <table>
+          <thead><tr><th>Practice</th><th>Specialty</th><th>Email / Phone</th><th>Plan</th><th>Trial Ends</th><th>Days Left</th><th>Actions</th></tr></thead>
+          <tbody id="hot-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:#64748b">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- Recent conversions -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h3>✅ Paid Customers</h3>
+          <span style="font-size:12px;color:#64748b">Activated subscriptions — renew every 30 days</span>
+        </div>
+        <table>
+          <thead><tr><th>Practice</th><th>Plan / Rate</th><th>First Payment</th><th>Renews</th><th>Chat Messages</th><th>Notes</th><th>Actions</th></tr></thead>
+          <tbody id="paid-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:#64748b">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- Active trials -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h3>🕐 Active Trials</h3>
+          <span style="font-size:12px;color:#64748b">Still in their 14-day window</span>
+        </div>
+        <table>
+          <thead><tr><th>Practice</th><th>Specialty</th><th>Email</th><th>Plan</th><th>Started</th><th>Trial Ends</th><th>Days Left</th></tr></thead>
+          <tbody id="trial-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:#64748b">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- Lost / expired -->
+      <div class="card">
+        <div class="card-header">
+          <h3>❌ Expired / Lost</h3>
+          <span style="font-size:12px;color:#64748b">Trial ended without converting — consider a win-back email</span>
+        </div>
+        <table>
+          <thead><tr><th>Practice</th><th>Specialty</th><th>Email</th><th>Plan</th><th>Expired On</th><th>Actions</th></tr></thead>
+          <tbody id="lost-tbody"><tr><td colspan="6" style="text-align:center;padding:24px;color:#64748b">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
 
     <!-- ── Clinics tab ─────────────────────────────────────────── -->
     <div id="tab-clinics" class="tab-content active">
@@ -298,6 +358,28 @@
     <div class="modal-footer">
       <button class="btn btn-outline" id="modal-cancel" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" onclick="document.getElementById('clinic-form').requestSubmit()">Save Clinic</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Notes Modal ────────────────────────────────────────────────── -->
+<div id="notes-modal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3>Admin Notes — <span id="notes-clinic-name"></span></h3>
+      <button class="modal-close" onclick="closeNotesModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:#64748b;margin-bottom:12px">
+        Record payment method, who referred them, special deal, contact details — anything useful.
+      </p>
+      <textarea id="notes-textarea" rows="6"
+        style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:13px;resize:vertical"
+        placeholder="e.g. Paid $597 via PayPal on May 17. Referred by Dr. Johnson. Follow up in 25 days."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeNotesModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNotes()">Save Notes</button>
     </div>
   </div>
 </div>

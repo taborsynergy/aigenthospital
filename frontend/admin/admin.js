@@ -59,7 +59,7 @@ function initDashboard() {
   document.getElementById("add-clinic-btn").addEventListener("click", openAddClinic);
   document.getElementById("modal-close").addEventListener("click", closeModal);
   document.getElementById("clinic-form").addEventListener("submit", submitClinic);
-  switchTab("clinics");
+  switchTab("pipeline");
 }
 
 function switchTab(tab) {
@@ -71,16 +71,165 @@ function switchTab(tab) {
     el.classList.toggle("active", el.id === "tab-" + tab);
   });
   document.querySelector(".topbar h2").textContent = {
-    clinics: "Clinics",
-    usage:   "Usage & Analytics",
-    billing: "Billing",
-    sms:     "SMS",
+    pipeline: "Sales Pipeline",
+    clinics:  "All Clinics",
+    usage:    "Usage & Analytics",
+    billing:  "Billing",
+    sms:      "SMS",
   }[tab] || tab;
 
-  if (tab === "clinics") loadClinics();
-  if (tab === "usage")   loadUsage();
-  if (tab === "billing") loadBilling();
-  if (tab === "sms")     loadSms();
+  if (tab === "pipeline") loadPipeline();
+  if (tab === "clinics")  loadClinics();
+  if (tab === "usage")    loadUsage();
+  if (tab === "billing")  loadBilling();
+  if (tab === "sms")      loadSms();
+}
+
+// ── Pipeline tab ──────────────────────────────────────────────────
+function loadPipeline() {
+  fetch(API + "/admin/api/stats", { headers: authHeaders() })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var all = data.clinics || [];
+      renderPipeline(all, data);
+    });
+}
+
+function planLabel(rate) {
+  if (rate >= 997) return "Pro — $997/mo";
+  if (rate >= 597) return "Growth — $597/mo";
+  return "Starter — $297/mo";
+}
+
+function renderPipeline(all, stats) {
+  var now = new Date();
+
+  var hot    = [];   // trial, expires in 1-7 days
+  var trials = [];   // trial, > 7 days left
+  var paid   = [];   // active
+  var lost   = [];   // expired trial or cancelled/past_due
+
+  all.forEach(function (c) {
+    var d = daysRemaining(c.trial_ends_at);
+    if (c.subscription_status === "trial") {
+      if (d !== null && d <= 0)       lost.push(c);
+      else if (d !== null && d <= 7)  hot.push(c);
+      else                            trials.push(c);
+    } else if (c.subscription_status === "active") {
+      paid.push(c);
+    } else {
+      lost.push(c);
+    }
+  });
+
+  // Stats strip
+  var conv = all.length ? Math.round((paid.length / all.length) * 100) : 0;
+  var mrr  = paid.reduce(function (s, c) { return s + c.monthly_rate; }, 0);
+  document.getElementById("pipeline-stats").innerHTML = [
+    { val: all.length,    lbl: "Total Signups",        color: "#0F172A" },
+    { val: trials.length, lbl: "Active Trials",         color: "#1D4ED8" },
+    { val: hot.length,    lbl: "Follow Up Now 🔥",      color: "#D97706" },
+    { val: paid.length,   lbl: "Paid Customers",        color: "#059669" },
+    { val: lost.length,   lbl: "Lost / Expired",        color: "#DC2626" },
+    { val: "$" + mrr.toLocaleString(), lbl: "MRR",      color: "#7C3AED" },
+    { val: conv + "%",    lbl: "Conversion Rate",       color: "#0369A1" },
+  ].map(function (s) {
+    return '<div class="stat-card"><div class="value" style="color:' + s.color + '">' + s.val + '</div>' +
+           '<div class="label">' + s.lbl + '</div></div>';
+  }).join("");
+
+  // Expiry alert
+  if (hot.length > 0) {
+    document.getElementById("expiry-alert").style.display = "block";
+    document.getElementById("expiry-alert-text").textContent =
+      " " + hot.length + " trial(s) expire within 7 days — call or email them now to convert.";
+  } else {
+    document.getElementById("expiry-alert").style.display = "none";
+  }
+
+  // Hot leads table
+  document.getElementById("hot-tbody").innerHTML = hot.length ? hot.map(function (c) {
+    var d = daysRemaining(c.trial_ends_at);
+    return "<tr>" +
+      "<td><strong>" + esc(c.name) + "</strong></td>" +
+      "<td>" + esc(c.specialty) + "</td>" +
+      "<td>" + esc(c.email) + (c.phone ? "<br><small>" + esc(c.phone) + "</small>" : "") + "</td>" +
+      "<td>" + planLabel(c.monthly_rate) + "</td>" +
+      "<td>" + (c.trial_ends_at ? c.trial_ends_at.slice(0,10) : "—") + "</td>" +
+      "<td><strong style='color:" + (d <= 3 ? "#DC2626" : "#D97706") + "'>" + d + " days</strong></td>" +
+      "<td><button class='btn btn-sm' style='background:#059669;color:#fff' onclick='activateClinic(\"" + esc(c.slug) + "\")'>Activate</button> " +
+          "<button class='btn btn-outline btn-sm' onclick='openNotes(\"" + esc(c.slug) + "\",\"" + esc(c.name) + "\",\"" + esc(c.admin_notes||"") + "\")'>Notes</button></td>" +
+    "</tr>";
+  }).join("") : "<tr><td colspan='7' style='text-align:center;padding:20px;color:#64748b'>No hot leads right now — good!</td></tr>";
+
+  // Paid table
+  document.getElementById("paid-tbody").innerHTML = paid.length ? paid.map(function (c) {
+    var u = c.usage || {};
+    var renewDays = daysRemaining(c.subscription_ends_at);
+    var renewColor = renewDays !== null && renewDays <= 5 ? "#DC2626" : "#059669";
+    return "<tr>" +
+      "<td><strong>" + esc(c.name) + "</strong><br><small style='color:#64748b'>" + esc(c.email) + "</small></td>" +
+      "<td style='color:#059669;font-weight:700'>" + planLabel(c.monthly_rate) + "</td>" +
+      "<td>" + (c.activated_at ? c.activated_at.slice(0,10) : "—") + "</td>" +
+      "<td style='color:" + renewColor + ";font-weight:600'>" + (renewDays !== null ? renewDays + "d" : "—") + "</td>" +
+      "<td>" + (u.messages || 0) + " msgs</td>" +
+      "<td style='max-width:160px;font-size:12px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'>" +
+        (c.admin_notes ? esc(c.admin_notes.slice(0,60)) + (c.admin_notes.length > 60 ? "…" : "") : "<em style='color:#cbd5e1'>No notes</em>") + "</td>" +
+      "<td><button class='btn btn-sm' style='background:#059669;color:#fff' onclick='activateClinic(\"" + esc(c.slug) + "\")'>Renew 30d</button> " +
+          "<button class='btn btn-outline btn-sm' onclick='openNotes(\"" + esc(c.slug) + "\",\"" + esc(c.name) + "\",\"" + esc(c.admin_notes||"") + "\")'>Notes</button></td>" +
+    "</tr>";
+  }).join("") : "<tr><td colspan='7' style='text-align:center;padding:20px;color:#64748b'>No paid customers yet — convert those trials!</td></tr>";
+
+  // Active trials table
+  document.getElementById("trial-tbody").innerHTML = trials.length ? trials.map(function (c) {
+    var d = daysRemaining(c.trial_ends_at);
+    return "<tr>" +
+      "<td><strong>" + esc(c.name) + "</strong></td>" +
+      "<td>" + esc(c.specialty) + "</td>" +
+      "<td>" + esc(c.email) + "</td>" +
+      "<td>" + planLabel(c.monthly_rate) + "</td>" +
+      "<td>" + (c.created_at ? c.created_at.slice(0,10) : "—") + "</td>" +
+      "<td>" + (c.trial_ends_at ? c.trial_ends_at.slice(0,10) : "—") + "</td>" +
+      "<td>" + (d !== null ? d + " days" : "—") + "</td>" +
+    "</tr>";
+  }).join("") : "<tr><td colspan='7' style='text-align:center;padding:20px;color:#64748b'>No active trials</td></tr>";
+
+  // Lost table
+  document.getElementById("lost-tbody").innerHTML = lost.length ? lost.map(function (c) {
+    var endDate = c.trial_ends_at ? c.trial_ends_at.slice(0,10) : "—";
+    return "<tr>" +
+      "<td><strong>" + esc(c.name) + "</strong></td>" +
+      "<td>" + esc(c.specialty) + "</td>" +
+      "<td>" + esc(c.email) + "</td>" +
+      "<td>" + planLabel(c.monthly_rate) + "</td>" +
+      "<td style='color:#DC2626'>" + endDate + "</td>" +
+      "<td><button class='btn btn-sm' style='background:#059669;color:#fff' onclick='activateClinic(\"" + esc(c.slug) + "\")'>Reactivate</button> " +
+          "<a class='btn btn-outline btn-sm' href='mailto:" + esc(c.email) + "?subject=Your%20Tabor%20Synergy%20trial&body=Hi%2C%20your%20trial%20has%20expired.%20Ready%20to%20continue%3F'>Win-Back Email</a></td>" +
+    "</tr>";
+  }).join("") : "<tr><td colspan='6' style='text-align:center;padding:20px;color:#64748b'>No lost leads — great!</td></tr>";
+}
+
+// ── Notes modal ───────────────────────────────────────────────────
+var notesSlug = "";
+function openNotes(slug, name, current) {
+  notesSlug = slug;
+  document.getElementById("notes-clinic-name").textContent = name;
+  document.getElementById("notes-textarea").value = current || "";
+  document.getElementById("notes-modal").classList.remove("hidden");
+}
+function closeNotesModal() {
+  document.getElementById("notes-modal").classList.add("hidden");
+}
+function saveNotes() {
+  var notes = document.getElementById("notes-textarea").value;
+  fetch(API + "/admin/api/clinics/" + notesSlug + "/notes", {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({ notes: notes }),
+  })
+    .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+    .then(function () { closeNotesModal(); toast("Notes saved."); loadPipeline(); })
+    .catch(function () { toast("Failed to save notes.", true); });
 }
 
 // ── Clinics tab ───────────────────────────────────────────────────

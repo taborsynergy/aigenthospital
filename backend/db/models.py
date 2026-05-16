@@ -42,6 +42,10 @@ class Clinic(Base):
     customer_password_hash  = Column(String, default="")
     session_token           = Column(String, default="", index=True)
 
+    # Sales tracking
+    activated_at            = Column(DateTime, nullable=True)   # when first payment confirmed
+    admin_notes             = Column(Text, default="")          # internal CRM notes
+
     is_active   = Column(Boolean,  default=True)
     created_at  = Column(DateTime, default=datetime.utcnow)
 

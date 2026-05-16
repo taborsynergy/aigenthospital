@@ -133,6 +133,19 @@ def activate_subscription(slug: str, db: Session = Depends(get_db)):
     return _serialize(clinic)
 
 
+class NotesRequest(BaseModel):
+    notes: str
+
+
+@router.patch("/clinics/{slug}/notes", dependencies=[Depends(require_admin)])
+def update_notes(slug: str, body: NotesRequest, db: Session = Depends(get_db)):
+    """Save internal CRM notes for a clinic."""
+    clinic = crud.update_notes(db, slug, body.notes)
+    if not clinic:
+        raise HTTPException(404, "Clinic not found.")
+    return _serialize(clinic)
+
+
 # ── Usage ─────────────────────────────────────────────────────────────────────
 
 @router.get("/clinics/{slug}/usage", dependencies=[Depends(require_admin)])
@@ -243,6 +256,8 @@ def _serialize(clinic) -> dict:
         "monthly_rate":        clinic.monthly_rate,
         "trial_ends_at":          clinic.trial_ends_at.isoformat() if clinic.trial_ends_at else None,
         "subscription_ends_at":   clinic.subscription_ends_at.isoformat() if clinic.subscription_ends_at else None,
+        "activated_at":           clinic.activated_at.isoformat() if clinic.activated_at else None,
+        "admin_notes":            clinic.admin_notes or "",
         "is_active":           clinic.is_active,
         "created_at":          clinic.created_at.isoformat() if clinic.created_at else None,
     }

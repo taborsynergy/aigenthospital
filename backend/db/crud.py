@@ -71,8 +71,21 @@ def activate_subscription(db: Session, slug: str) -> Optional[Clinic]:
     clinic = get_clinic(db, slug)
     if not clinic:
         return None
+    now = datetime.utcnow()
     clinic.subscription_status = "active"
-    clinic.subscription_ends_at = datetime.utcnow() + timedelta(days=30)
+    clinic.subscription_ends_at = now + timedelta(days=30)
+    if not clinic.activated_at:
+        clinic.activated_at = now   # record first payment date
+    db.commit()
+    db.refresh(clinic)
+    return clinic
+
+
+def update_notes(db: Session, slug: str, notes: str) -> Optional[Clinic]:
+    clinic = get_clinic(db, slug)
+    if not clinic:
+        return None
+    clinic.admin_notes = notes
     db.commit()
     db.refresh(clinic)
     return clinic
