@@ -143,7 +143,8 @@ function renderClinics(data) {
       '<td>' +
         '<button class="btn btn-outline btn-sm" onclick="editClinic(\'' + c.slug + '\')">Edit</button> ' +
         '<button class="btn btn-green btn-sm" onclick="openChat(\'' + c.slug + '\')">Chat</button> ' +
-        '<button class="btn btn-sm" style="background:#F59E0B;color:#fff" onclick="activateClinic(\'' + c.slug + '\')">Activate 30d</button> ' +
+        '<button class="btn btn-sm" style="background:#059669;color:#fff" onclick="activateClinic(\'' + c.slug + '\')">Activate 30d</button> ' +
+        '<button class="btn btn-sm" style="background:#DC2626;color:#fff" onclick="suspendClinic(\'' + c.slug + '\')">Suspend</button> ' +
         '<button class="btn btn-danger btn-sm" onclick="deleteClinic(\'' + c.slug + '\')">Delete</button>' +
       '</td>' +
     '</tr>';
@@ -163,6 +164,21 @@ function activateClinic(slug) {
       loadClinics();
     })
     .catch(function () { toast("Error activating subscription."); });
+}
+
+function suspendClinic(slug) {
+  if (!confirm("Suspend access for " + slug + "?\n\nPatients will see a 'service paused' message immediately.")) return;
+  fetch(API + "/admin/api/clinics/" + slug, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({ subscription_status: "cancelled" }),
+  })
+    .then(function (r) {
+      if (!r.ok) throw new Error("Failed");
+      toast("Access suspended for " + slug + ".");
+      loadClinics();
+    })
+    .catch(function () { toast("Error suspending clinic.", true); });
 }
 
 function deleteClinic(slug) {

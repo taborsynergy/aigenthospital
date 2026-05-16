@@ -74,6 +74,7 @@ class ClinicPatch(BaseModel):
     hipaa_verify_method: Optional[str] = None
     twilio_phone: Optional[str] = None
     monthly_rate: Optional[float] = None
+    subscription_status: Optional[str] = None   # trial | active | past_due | cancelled
 
 
 class SmsRequest(BaseModel):
