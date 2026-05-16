@@ -6,12 +6,12 @@ Usage is logged to the DB after every API call.
 import json
 import logging
 import os
+import platform
 import ssl
 from typing import Optional
 
 import anthropic
 import httpx
-import truststore
 
 from backend.config import settings
 from backend.agent.prompts import build_system_prompt
@@ -21,11 +21,18 @@ logger = logging.getLogger(__name__)
 
 MOCK_MODE = os.getenv("MOCK_MODE", "0") == "1"
 
-# Use the Windows/OS certificate store so SSL inspection proxies are trusted
-_ssl_ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+# On Windows, use OS certificate store (handles corporate SSL inspection)
+# On Linux/Mac (production), default SSL works fine
+if platform.system() == "Windows":
+    import truststore
+    _ssl_ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    _http_client = httpx.AsyncClient(verify=_ssl_ctx)
+else:
+    _http_client = httpx.AsyncClient()
+
 _client = anthropic.AsyncAnthropic(
     api_key=settings.anthropic_api_key,
-    http_client=httpx.AsyncClient(verify=_ssl_ctx),
+    http_client=_http_client,
 )
 
 # session_key -> message history
