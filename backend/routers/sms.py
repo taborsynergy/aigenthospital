@@ -1,0 +1,49 @@
+"""
+Twilio inbound SMS webhook.
+POST /sms/inbound — called by Twilio when a patient texts the clinic's number.
+"""
+import logging
+
+from fastapi import APIRouter, Depends, Form, Response
+from sqlalchemy.orm import Session
+
+from backend.db.database import get_db
+from backend.db.crud import get_clinic_by_twilio_number, get_or_create_sms_session
+from backend.agent import aria
+from backend.services.twilio_svc import twiml_response
+
+router = APIRouter(prefix="/sms")
+logger = logging.getLogger(__name__)
+
+
+@router.post("/inbound")
+async def inbound_sms(
+    From: str = Form(...),
+    To: str = Form(...),
+    Body: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    logger.info("Inbound SMS: from=%s to=%s body=%s", From, To, Body[:60])
+
+    clinic = get_clinic_by_twilio_number(db, To)
+    if not clinic:
+        logger.warning("No clinic found for Twilio number: %s", To)
+        return Response(
+            content=twiml_response("Sorry, this number is not currently active."),
+            media_type="application/xml",
+        )
+
+    session_id = get_or_create_sms_session(db, clinic.id, From)
+
+    try:
+        reply, is_escalated = await aria.chat(
+            clinic, session_id, Body, channel="sms", db=db
+        )
+    except Exception:
+        logger.exception("SMS agent error: clinic=%s from=%s", clinic.slug, From)
+        reply = f"Sorry, I ran into a technical issue. Please call us at {clinic.phone}."
+
+    if is_escalated:
+        reply += f"\n\nA team member will reach out to you at {From} shortly."
+
+    return Response(content=twiml_response(reply), media_type="application/xml")

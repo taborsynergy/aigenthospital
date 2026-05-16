@@ -1,0 +1,63 @@
+from datetime import datetime
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from backend.db.database import Base
+
+
+class Clinic(Base):
+    __tablename__ = "clinics"
+
+    id                  = Column(Integer, primary_key=True, index=True)
+    slug                = Column(String, unique=True, index=True, nullable=False)
+    name                = Column(String, nullable=False)
+    specialty           = Column(String, nullable=False)
+    agent_name          = Column(String, default="Aria")
+    city_state          = Column(String, default="")
+    timezone            = Column(String, default="Central Time (CT)")
+    address             = Column(String, default="")
+    phone               = Column(String, default="")
+    email               = Column(String, default="")
+    website             = Column(String, default="")
+    office_hours        = Column(String, default="Mon–Fri 8am–5pm")
+    after_hours_protocol= Column(Text,   default="For emergencies call 911.")
+    providers           = Column(Text,   default="")
+    services_offered    = Column(Text,   default="")
+    insurance_accepted  = Column(String, default="")
+    pms_system          = Column(String, default="Athenahealth")
+    cancellation_policy = Column(String, default="24-hour notice required.")
+    escalation_contact  = Column(String, default="")
+    hipaa_verify_method = Column(String, default="Full name + date of birth + last 4 digits of SSN")
+
+    # Twilio
+    twilio_phone        = Column(String, default="")
+
+    # Stripe billing
+    stripe_customer_id      = Column(String, default="")
+    stripe_subscription_id  = Column(String, default="")
+    subscription_status     = Column(String, default="trial")   # trial | active | past_due | cancelled
+    monthly_rate            = Column(Float,  default=299.0)
+
+    is_active   = Column(Boolean,  default=True)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+
+class UsageLog(Base):
+    __tablename__ = "usage_logs"
+
+    id            = Column(Integer,  primary_key=True, index=True)
+    clinic_id     = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    session_id    = Column(String)
+    channel       = Column(String,   default="web")   # web | sms
+    input_tokens  = Column(Integer,  default=0)
+    output_tokens = Column(Integer,  default=0)
+    created_at    = Column(DateTime, default=datetime.utcnow)
+
+
+class SmsConversation(Base):
+    __tablename__ = "sms_conversations"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    patient_phone   = Column(String,   index=True)
+    session_id      = Column(String,   unique=True)
+    last_message_at = Column(DateTime, default=datetime.utcnow)
+    created_at      = Column(DateTime, default=datetime.utcnow)

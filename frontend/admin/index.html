@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tabor Synergy — Admin</title>
+  <link rel="stylesheet" href="/admin/admin.css"/>
+</head>
+<body>
+
+<!-- ── Login screen ──────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div id="login-box">
+    <h1>🏥 Tabor Synergy</h1>
+    <p>Admin Dashboard · Sign in to continue</p>
+    <input type="password" id="login-pw" placeholder="Admin password" autocomplete="current-password"/>
+    <button id="login-btn">Sign In</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ── Sidebar ────────────────────────────────────────────────────── -->
+<div id="sidebar">
+  <div class="sidebar-brand">
+    <div class="logo">🏥 Tabor Synergy</div>
+    <div class="sub">Universal Medical Front Desk</div>
+  </div>
+  <nav>
+    <div class="nav-item active" data-tab="clinics"><span class="icon">🏥</span> Clinics</div>
+    <div class="nav-item"        data-tab="usage">  <span class="icon">📊</span> Usage</div>
+    <div class="nav-item"        data-tab="billing"><span class="icon">💳</span> Billing</div>
+    <div class="nav-item"        data-tab="sms">    <span class="icon">💬</span> SMS</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div>Tabor Synergy v2.0</div>
+    <button id="logout-btn" onclick="logout()">Sign out</button>
+  </div>
+</div>
+
+<!-- ── Main ───────────────────────────────────────────────────────── -->
+<div id="main">
+  <div class="topbar">
+    <h2>Clinics</h2>
+    <div class="topbar-actions">
+      <button class="btn btn-primary" id="add-clinic-btn">+ Add Clinic</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── Clinics tab ─────────────────────────────────────────── -->
+    <div id="tab-clinics" class="tab-content active">
+      <div class="stat-cards">
+        <div class="stat-card">
+          <div class="label">Total Clinics</div>
+          <div class="value" id="stat-total">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Active</div>
+          <div class="value" id="stat-active">—</div>
+          <div class="sub">paying subscribers</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Trial</div>
+          <div class="value" id="stat-trial">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">MRR</div>
+          <div class="value" id="stat-mrr">—</div>
+          <div class="sub">monthly recurring revenue</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>All Clinics</h3>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Name / Slug</th>
+              <th>Specialty</th>
+              <th>Agent</th>
+              <th>Status</th>
+              <th>Rate</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="clinic-tbody">
+            <tr><td colspan="7" style="text-align:center;padding:32px;color:#64748b">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Usage tab ──────────────────────────────────────────── -->
+    <div id="tab-usage" class="tab-content">
+      <div class="card">
+        <div class="card-header"><h3>Usage by Clinic</h3></div>
+        <table>
+          <thead>
+            <tr>
+              <th>Clinic</th>
+              <th>Specialty</th>
+              <th>Messages</th>
+              <th>Total Tokens</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="usage-tbody">
+            <tr><td colspan="5" style="text-align:center;padding:32px;color:#64748b">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Billing tab ────────────────────────────────────────── -->
+    <div id="tab-billing" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h3>Subscriptions</h3>
+          <span style="font-size:12px;color:#64748b">Click "Send Invoice Link" to generate a Stripe Checkout URL for a clinic</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Clinic</th>
+              <th>Status</th>
+              <th>Monthly Rate</th>
+              <th>Stripe Customer</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="billing-tbody">
+            <tr><td colspan="5" style="text-align:center;padding:32px;color:#64748b">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── SMS tab ────────────────────────────────────────────── -->
+    <div id="tab-sms" class="tab-content">
+      <div class="sms-composer">
+        <h3>Send SMS</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="field">
+            <label>Clinic</label>
+            <select id="sms-clinic-select"></select>
+          </div>
+          <div class="field">
+            <label>Patient Phone (e.g. +15125550199)</label>
+            <input type="tel" id="sms-to" placeholder="+15125550199"/>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:12px">
+          <label>Message</label>
+          <textarea id="sms-body" rows="3" placeholder="Hi [Name], just confirming your appointment…"></textarea>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" id="sms-send-btn">Send SMS</button>
+          <button class="btn btn-outline" id="sms-load-btn">Load Conversations ↓</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h3>SMS Conversations</h3></div>
+        <table>
+          <thead>
+            <tr>
+              <th>Patient Phone</th>
+              <th>Last Message</th>
+              <th>Session ID</th>
+            </tr>
+          </thead>
+          <tbody id="sms-tbody">
+            <tr><td colspan="3" style="text-align:center;padding:32px;color:#64748b">Select a clinic above and click "Load Conversations"</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ── Add/Edit Clinic Modal ──────────────────────────────────────── -->
+<div id="clinic-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Add New Clinic</h3>
+      <button class="modal-close" id="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="clinic-form" autocomplete="off">
+        <div class="form-grid">
+
+          <div class="field">
+            <label>Clinic Name *</label>
+            <input name="name" required placeholder="Sunshine Dermatology"/>
+          </div>
+          <div class="field">
+            <label>Slug * (URL-safe, unique)</label>
+            <input name="slug" id="field-slug" required placeholder="sunshine-derm" pattern="[a-z0-9\-]+"/>
+          </div>
+
+          <div class="field">
+            <label>Specialty *</label>
+            <input name="specialty" required placeholder="Dermatology"/>
+          </div>
+          <div class="field">
+            <label>Agent Name</label>
+            <input name="agent_name" placeholder="Aria"/>
+          </div>
+
+          <div class="field">
+            <label>City, State</label>
+            <input name="city_state" placeholder="Austin, TX"/>
+          </div>
+          <div class="field">
+            <label>Timezone</label>
+            <input name="timezone" placeholder="Central Time (CT)"/>
+          </div>
+
+          <div class="field form-full">
+            <label>Address</label>
+            <input name="address" placeholder="123 Main St, Austin, TX 78701"/>
+          </div>
+
+          <div class="field">
+            <label>Phone</label>
+            <input name="phone" placeholder="(512) 555-0100"/>
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input name="email" type="email" placeholder="hello@clinic.com"/>
+          </div>
+
+          <div class="field">
+            <label>Website</label>
+            <input name="website" placeholder="https://clinic.com"/>
+          </div>
+          <div class="field">
+            <label>Office Hours</label>
+            <input name="office_hours" placeholder="Mon–Fri 8am–5pm"/>
+          </div>
+
+          <div class="field form-full">
+            <label>Providers (comma-separated)</label>
+            <input name="providers" placeholder="Dr. Sarah Chen (MD), Dr. Marcus Rivera (PA)"/>
+          </div>
+
+          <div class="field form-full">
+            <label>Services Offered</label>
+            <textarea name="services_offered" placeholder="Skin checks, acne treatment, Botox, mole removal…"></textarea>
+          </div>
+
+          <div class="field form-full">
+            <label>Insurance Accepted (comma-separated)</label>
+            <input name="insurance_accepted" placeholder="Aetna, BCBS, Cigna, United, Medicare"/>
+          </div>
+
+          <div class="field">
+            <label>PMS System</label>
+            <input name="pms_system" placeholder="Athenahealth"/>
+          </div>
+          <div class="field">
+            <label>Escalation Contact</label>
+            <input name="escalation_contact" placeholder="Office manager — text (512) 555-0101"/>
+          </div>
+
+          <div class="field form-full">
+            <label>Cancellation Policy</label>
+            <input name="cancellation_policy" placeholder="24-hour notice required to avoid a $50 fee."/>
+          </div>
+
+          <div class="field form-full">
+            <label>After-Hours Protocol</label>
+            <textarea name="after_hours_protocol" placeholder="For emergencies call 911. Urgent concerns: call our nurse line at…"></textarea>
+          </div>
+
+          <div class="field form-full">
+            <label>HIPAA Verification Method</label>
+            <input name="hipaa_verify_method" placeholder="Full name + date of birth + last 4 digits of SSN"/>
+          </div>
+
+          <div class="field">
+            <label>Twilio Phone Number (for SMS)</label>
+            <input name="twilio_phone" placeholder="+15125550100"/>
+          </div>
+          <div class="field">
+            <label>Monthly Rate ($)</label>
+            <input name="monthly_rate" type="number" step="0.01" placeholder="299"/>
+          </div>
+
+        </div><!-- /form-grid -->
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="modal-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="document.getElementById('clinic-form').requestSubmit()">Save Clinic</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ──────────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<script src="/admin/admin.js"></script>
+</body>
+</html>

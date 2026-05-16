@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tabor Synergy — Universal Medical Front Desk Agent</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #F0F7FF;
+      color: #1F2937;
+      min-height: 100vh;
+    }
+
+    nav {
+      background: #1E40AF;
+      color: #fff;
+      padding: 0 32px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    }
+    .nav-brand { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .nav-badge {
+      font-size: 11px; font-weight: 600;
+      background: rgba(255,255,255,.2);
+      border-radius: 20px;
+      padding: 2px 10px;
+      margin-left: 8px;
+    }
+    .nav-links { display: flex; gap: 24px; font-size: 14px; }
+    .nav-links a { color: rgba(255,255,255,.8); text-decoration: none; }
+    .nav-links a:hover { color: #fff; }
+    html { scroll-behavior: smooth; }
+
+    .hero {
+      text-align: center;
+      padding: 72px 24px 48px;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: #DBEAFE;
+      color: #1D4ED8;
+      border: 1px solid #BFDBFE;
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-size: clamp(26px, 5vw, 46px);
+      font-weight: 800;
+      color: #1E3A5F;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+    .hero p {
+      font-size: 18px;
+      color: #4B5563;
+      max-width: 560px;
+      margin: 0 auto 32px;
+      line-height: 1.6;
+    }
+    .cta-btn {
+      display: inline-block;
+      background: #1E40AF;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(30,64,175,.35);
+      transition: background .2s, transform .1s;
+    }
+    .cta-btn:hover  { background: #1E3A8A; }
+    .cta-btn:active { transform: scale(.97); }
+
+    /* Specialty tags */
+    .specialty-tags {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin: 0 auto 48px;
+      max-width: 640px;
+      padding: 0 24px;
+    }
+    .tag {
+      background: #fff;
+      border: 1px solid #BFDBFE;
+      color: #1D4ED8;
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      max-width: 1000px;
+      margin: 0 auto 64px;
+      padding: 0 24px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.07);
+      border: 1px solid #E5E7EB;
+    }
+    .card-icon { font-size: 28px; margin-bottom: 10px; }
+    .card h3   { font-size: 15px; font-weight: 700; margin-bottom: 6px; color: #1E3A5F; }
+    .card p    { font-size: 13px; color: #6B7280; line-height: 1.5; }
+
+    .demo-section {
+      background: #fff;
+      border-top: 1px solid #E5E7EB;
+      padding: 48px 24px;
+      text-align: center;
+    }
+    .demo-section h2 { font-size: 26px; font-weight: 700; color: #1E3A5F; margin-bottom: 8px; }
+    .demo-section p  { color: #6B7280; margin-bottom: 24px; }
+    .demo-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 13px;
+      color: #166534;
+    }
+
+    /* Config callout */
+    .config-section {
+      max-width: 720px;
+      margin: 0 auto 64px;
+      padding: 0 24px;
+    }
+    .config-box {
+      background: #1E293B;
+      color: #E2E8F0;
+      border-radius: 12px;
+      padding: 24px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+    .config-box .key    { color: #93C5FD; }
+    .config-box .val    { color: #6EE7B7; }
+    .config-box .comment { color: #64748B; }
+    .config-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1E3A5F;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .config-subtitle {
+      font-size: 14px;
+      color: #6B7280;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .pricing-section {
+      max-width: 860px;
+      margin: 0 auto 64px;
+      padding: 0 24px;
+      text-align: center;
+    }
+    .pricing-section h2 { font-size: 26px; font-weight: 700; color: #1E3A5F; margin-bottom: 8px; }
+    .pricing-section .sub { color: #6B7280; margin-bottom: 32px; }
+    .pricing-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+    .pricing-card.whitelabel {
+      border-color: #7C3AED;
+      background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%);
+      box-shadow: 0 4px 20px rgba(124,58,237,.15);
+    }
+    .pricing-card.whitelabel .badge-pop { background: #7C3AED; }
+    .pricing-card.whitelabel .price { color: #6D28D9; }
+    .pricing-card.whitelabel h3 { color: #4C1D95; }
+    .wl-note {
+      margin-top: 16px;
+      font-size: 12px;
+      color: #7C3AED;
+      background: #EDE9FE;
+      border-radius: 6px;
+      padding: 6px 10px;
+      text-align: center;
+      font-weight: 600;
+    }
+    .pricing-card {
+      background: #fff;
+      border: 1px solid #E5E7EB;
+      border-radius: 14px;
+      padding: 28px 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.06);
+      position: relative;
+    }
+    .pricing-card.popular { border-color: #3B82F6; box-shadow: 0 4px 20px rgba(59,130,246,.2); }
+    .pricing-card .badge-pop {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: #3B82F6; color: #fff; border-radius: 20px;
+      padding: 3px 14px; font-size: 12px; font-weight: 600;
+    }
+    .pricing-card h3 { font-size: 16px; font-weight: 700; color: #1E3A5F; margin-bottom: 8px; }
+    .pricing-card .price { font-size: 32px; font-weight: 800; color: #1E40AF; margin-bottom: 4px; }
+    .pricing-card .price span { font-size: 14px; font-weight: 400; color: #6B7280; }
+    .pricing-card ul { list-style: none; margin: 16px 0 0; text-align: left; font-size: 13px; color: #4B5563; }
+    .pricing-card ul li { padding: 4px 0; }
+    .pricing-card ul li::before { content: "✓ "; color: #22C55E; font-weight: 700; }
+
+    .contact-section {
+      background: #1E293B;
+      color: #E2E8F0;
+      padding: 48px 24px;
+      text-align: center;
+    }
+    .contact-section h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .contact-section p  { color: #94A3B8; margin-bottom: 24px; }
+    .contact-links { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; font-size: 14px; }
+    .contact-links a { color: #60A5FA; text-decoration: none; }
+    .contact-links a:hover { color: #93C5FD; text-decoration: underline; }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+      color: #9CA3AF;
+    }
+    footer strong { color: #6B7280; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    🏥 Tabor Synergy
+    <span class="nav-badge">Universal Medical Front Desk Agent</span>
+  </div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#specialties">Specialties</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#contact">Contact</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge">✨ Configurable for Any Outpatient Specialty</div>
+  <h1>Your AI front desk,<br>ready for any practice</h1>
+  <p>
+    Schedule appointments, verify insurance, handle billing, and onboard patients —
+    across every specialty, every channel, every hour of the day.
+  </p>
+  <button class="cta-btn" onclick="document.getElementById('aria-launcher').click()">
+    Talk to the Agent →
+  </button>
+</section>
+
+<div id="specialties" class="specialty-tags">
+  <span class="tag">🦷 Dental</span>
+  <span class="tag">🔬 Dermatology</span>
+  <span class="tag">👶 Pediatrics</span>
+  <span class="tag">🩺 Family Medicine</span>
+  <span class="tag">🦴 Orthopedics</span>
+  <span class="tag">👁️ Ophthalmology</span>
+  <span class="tag">🤰 OB-GYN</span>
+  <span class="tag">🦻 ENT</span>
+  <span class="tag">🚑 Urgent Care</span>
+</div>
+
+<div id="features" class="features">
+  <div class="card">
+    <div class="card-icon">📅</div>
+    <h3>Scheduling</h3>
+    <p>Books, reschedules, and cancels appointments in your PMS — any specialty, any visit type.</p>
+  </div>
+  <div class="card">
+    <div class="card-icon">🔍</div>
+    <h3>Insurance Verification</h3>
+    <p>Real-time benefit checks with plain-language explanations and prior auth flags.</p>
+  </div>
+  <div class="card">
+    <div class="card-icon">💳</div>
+    <h3>Billing & Payments</h3>
+    <p>Balance inquiries and secure payment links sent to phone or email via Stripe/Square.</p>
+  </div>
+  <div class="card">
+    <div class="card-icon">📋</div>
+    <h3>Patient Intake</h3>
+    <p>Specialty-adaptive intake forms sent securely before the first visit — no clipboards.</p>
+  </div>
+  <div class="card">
+    <div class="card-icon">🔔</div>
+    <h3>Reminders & Recall</h3>
+    <p>Automated confirmations, recall campaigns, and reactivation messages per specialty protocol.</p>
+  </div>
+  <div class="card">
+    <div class="card-icon">🤝</div>
+    <h3>Human Escalation</h3>
+    <p>Instantly hands off to staff for emergencies, upset patients, or complex issues.</p>
+  </div>
+</div>
+
+<div class="config-section">
+  <div class="config-title">One config block — infinite specialties</div>
+  <div class="config-subtitle">Change your <code>.env</code> to deploy for any practice in minutes.</div>
+  <div class="config-box">
+    <span class="comment"># Dermatology example</span><br>
+    <span class="key">CLINIC_NAME</span>=<span class="val">Sunshine Dermatology</span><br>
+    <span class="key">SPECIALTY</span>=<span class="val">Dermatology</span><br>
+    <span class="key">AGENT_NAME</span>=<span class="val">Nova</span><br>
+    <span class="key">SERVICES_OFFERED</span>=<span class="val">Skin checks, acne treatment, Botox, mole removal</span><br>
+    <span class="key">PMS_SYSTEM</span>=<span class="val">Modernizing Medicine (EMA)</span><br>
+    <span class="key">PROVIDERS</span>=<span class="val">Dr. Priya Mehta (MD), Dr. James Osei (PA)</span><br>
+    <span class="key">INSURANCE_ACCEPTED</span>=<span class="val">Aetna, BCBS, United, Cigna, Medicare</span><br>
+    <br>
+    <span class="comment"># Pediatrics example</span><br>
+    <span class="key">CLINIC_NAME</span>=<span class="val">Little Stars Pediatrics</span><br>
+    <span class="key">SPECIALTY</span>=<span class="val">Pediatrics</span><br>
+    <span class="key">AGENT_NAME</span>=<span class="val">Max</span><br>
+    <span class="key">SERVICES_OFFERED</span>=<span class="val">Well-child visits, sick visits, vaccinations, developmental screenings</span><br>
+    <span class="key">PMS_SYSTEM</span>=<span class="val">eClinicalWorks</span>
+  </div>
+</div>
+
+<section class="demo-section">
+  <h2>Try it now</h2>
+  <p>Click the chat bubble in the bottom-right corner to start a conversation.</p>
+  <div class="demo-hint">
+    <span>💡</span>
+    <span>Try: "I need to schedule an appointment" · "Can you verify my Aetna coverage?" · "What are your office hours?"</span>
+  </div>
+</section>
+
+<section id="pricing" class="pricing-section">
+  <h2>Simple, transparent pricing</h2>
+  <p class="sub">One flat monthly fee per clinic — no setup costs, no per-message fees.</p>
+  <div class="pricing-cards">
+    <div class="pricing-card">
+      <h3>Starter</h3>
+      <div class="price">$199<span>/mo</span></div>
+      <ul>
+        <li>1 clinic location</li>
+        <li>Web chat widget</li>
+        <li>Scheduling &amp; insurance</li>
+        <li>Billing &amp; payments</li>
+        <li>Email support</li>
+      </ul>
+    </div>
+    <div class="pricing-card popular">
+      <div class="badge-pop">Most Popular</div>
+      <h3>Professional</h3>
+      <div class="price">$299<span>/mo</span></div>
+      <ul>
+        <li>Up to 3 locations</li>
+        <li>Web chat + SMS channel</li>
+        <li>All Starter features</li>
+        <li>Twilio SMS integration</li>
+        <li>Priority support</li>
+      </ul>
+    </div>
+    <div class="pricing-card">
+      <h3>Enterprise</h3>
+      <div class="price">$499<span>/mo</span></div>
+      <ul>
+        <li>Unlimited locations</li>
+        <li>All channels</li>
+        <li>Custom agent persona</li>
+        <li>Usage analytics</li>
+        <li>Dedicated onboarding</li>
+      </ul>
+    </div>
+    <div class="pricing-card whitelabel">
+      <div class="badge-pop">White Label</div>
+      <h3>White Label License</h3>
+      <div class="price">$2,999<span> one-time</span></div>
+      <ul>
+        <li>Full source code transfer</li>
+        <li>Your brand, your domain</li>
+        <li>Remove all Tabor Synergy branding</li>
+        <li>Deploy on your own servers</li>
+        <li>Resell to your own clients</li>
+        <li>6 months of email support</li>
+      </ul>
+      <div class="wl-note">You own the code outright</div>
+    </div>
+  </div>
+</section>
+
+<section id="contact" class="contact-section">
+  <h2>Get in touch</h2>
+  <p>Ready to put an AI front desk in your practice — or license the full platform?<br>
+  For any queries, reach us at:</p>
+  <div class="contact-links">
+    <a href="mailto:admin@tabor.taborsynergy.com">📧 admin@tabor.taborsynergy.com</a>
+    <a href="#" onclick="document.getElementById('aria-launcher').click(); return false;">💬 Chat with Aria →</a>
+  </div>
+</section>
+
+<footer>
+  &copy; 2026 Tabor Synergy. Universal Medical Front Desk Agent — powered by <strong>Claude claude-sonnet-4-6</strong>.
+</footer>
+
+<!-- Aria Chat Widget -->
+<script src="/widget.js" data-clinic="demo-clinic" defer></script>
+
+</body>
+</html>
