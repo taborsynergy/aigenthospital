@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     # ── Admin ────────────────────────────────────────────────────────
     admin_password: str = "admin123"
+    admin_panel_path: str = "/ts-mgmt"   # Secret URL — change via ADMIN_PANEL_PATH env var
 
     # ── Stripe ───────────────────────────────────────────────────────
     stripe_secret_key: str = ""

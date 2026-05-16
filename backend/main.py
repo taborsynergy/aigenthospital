@@ -682,8 +682,19 @@ def _seed_all_demo_clinics():
 frontend_dir = Path(__file__).parent.parent / "frontend"
 admin_dir    = frontend_dir / "admin"
 
+
+@app.get("/admin", include_in_schema=False)
+@app.get("/admin/", include_in_schema=False)
+async def block_admin_path():
+    """Return 404 for the default /admin path so it's not discoverable."""
+    from fastapi.responses import Response
+    return Response(status_code=404)
+
+
 if admin_dir.exists():
-    app.mount("/admin", StaticFiles(directory=str(admin_dir), html=True), name="admin")
+    app.mount(settings.admin_panel_path,
+              StaticFiles(directory=str(admin_dir), html=True), name="admin")
+    logging.getLogger(__name__).info("Admin panel mounted at %s", settings.admin_panel_path)
 
 if frontend_dir.exists():
     app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
