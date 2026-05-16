@@ -244,6 +244,123 @@
       color: #9CA3AF;
     }
     footer strong { color: #6B7280; }
+
+    /* ── Trial buttons ─────────────────────────────────────────── */
+    .btn-trial {
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+      background: #1E40AF;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 11px 0;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-trial:hover { background: #1E3A8A; }
+    .pricing-card.popular .btn-trial { background: #2563EB; }
+    .pricing-card.popular .btn-trial:hover { background: #1D4ED8; }
+    .btn-license {
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+      background: #7C3AED;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 11px 0;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+      text-decoration: none;
+      text-align: center;
+    }
+    .btn-license:hover { background: #6D28D9; }
+
+    /* ── Modal overlay ─────────────────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.55);
+      z-index: 9000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 36px 32px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      position: relative;
+    }
+    .modal-box h2 { font-size: 22px; font-weight: 800; color: #1E3A5F; margin-bottom: 6px; }
+    .modal-box .plan-tag {
+      display: inline-block;
+      background: #DBEAFE; color: #1D4ED8;
+      border-radius: 20px; padding: 3px 12px;
+      font-size: 12px; font-weight: 600; margin-bottom: 20px;
+    }
+    .modal-close {
+      position: absolute; top: 14px; right: 18px;
+      font-size: 22px; cursor: pointer; color: #9CA3AF; background: none; border: none;
+    }
+    .modal-close:hover { color: #374151; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 5px; }
+    .form-group input, .form-group select {
+      width: 100%; border: 1px solid #D1D5DB; border-radius: 8px;
+      padding: 10px 12px; font-size: 14px; outline: none;
+      transition: border-color .2s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: #3B82F6; }
+    .form-group .hint { font-size: 11px; color: #9CA3AF; margin-top: 3px; }
+    .btn-submit {
+      width: 100%; background: #1E40AF; color: #fff; border: none;
+      border-radius: 8px; padding: 13px; font-size: 15px; font-weight: 700;
+      cursor: pointer; margin-top: 4px; transition: background .2s;
+    }
+    .btn-submit:hover { background: #1E3A8A; }
+    .btn-submit:disabled { background: #93C5FD; cursor: not-allowed; }
+    .trial-note {
+      text-align: center; font-size: 12px; color: #6B7280; margin-top: 12px;
+    }
+
+    /* ── Success modal ─────────────────────────────────────────── */
+    .success-icon { font-size: 48px; text-align: center; margin-bottom: 12px; }
+    .success-url {
+      background: #F0FDF4; border: 1px solid #BBF7D0;
+      border-radius: 8px; padding: 12px 16px;
+      font-family: monospace; font-size: 13px; color: #166534;
+      word-break: break-all; margin: 16px 0;
+    }
+    .btn-open-aria {
+      display: block; text-align: center;
+      background: #22C55E; color: #fff;
+      border-radius: 8px; padding: 12px;
+      font-size: 15px; font-weight: 700;
+      text-decoration: none; margin-bottom: 10px;
+      transition: background .2s;
+    }
+    .btn-open-aria:hover { background: #16A34A; }
+    .btn-paypal {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: #FFC439; color: #003087;
+      border-radius: 8px; padding: 12px;
+      font-size: 14px; font-weight: 700;
+      text-decoration: none;
+      transition: background .2s;
+    }
+    .btn-paypal:hover { background: #FFB319; }
+    .success-sub { font-size: 13px; color: #6B7280; margin-bottom: 8px; text-align: center; }
+    .divider { text-align: center; font-size: 12px; color: #9CA3AF; margin: 12px 0; }
   </style>
 </head>
 <body>
@@ -268,8 +385,8 @@
     Schedule appointments, verify insurance, handle billing, and onboard patients —
     across every specialty, every channel, every hour of the day.
   </p>
-  <button class="cta-btn" onclick="document.getElementById('aria-launcher').click()">
-    Talk to the Agent →
+  <button class="cta-btn" onclick="openSignup('professional')">
+    Start Your Free Trial →
   </button>
 </section>
 
@@ -341,11 +458,14 @@
 </div>
 
 <section class="demo-section">
-  <h2>Try it now</h2>
-  <p>Click the chat bubble in the bottom-right corner to start a conversation.</p>
-  <div class="demo-hint">
+  <h2>Start your free 14-day trial</h2>
+  <p>Sign up in under a minute — Aria is live for your practice immediately. No credit card needed.</p>
+  <button class="cta-btn" onclick="openSignup('professional')" style="background:#22C55E;box-shadow:0 4px 14px rgba(34,197,94,.4)">
+    Get Started Free →
+  </button>
+  <div class="demo-hint" style="margin-top:20px">
     <span>💡</span>
-    <span>Try: "I need to schedule an appointment" · "Can you verify my Aetna coverage?" · "What are your office hours?"</span>
+    <span>Once signed up, Aria handles scheduling, insurance, billing — any specialty, any hour.</span>
   </div>
 </section>
 
@@ -357,7 +477,7 @@
     <div class="pricing-card">
       <h3>Starter</h3>
       <div class="price">$199<span>/mo</span></div>
-      <div style="font-size:12px;color:#22C55E;font-weight:600;margin-bottom:8px">14-day free trial</div>
+      <div style="font-size:12px;color:#22C55E;font-weight:600;margin-bottom:8px">✓ 14-day free trial included</div>
       <ul>
         <li>1 clinic location</li>
         <li>Web chat widget</li>
@@ -365,12 +485,13 @@
         <li>Billing &amp; payments</li>
         <li>Email support</li>
       </ul>
+      <button class="btn-trial" onclick="openSignup('starter')">Start Free Trial →</button>
     </div>
     <div class="pricing-card popular">
       <div class="badge-pop">Most Popular</div>
       <h3>Professional</h3>
       <div class="price">$299<span>/mo</span></div>
-      <div style="font-size:12px;color:#22C55E;font-weight:600;margin-bottom:8px">14-day free trial</div>
+      <div style="font-size:12px;color:#22C55E;font-weight:600;margin-bottom:8px">✓ 14-day free trial included</div>
       <ul>
         <li>Up to 3 locations</li>
         <li>Web chat + SMS channel</li>
@@ -378,11 +499,12 @@
         <li>Twilio SMS integration</li>
         <li>Priority support</li>
       </ul>
+      <button class="btn-trial" onclick="openSignup('professional')">Start Free Trial →</button>
     </div>
     <div class="pricing-card">
       <h3>Enterprise</h3>
       <div class="price">$499<span>/mo</span></div>
-      <div style="font-size:12px;color:#22C55E;font-weight:600;margin-bottom:8px">14-day free trial</div>
+      <div style="font-size:12px;color:#22C55E;font-weight:600;margin-bottom:8px">✓ 14-day free trial included</div>
       <ul>
         <li>Unlimited locations</li>
         <li>All channels</li>
@@ -390,6 +512,7 @@
         <li>Usage analytics</li>
         <li>Dedicated onboarding</li>
       </ul>
+      <button class="btn-trial" onclick="openSignup('enterprise')">Start Free Trial →</button>
     </div>
     <div class="pricing-card whitelabel">
       <div class="badge-pop">White Label</div>
@@ -404,6 +527,7 @@
         <li>6 months of email support</li>
       </ul>
       <div class="wl-note">You own the code outright</div>
+      <a class="btn-license" href="mailto:admin@tabor.taborsynergy.com?subject=White Label License Inquiry">Get a Quote →</a>
     </div>
   </div>
 </section>
@@ -414,7 +538,7 @@
   For any queries, reach us at:</p>
   <div class="contact-links">
     <a href="mailto:admin@tabor.taborsynergy.com">📧 admin@tabor.taborsynergy.com</a>
-    <a href="#" onclick="document.getElementById('aria-launcher').click(); return false;">💬 Chat with Aria →</a>
+    <a href="#pricing" onclick="openSignup('professional'); return false;">💬 Start Free Trial →</a>
   </div>
 </section>
 
@@ -422,8 +546,133 @@
   &copy; 2026 Tabor Synergy. Universal Medical Front Desk Agent — powered by <strong>Claude claude-sonnet-4-6</strong>.
 </footer>
 
-<!-- Aria Chat Widget -->
-<script src="/widget.js" data-clinic="demo-clinic" defer></script>
+<!-- ── Signup Modal ─────────────────────────────────────────────── -->
+<div id="signup-modal" class="modal-overlay" onclick="if(event.target===this)closeSignup()">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeSignup()">×</button>
+    <h2>Start Your Free Trial</h2>
+    <div id="signup-plan-tag" class="plan-tag">Professional — $299/mo</div>
+    <form id="signup-form" onsubmit="submitSignup(event)">
+      <div class="form-group">
+        <label>Practice Name *</label>
+        <input id="f-name" name="practice_name" type="text" required placeholder="e.g. Sunshine Dental Group" />
+      </div>
+      <div class="form-group">
+        <label>Your Email *</label>
+        <input id="f-email" name="contact_email" type="email" required placeholder="you@yourpractice.com" />
+        <div class="hint">We'll send your Aria link here.</div>
+      </div>
+      <div class="form-group">
+        <label>Medical Specialty *</label>
+        <select id="f-specialty" name="specialty" required>
+          <option value="">— Select specialty —</option>
+          <option>Dental</option>
+          <option>Family Medicine</option>
+          <option>Dermatology</option>
+          <option>Pediatrics</option>
+          <option>Orthopedics</option>
+          <option>Ophthalmology</option>
+          <option>OB-GYN</option>
+          <option>ENT</option>
+          <option>Urgent Care</option>
+          <option>Cardiology</option>
+          <option>Neurology</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Office Phone</label>
+        <input id="f-phone" name="phone" type="tel" placeholder="(512) 555-0100" />
+      </div>
+      <input type="hidden" id="f-plan" name="plan" value="professional" />
+      <button class="btn-submit" type="submit" id="signup-submit-btn">
+        Create My Free Trial →
+      </button>
+    </form>
+    <div class="trial-note">✓ 14 days free &nbsp;·&nbsp; No credit card &nbsp;·&nbsp; Cancel anytime</div>
+  </div>
+</div>
+
+<!-- ── Success Modal ─────────────────────────────────────────────── -->
+<div id="success-modal" class="modal-overlay" onclick="if(event.target===this)closeSuccess()">
+  <div class="modal-box" style="text-align:center">
+    <button class="modal-close" onclick="closeSuccess()">×</button>
+    <div class="success-icon">🎉</div>
+    <h2>Aria is ready!</h2>
+    <p style="color:#6B7280;font-size:14px;margin-bottom:4px">Your 14-day free trial has started.</p>
+    <p style="color:#6B7280;font-size:13px;margin-bottom:0">Trial ends: <strong id="success-trial-end"></strong></p>
+    <div class="success-url" id="success-url"></div>
+    <a id="success-open-btn" href="#" target="_blank" class="btn-open-aria">
+      Open My Aria Chat →
+    </a>
+    <div class="divider">— Ready to activate your subscription? —</div>
+    <p class="success-sub">Plan: <strong id="success-plan-label"></strong></p>
+    <a id="success-paypal-btn" href="#" target="_blank" class="btn-paypal">
+      <img src="https://www.paypalobjects.com/webstatic/mktg/Logo/pp-logo-100px.png" height="20" alt="PayPal" />
+      Pay with PayPal
+    </a>
+    <div class="trial-note" style="margin-top:12px">You can pay anytime before your trial ends.</div>
+  </div>
+</div>
+
+<script>
+var PLAN_LABELS = { starter: "Starter — $199/mo", professional: "Professional — $299/mo", enterprise: "Enterprise — $499/mo" };
+var PLAN_AMOUNTS = { starter: 199, professional: 299, enterprise: 499 };
+var PAYPAL_ME = "https://paypal.me/write2dinakar";
+
+function openSignup(plan) {
+  document.getElementById("f-plan").value = plan;
+  document.getElementById("signup-plan-tag").textContent = PLAN_LABELS[plan] || PLAN_LABELS.professional;
+  document.getElementById("signup-modal").classList.add("open");
+  document.getElementById("f-name").focus();
+}
+function closeSignup() { document.getElementById("signup-modal").classList.remove("open"); }
+function closeSuccess() { document.getElementById("success-modal").classList.remove("open"); }
+
+function submitSignup(e) {
+  e.preventDefault();
+  var btn = document.getElementById("signup-submit-btn");
+  btn.disabled = true;
+  btn.textContent = "Setting up Aria…";
+
+  var data = {
+    practice_name:  document.getElementById("f-name").value.trim(),
+    contact_email:  document.getElementById("f-email").value.trim(),
+    specialty:      document.getElementById("f-specialty").value,
+    phone:          document.getElementById("f-phone").value.trim(),
+    plan:           document.getElementById("f-plan").value,
+  };
+
+  fetch("/api/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  .then(function(r) {
+    if (!r.ok) return r.json().then(function(e) { throw new Error(e.detail || "Signup failed"); });
+    return r.json();
+  })
+  .then(function(res) {
+    closeSignup();
+    document.getElementById("success-url").textContent = res.chat_url;
+    document.getElementById("success-open-btn").href = res.chat_url;
+    document.getElementById("success-trial-end").textContent = res.trial_ends_at;
+    var plan = res.plan || "professional";
+    document.getElementById("success-plan-label").textContent = PLAN_LABELS[plan] || PLAN_LABELS.professional;
+    var amount = PLAN_AMOUNTS[plan] || 299;
+    document.getElementById("success-paypal-btn").href = PAYPAL_ME + "/" + amount + "USD";
+    document.getElementById("success-modal").classList.add("open");
+    document.getElementById("signup-form").reset();
+  })
+  .catch(function(err) {
+    alert("Error: " + err.message + "\nPlease try again or email admin@tabor.taborsynergy.com");
+  })
+  .finally(function() {
+    btn.disabled = false;
+    btn.textContent = "Create My Free Trial →";
+  });
+}
+</script>
 
 </body>
 </html>

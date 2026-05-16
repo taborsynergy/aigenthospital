@@ -14,6 +14,7 @@ from backend.routers.chat import router as chat_router
 from backend.routers.admin import router as admin_router
 from backend.routers.sms import router as sms_router
 from backend.routers.billing import router as billing_router
+from backend.routers.signup import router as signup_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,6 +40,7 @@ app.include_router(chat_router)
 app.include_router(admin_router)
 app.include_router(sms_router)
 app.include_router(billing_router)
+app.include_router(signup_router)
 
 # ── Clinic widget pages ───────────────────────────────────────────────────────
 @app.get("/c/{clinic_slug}", response_class=HTMLResponse)
