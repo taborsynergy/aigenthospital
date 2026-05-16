@@ -648,6 +648,32 @@ def _seed_all_demo_clinics():
                 "customer_password_hash": hash_password("White@123"),
             })
 
+        # ── DEMO RECORDING CLINIC — Tabor Demo Hospital ───────────────────────
+        if not _get(db, "tabor-demo"):
+            create_clinic(db, {
+                "slug":                 "tabor-demo",
+                "name":                 "Tabor Demo Hospital",
+                "specialty":            "Multi-Specialty Hospital",
+                "agent_name":           "Aria",
+                "city_state":           "Austin, TX",
+                "timezone":             "Central Time (CT)",
+                "address":              "500 Healthcare Blvd, Austin, TX 78701",
+                "phone":                "(512) 555-0100",
+                "email":                "demo@taborsynergy.com",
+                "office_hours":         "24 hours / 7 days a week",
+                "after_hours_protocol": "Emergency department open 24/7. For life-threatening emergencies call 911.",
+                "providers":            "Dr. Sarah Chen (Chief of Medicine), Dr. James Rivera (Cardiology), Dr. Priya Patel (Dermatology), Dr. Michael Torres (Orthopedics), Dr. Emily Watson (OB-GYN), Dr. Robert Kim (Pediatrics)",
+                "services_offered":     "Emergency medicine, cardiology, dermatology, orthopedics, OB-GYN, pediatrics, family medicine, urgent care, radiology, lab work, surgery, ICU, pharmacy",
+                "insurance_accepted":   "Blue Cross Blue Shield, Aetna, Cigna, United Healthcare, Humana, Medicare, Medicaid, and most major insurance plans",
+                "pms_system":           "Epic",
+                "cancellation_policy":  "24-hour notice required. Emergency cancellations always waived.",
+                "escalation_contact":   "Nurse station — dial 0 | Emergency: dial 911",
+                "hipaa_verify_method":  "Full name + date of birth + last 4 digits of SSN",
+                "subscription_status":  "trial",
+                "monthly_rate":         997.0,
+                "customer_password_hash": hash_password("Demo@2024"),
+            })
+
     finally:
         db.close()
 
