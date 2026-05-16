@@ -13,6 +13,54 @@ from backend.config import settings
 logger = logging.getLogger(__name__)
 
 
+def send_trial_signup_email(data: dict) -> bool:
+    """
+    Notify admin when a new trial clinic signs up.
+    Returns True if sent, False if SMTP not configured or send fails.
+    """
+    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+        logger.warning("SMTP not configured — trial signup not emailed. Details: %s", data)
+        return False
+
+    subject = f"New Trial Signup — {data.get('practice_name', 'Unknown Practice')}"
+
+    body_lines = [
+        "A new practice just signed up for a 14-day free trial on Tabor Synergy.",
+        "",
+        f"Practice Name:  {data.get('practice_name', '—')}",
+        f"Specialty:      {data.get('specialty', '—')}",
+        f"Contact Email:  {data.get('contact_email', '—')}",
+        f"Phone:          {data.get('phone', '—') or '—'}",
+        f"Plan:           {data.get('plan', '—').title()}",
+        f"Monthly Rate:   ${data.get('monthly_rate', '—')}",
+        f"Trial Ends:     {data.get('trial_ends_at', '—')}",
+        f"Clinic Slug:    {data.get('slug', '—')}",
+        f"Chat URL:       {data.get('chat_url', '—')}",
+        "",
+        "— Tabor Synergy automated notification",
+    ]
+    body = "\n".join(body_lines)
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"]  = subject
+    msg["From"]     = settings.smtp_user
+    msg["To"]       = settings.notify_email
+    msg["Reply-To"] = data.get("contact_email", settings.smtp_user)
+    msg.attach(MIMEText(body, "plain"))
+
+    try:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(settings.smtp_user, settings.smtp_pass)
+            smtp.sendmail(settings.smtp_user, settings.notify_email, msg.as_string())
+        logger.info("Trial signup email sent for %s", data.get("contact_email"))
+        return True
+    except Exception:
+        logger.exception("Failed to send trial signup email")
+        return False
+
+
 def send_quote_email(data: dict) -> bool:
     """
     Send a White Label quote request to the notify_email address.
