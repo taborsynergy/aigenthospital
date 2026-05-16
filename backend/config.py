@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_default_number: str = ""    # Fallback sending number
 
+    # ── Email (SMTP) — for quote request notifications ───────────────
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""                  # Your sending Gmail / email address
+    smtp_pass: str = ""                  # App password (not your login password)
+    notify_email: str = "admin@tabor.taborsynergy.com"   # Where quote emails are delivered
+
     # ── Server ───────────────────────────────────────────────────────
     allowed_origins: str = "*"
     base_url: str = "https://aifrontdesk.taborsynergy.com"   # Used for Stripe redirect URLs

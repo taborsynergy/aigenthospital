@@ -1,6 +1,6 @@
 """
-Public self-service signup endpoint.
-Anyone can create a trial clinic — no admin password required.
+Public self-service endpoints: trial signup and White Label quote requests.
+No admin password required for either.
 """
 import logging
 import re
@@ -9,12 +9,13 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.config import settings
 from backend.db.database import get_db
 from backend.db import crud
+from backend.services.email_svc import send_quote_email
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -73,4 +74,30 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
         "plan":          plan,
         "monthly_rate":  rate,
         "trial_ends_at": trial_ends_at.strftime("%B %d, %Y"),
+    }
+
+
+# ── White Label quote request ─────────────────────────────────────────────────
+
+class QuoteRequest(BaseModel):
+    full_name: str
+    email: str
+    company: str
+    phone: str = ""
+    locations: str = ""
+    pms: str = ""
+    message: str = ""
+
+
+@router.post("/api/quote")
+def request_quote(body: QuoteRequest):
+    data = body.model_dump()
+    emailed = send_quote_email(data)
+    logger.info("Quote request from %s <%s> emailed=%s", body.company, body.email, emailed)
+    return {
+        "ok": True,
+        "emailed": emailed,
+        "message": (
+            "Thank you! We've received your request and will contact you within one business day."
+        ),
     }
