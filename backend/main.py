@@ -235,18 +235,21 @@ function doLogout() {{
 </html>""")
 
 
-# ── Startup: init DB + seed demo clinic ──────────────────────────────────────
+# ── Startup: init DB + seed demo clinics ─────────────────────────────────────
 @app.on_event("startup")
 def on_startup():
     init_db()
-    _seed_demo_clinic()
+    _seed_all_demo_clinics()
 
 
-def _seed_demo_clinic():
+def _seed_all_demo_clinics():
     from backend.db.database import SessionLocal
     from backend.db.crud import get_clinic as _get, create_clinic
+    from backend.routers.clinic_auth import hash_password
+
     db = SessionLocal()
     try:
+        # ── Original demo clinic ──────────────────────────────────────────────
         if not _get(db, "demo-clinic"):
             create_clinic(db, {
                 "slug":                 "demo-clinic",
@@ -270,6 +273,111 @@ def _seed_demo_clinic():
                 "subscription_status":  "trial",
                 "monthly_rate":         299.0,
             })
+
+        # ── STARTER — Smile Dental Care ───────────────────────────────────────
+        if not _get(db, "smile-dental-care"):
+            create_clinic(db, {
+                "slug":                 "smile-dental-care",
+                "name":                 "Smile Dental Care",
+                "specialty":            "Dentistry",
+                "agent_name":           "Aria",
+                "city_state":           "Dallas, TX",
+                "timezone":             "Central Time (CT)",
+                "address":              "450 Oak Avenue, Dallas, TX 75201",
+                "phone":                "(214) 555-0210",
+                "email":                "starter@trialhospital.com",
+                "office_hours":         "Mon–Fri 8am–6pm, Sat 9am–2pm",
+                "after_hours_protocol": "For dental emergencies call (214) 555-0211 or go to nearest urgent care.",
+                "providers":            "Dr. Emily Watson (DDS), Dr. James Nguyen (DMD)",
+                "services_offered":     "Cleanings, fillings, root canals, crowns, extractions, whitening, Invisalign, dentures, pediatric dentistry",
+                "insurance_accepted":   "Delta Dental, Cigna Dental, Aetna, MetLife, Guardian, United Healthcare",
+                "pms_system":           "Dentrix",
+                "cancellation_policy":  "48-hour notice required to avoid a $75 fee.",
+                "escalation_contact":   "Office manager — call (214) 555-0210",
+                "hipaa_verify_method":  "Full name + date of birth + last 4 digits of SSN",
+                "subscription_status":  "trial",
+                "monthly_rate":         199.0,
+                "customer_password_hash": hash_password("Starter@123"),
+            })
+
+        # ── PROFESSIONAL — City Family Clinic ─────────────────────────────────
+        if not _get(db, "city-family-clinic"):
+            create_clinic(db, {
+                "slug":                 "city-family-clinic",
+                "name":                 "City Family Clinic",
+                "specialty":            "Family Medicine",
+                "agent_name":           "Aria",
+                "city_state":           "Houston, TX",
+                "timezone":             "Central Time (CT)",
+                "address":              "780 Westheimer Rd, Houston, TX 77057",
+                "phone":                "(713) 555-0320",
+                "email":                "pro@trialhospital.com",
+                "office_hours":         "Mon–Sat 7am–7pm, Sun 9am–3pm",
+                "after_hours_protocol": "After-hours nurse line: (713) 555-0321. For emergencies call 911.",
+                "providers":            "Dr. Priya Sharma (MD), Dr. Kevin O'Brien (DO), NP Lisa Tran",
+                "services_offered":     "Annual physicals, sick visits, chronic disease management, vaccinations, lab work, pediatric care, women's health, telehealth",
+                "insurance_accepted":   "Aetna, BCBS, Cigna, United Healthcare, Humana, Medicare, Medicaid, Tricare",
+                "pms_system":           "Epic",
+                "cancellation_policy":  "24-hour notice required to avoid a $50 fee.",
+                "escalation_contact":   "Office supervisor — text (713) 555-0322",
+                "hipaa_verify_method":  "Full name + date of birth + last 4 digits of SSN",
+                "subscription_status":  "trial",
+                "monthly_rate":         299.0,
+                "customer_password_hash": hash_password("Pro@123"),
+            })
+
+        # ── ENTERPRISE — Global Care Hospital ────────────────────────────────
+        if not _get(db, "global-care-hospital"):
+            create_clinic(db, {
+                "slug":                 "global-care-hospital",
+                "name":                 "Global Care Hospital",
+                "specialty":            "Multi-Specialty Hospital",
+                "agent_name":           "Aria",
+                "city_state":           "New York, NY",
+                "timezone":             "Eastern Time (ET)",
+                "address":              "1 Hospital Plaza, New York, NY 10001",
+                "phone":                "(212) 555-0400",
+                "email":                "enterprise@trialhospital.com",
+                "office_hours":         "24 hours / 7 days a week",
+                "after_hours_protocol": "Emergency department open 24/7 at main entrance. Call 911 for life-threatening emergencies.",
+                "providers":            "Dr. Michael Torres (Chief of Medicine), Dr. Aisha Patel (Cardiology), Dr. Robert Kim (Orthopedics), Dr. Sandra Lee (OB-GYN), Dr. David Park (Oncology), Dr. Rachel Goldstein (Pediatrics), 40+ Specialists",
+                "services_offered":     "Emergency medicine, cardiology, orthopedics, oncology, OB-GYN, pediatrics, neurology, dermatology, ENT, ophthalmology, radiology, ICU, surgical suites, lab, pharmacy, physical therapy",
+                "insurance_accepted":   "All major insurance plans accepted — Aetna, BCBS, Cigna, United Healthcare, Humana, Medicare, Medicaid, Tricare, Oscar, Molina, Anthem, and self-pay options available",
+                "pms_system":           "Epic (Enterprise)",
+                "cancellation_policy":  "24-hour notice required. Emergency cancellations waived.",
+                "escalation_contact":   "Patient Relations — call (212) 555-0401 | Emergency: dial 911",
+                "hipaa_verify_method":  "Full name + date of birth + medical record number (MRN) or last 4 SSN",
+                "subscription_status":  "trial",
+                "monthly_rate":         499.0,
+                "customer_password_hash": hash_password("Enterprise@123"),
+            })
+
+        # ── WHITE LABEL — MedTech Solutions ──────────────────────────────────
+        if not _get(db, "medtech-solutions"):
+            create_clinic(db, {
+                "slug":                 "medtech-solutions",
+                "name":                 "MedTech Solutions",
+                "specialty":            "Healthcare Technology Platform",
+                "agent_name":           "Aria",
+                "city_state":           "San Francisco, CA",
+                "timezone":             "Pacific Time (PT)",
+                "address":              "500 Tech Boulevard, San Francisco, CA 94105",
+                "phone":                "(415) 555-0500",
+                "email":                "whitelabel@trialhospital.com",
+                "office_hours":         "Mon–Fri 8am–6pm PT | API available 24/7",
+                "after_hours_protocol": "For technical emergencies contact support@medtechsolutions.com or call (415) 555-0501.",
+                "providers":            "Platform supports unlimited provider configurations | Demo: Dr. Alex Morgan (Chief Medical Officer)",
+                "services_offered":     "White-label AI front desk platform, custom branding, API integrations, EHR connectors, multi-location management, analytics dashboard, SMS/email automation, custom workflow builder",
+                "insurance_accepted":   "Configurable per client — all major payers supported via API",
+                "pms_system":           "Custom API (Supports Epic, Cerner, Athenahealth, Dentrix, eClinicalWorks)",
+                "cancellation_policy":  "Per client SLA configuration. Default: 24-hour notice.",
+                "escalation_contact":   "Technical Account Manager — support@medtechsolutions.com | (415) 555-0501",
+                "hipaa_verify_method":  "Configurable per client. Default: Full name + date of birth + last 4 SSN",
+                "subscription_status":  "trial",
+                "monthly_rate":         499.0,
+                "customer_password_hash": hash_password("White@123"),
+            })
+
     finally:
         db.close()
 
