@@ -378,20 +378,22 @@ function showDash() {{
     "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + encodeURIComponent(patientUrl);
 
   var ecEl = document.getElementById("embed-code");
-  if (ecEl) ecEl.textContent =
-    "<!-- Tabor Synergy — " + NAME + " AI Chat -->\n" +
-    "<script>\n" +
-    "  window.ARIA_CLINIC_SLUG = \\"" + SLUG + "\\";\n" +
-    "<\\/script>\n" +
-    "<script src=\\"" + window.location.origin + "/widget.js\\" async><\\/script>";
+  if (ecEl) ecEl.textContent = `<!-- Tabor Synergy — ${{NAME}} AI Chat -->
+<script>
+  window.ARIA_CLINIC_SLUG = "${{SLUG}}";
+<\\/script>
+<script src="${{window.location.origin}}/widget.js" async><\\/script>`;
 
   var imEl = document.getElementById("invite-msg");
-  if (imEl) imEl.textContent =
-    "Hi! 👋\n\n" +
-    "You can now chat with our AI front desk assistant " + AGENT + " at " + NAME + ".\n\n" +
-    "Book appointments, check insurance, ask billing questions, and more — anytime, 24/7.\n\n" +
-    "💬 Start chatting: " + patientUrl + "\n\n" +
-    "Reply STOP to opt out.";
+  if (imEl) imEl.textContent = `Hi! 👋
+
+You can now chat with our AI front desk assistant ${{AGENT}} at ${{NAME}}.
+
+Book appointments, check insurance, ask billing questions, and more — anytime, 24/7.
+
+💬 Start chatting: ${{patientUrl}}
+
+Reply STOP to opt out.`;
 
   if (!window._widgetLoaded) {{
     window.ARIA_CLINIC_SLUG = SLUG;
