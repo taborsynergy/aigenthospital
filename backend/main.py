@@ -89,7 +89,13 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
     }}
     .btn-login:hover {{ background: #1E3A8A; }}
     .btn-login:disabled {{ background: #93C5FD; cursor: not-allowed; }}
-    .login-err {{ color: #DC2626; font-size: 13px; margin-top: 10px; min-height: 18px; }}
+    .login-err {{
+      display: none; background: #FEE2E2; border: 1px solid #FCA5A5;
+      color: #991B1B; font-size: 14px; font-weight: 500;
+      padding: 10px 14px; border-radius: 8px; margin-top: 14px;
+      text-align: left; line-height: 1.5;
+    }}
+    .login-err.show {{ display: block; }}
     .login-footer {{ font-size: 12px; color: #9CA3AF; margin-top: 20px; }}
     .login-footer a {{ color: #3B82F6; text-decoration: none; }}
 
@@ -285,10 +291,19 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
 
     <!-- ── TAB 2: Try Aria ── -->
     <div id="tab-try" class="tab-panel">
-      <div class="aria-hint">
-        <strong>💬 Test Your AI Front Desk</strong>
-        Try everything your patients will experience — appointment booking, insurance questions,
-        billing, rescheduling, and more. The chat bubble is in the bottom-right corner.
+      <div class="share-card" style="text-align:center;padding:28px 24px;">
+        <div style="font-size:48px;margin-bottom:12px;">💬</div>
+        <h2 style="margin:0 0 8px;">Chat with {clinic.agent_name} Now</h2>
+        <p style="color:#6B7280;margin:0 0 20px;">Experience exactly what your patients will see when they reach out.</p>
+        <a id="open-chat-btn" href="/chat/{clinic_slug}" target="_blank"
+           style="display:inline-block;background:#1E40AF;color:#fff;text-align:center;
+                  padding:14px 32px;border-radius:8px;font-weight:700;text-decoration:none;
+                  font-size:16px;letter-spacing:.3px;">
+          Open Patient Chat →
+        </a>
+        <p style="margin-top:14px;font-size:13px;color:#9CA3AF;">
+          Or use the 💬 bubble in the bottom-right corner of this page.
+        </p>
       </div>
       <div class="share-card">
         <h2>Test scenarios to try:</h2>
@@ -391,7 +406,8 @@ function doLogin(e) {{
   e.preventDefault();
   var btn = document.getElementById("login-btn");
   var err = document.getElementById("login-err");
-  btn.disabled = true; btn.textContent = "Signing in…"; err.textContent = "";
+  btn.disabled = true; btn.textContent = "Signing in…";
+  err.classList.remove("show"); err.textContent = "";
   fetch("/api/clinic-auth/login", {{
     method: "POST",
     headers: {{ "Content-Type": "application/json" }},
@@ -406,7 +422,7 @@ function doLogin(e) {{
   .then(function(res) {{
     if (!res.ok) {{
       var msg = (res.data && (res.data.error || res.data.detail)) || "Login failed. Please try again.";
-      err.textContent = msg;
+      err.textContent = msg; err.classList.add("show");
       return;
     }}
     localStorage.setItem(TKEY, res.data.token);
@@ -415,11 +431,13 @@ function doLogin(e) {{
     }} catch (dashErr) {{
       console.error("Dashboard init error:", dashErr);
       err.textContent = "Login succeeded but dashboard failed to load — please refresh the page.";
+      err.classList.add("show");
     }}
   }})
   .catch(function(fetchErr) {{
     console.error("Login error:", fetchErr);
     err.textContent = "Connection error. Please check your internet and try again.";
+    err.classList.add("show");
   }})
   .finally(function() {{ btn.disabled = false; btn.textContent = "Sign In →"; }});
 }}
