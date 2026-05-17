@@ -535,9 +535,13 @@ async def patient_chat_page(clinic_slug: str, db: Session = Depends(get_db)):
 @app.on_event("startup")
 def on_startup():
     from backend.db.database import migrate_db
+    _log = logging.getLogger(__name__)
     init_db()
     migrate_db()
-    _seed_all_demo_clinics()
+    try:
+        _seed_all_demo_clinics()
+    except Exception:
+        _log.warning("Demo clinic seeding failed — non-fatal, continuing startup", exc_info=True)
 
 
 def _seed_all_demo_clinics():
@@ -546,15 +550,24 @@ def _seed_all_demo_clinics():
     from backend.db.models import Clinic
     from backend.routers.clinic_auth import hash_password
 
-    def _exists(db, slug: str) -> bool:
-        # Check by slug only — ignores is_active so a soft-deleted row blocks re-insert
-        return db.query(Clinic.id).filter(Clinic.slug == slug).first() is not None
+    _log = logging.getLogger(__name__)
+
+    def _try_seed(db, data: dict) -> None:
+        slug = data["slug"]
+        try:
+            if db.query(Clinic.id).filter(Clinic.slug == slug).first() is None:
+                create_clinic(db, data)
+                _log.info("Seeded demo clinic: %s", slug)
+            # else: already exists — skip silently
+        except Exception as exc:
+            db.rollback()
+            _log.debug("Seed skipped for %s (already exists): %s", slug, exc)
 
     db = SessionLocal()
     try:
         # ── Original demo clinic ──────────────────────────────────────────────
-        if not _exists(db, "demo-clinic"):
-            create_clinic(db, {
+        _try_seed(db, {
+            "slug":                 "demo-clinic",
                 "slug":                 "demo-clinic",
                 "name":                 "Sunshine Medical Group",
                 "specialty":            "Family Medicine",
@@ -578,8 +591,7 @@ def _seed_all_demo_clinics():
             })
 
         # ── STARTER — Smile Dental Care ───────────────────────────────────────
-        if not _exists(db, "smile-dental-care"):
-            create_clinic(db, {
+        _try_seed(db, {
                 "slug":                 "smile-dental-care",
                 "name":                 "Smile Dental Care",
                 "specialty":            "Dentistry",
@@ -604,8 +616,7 @@ def _seed_all_demo_clinics():
             })
 
         # ── PROFESSIONAL — City Family Clinic ─────────────────────────────────
-        if not _exists(db, "city-family-clinic"):
-            create_clinic(db, {
+        _try_seed(db, {
                 "slug":                 "city-family-clinic",
                 "name":                 "City Family Clinic",
                 "specialty":            "Family Medicine",
@@ -630,8 +641,7 @@ def _seed_all_demo_clinics():
             })
 
         # ── ENTERPRISE — Global Care Hospital ────────────────────────────────
-        if not _exists(db, "global-care-hospital"):
-            create_clinic(db, {
+        _try_seed(db, {
                 "slug":                 "global-care-hospital",
                 "name":                 "Global Care Hospital",
                 "specialty":            "Multi-Specialty Hospital",
@@ -656,8 +666,7 @@ def _seed_all_demo_clinics():
             })
 
         # ── WHITE LABEL — MedTech Solutions ──────────────────────────────────
-        if not _exists(db, "medtech-solutions"):
-            create_clinic(db, {
+        _try_seed(db, {
                 "slug":                 "medtech-solutions",
                 "name":                 "MedTech Solutions",
                 "specialty":            "Healthcare Technology Platform",
@@ -682,8 +691,7 @@ def _seed_all_demo_clinics():
             })
 
         # ── DEMO RECORDING CLINIC — Tabor Demo Hospital ───────────────────────
-        if not _exists(db, "tabor-demo"):
-            create_clinic(db, {
+        _try_seed(db, {
                 "slug":                 "tabor-demo",
                 "name":                 "Tabor Demo Hospital",
                 "specialty":            "Multi-Specialty Hospital",
