@@ -14,7 +14,10 @@ class Settings(BaseSettings):
     admin_password: str = "admin123"
     admin_panel_path: str = "/ts-mgmt"   # Secret URL — change via ADMIN_PANEL_PATH env var
 
-    # ── Stripe ───────────────────────────────────────────────────────
+    # ── PayPal ───────────────────────────────────────────────────────
+    paypal_me_url: str = "https://www.paypal.com/paypalme/write2dinakar"
+
+    # ── Stripe (legacy — not required) ───────────────────────────────
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_price_id: str = ""          # Monthly subscription price ID

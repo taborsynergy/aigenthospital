@@ -14,7 +14,6 @@ from backend.config import settings
 from backend.db.database import get_db
 from backend.db import crud
 from backend.agent.aria import invalidate_prompt
-from backend.services import stripe_svc
 
 router = APIRouter(prefix="/admin/api")
 logger = logging.getLogger(__name__)
@@ -200,26 +199,14 @@ def overall_stats(db: Session = Depends(get_db)):
 
 @router.post("/clinics/{slug}/checkout", dependencies=[Depends(require_admin)])
 def create_checkout(slug: str, db: Session = Depends(get_db)):
+    """Build a PayPal.me payment link pre-filled with the clinic's monthly rate."""
     clinic = crud.get_clinic(db, slug)
     if not clinic:
         raise HTTPException(404, "Clinic not found.")
-    result = stripe_svc.create_checkout_session(
-        clinic_slug=slug,
-        clinic_name=clinic.name,
-        customer_email=clinic.email,
-    )
-    return result
-
-
-@router.delete("/clinics/{slug}/subscription", dependencies=[Depends(require_admin)])
-def cancel_subscription(slug: str, db: Session = Depends(get_db)):
-    clinic = crud.get_clinic(db, slug)
-    if not clinic or not clinic.stripe_subscription_id:
-        raise HTTPException(404, "No active subscription found.")
-    ok = stripe_svc.cancel_subscription(clinic.stripe_subscription_id)
-    if ok:
-        crud.update_clinic(db, slug, {"subscription_status": "cancelled"})
-    return {"cancelled": ok}
+    base = settings.paypal_me_url.rstrip("/")
+    amount = int(clinic.monthly_rate) if clinic.monthly_rate == int(clinic.monthly_rate) else clinic.monthly_rate
+    url = f"{base}/{amount}"
+    return {"url": url, "method": "paypal"}
 
 
 # ── SMS ───────────────────────────────────────────────────────────────────────

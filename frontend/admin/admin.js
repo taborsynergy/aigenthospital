@@ -431,13 +431,17 @@ function renderBilling(data) {
     return;
   }
   tbody.innerHTML = data.map(function (c) {
+    var noteSnippet = c.admin_notes
+      ? esc(c.admin_notes.slice(0, 50)) + (c.admin_notes.length > 50 ? "…" : "")
+      : '<em style="color:#cbd5e1">No notes</em>';
     return '<tr>' +
-      '<td><strong>' + esc(c.name) + '</strong></td>' +
+      '<td><strong>' + esc(c.name) + '</strong><br><small style="color:#64748b">' + esc(c.email) + '</small></td>' +
       '<td><span class="badge badge-' + c.subscription_status + '">' + c.subscription_status + '</span></td>' +
-      '<td>$' + c.monthly_rate + '/mo</td>' +
-      '<td>' + (c.stripe_customer_id || '—') + '</td>' +
+      '<td style="font-weight:600">$' + c.monthly_rate + '/mo</td>' +
+      '<td style="font-size:12px;color:#64748b">' + noteSnippet + '</td>' +
       '<td>' +
-        '<button class="btn btn-primary btn-sm" onclick="sendCheckout(\'' + c.slug + '\')">Send Invoice Link</button>' +
+        '<button class="btn btn-primary btn-sm" onclick="sendCheckout(\'' + c.slug + '\')">Send PayPal Link</button> ' +
+        '<button class="btn btn-sm" style="background:#059669;color:#fff" onclick="activateClinic(\'' + c.slug + '\')">Activate 30d</button>' +
       '</td>' +
     '</tr>';
   }).join("");
@@ -448,15 +452,15 @@ function sendCheckout(slug) {
     .then(function (r) { return r.json(); })
     .then(function (data) {
       if (data.url) {
-        var label = data.mock ? "Mock checkout URL copied (Stripe not configured). Send to clinic:" : "Checkout link copied! Send it to the clinic.";
+        var label = "PayPal link copied! Send it to the clinic, then click Activate 30d after payment.";
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(data.url).then(function () {
             toast(label);
           }).catch(function () {
-            prompt("Copy this link and send it to the clinic:", data.url);
+            prompt("Copy this PayPal link and send it to the clinic:", data.url);
           });
         } else {
-          prompt("Copy this link and send it to the clinic:", data.url);
+          prompt("Copy this PayPal link and send it to the clinic:", data.url);
         }
       } else {
         toast("Error: " + (data.error || "Unknown"), true);
