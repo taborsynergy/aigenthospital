@@ -31,7 +31,7 @@ origins = ["*"] if settings.allowed_origins == "*" else settings.allowed_origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_credentials=origins != ["*"],  # wildcard + credentials is invalid per CORS spec
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -348,22 +348,30 @@ function copyText(elemId, btn) {{
 }}
 
 function showDash() {{
-  document.getElementById("login-screen").style.display = "none";
-  document.getElementById("dash-screen").style.display  = "block";
+  var loginEl = document.getElementById("login-screen");
+  var dashEl  = document.getElementById("dash-screen");
+  if (loginEl) loginEl.style.display = "none";
+  if (dashEl)  dashEl.style.display  = "block";
 
   var patientUrl = window.location.origin + "/chat/" + SLUG;
-  document.getElementById("patient-url").textContent = patientUrl;
-  document.getElementById("qr-img").src =
+
+  var puEl = document.getElementById("patient-url");
+  if (puEl) puEl.textContent = patientUrl;
+
+  var qrEl = document.getElementById("qr-img");
+  if (qrEl) qrEl.src =
     "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + encodeURIComponent(patientUrl);
 
-  document.getElementById("embed-code").textContent =
+  var ecEl = document.getElementById("embed-code");
+  if (ecEl) ecEl.textContent =
     "<!-- Tabor Synergy — " + NAME + " AI Chat -->\n" +
     "<script>\n" +
     "  window.ARIA_CLINIC_SLUG = \\"" + SLUG + "\\";\n" +
     "<\\/script>\n" +
     "<script src=\\"" + window.location.origin + "/widget.js\\" async><\\/script>";
 
-  document.getElementById("invite-msg").textContent =
+  var imEl = document.getElementById("invite-msg");
+  if (imEl) imEl.textContent =
     "Hi! 👋\n\n" +
     "You can now chat with our AI front desk assistant " + AGENT + " at " + NAME + ".\n\n" +
     "Book appointments, check insurance, ask billing questions, and more — anytime, 24/7.\n\n" +
@@ -392,11 +400,26 @@ function doLogin(e) {{
       password: document.getElementById("l-pass").value,
     }}),
   }})
-  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(r) {{
+    return r.json().then(function(d) {{ return {{ ok: r.ok, status: r.status, data: d }}; }});
+  }})
   .then(function(res) {{
-    if (!res.ok) {{ err.textContent = res.data.error || "Login failed."; return; }}
+    if (!res.ok) {{
+      var msg = (res.data && (res.data.error || res.data.detail)) || "Login failed. Please try again.";
+      err.textContent = msg;
+      return;
+    }}
     localStorage.setItem(TKEY, res.data.token);
-    showDash();
+    try {{
+      showDash();
+    }} catch (dashErr) {{
+      console.error("Dashboard init error:", dashErr);
+      err.textContent = "Login succeeded but dashboard failed to load — please refresh the page.";
+    }}
+  }})
+  .catch(function(fetchErr) {{
+    console.error("Login error:", fetchErr);
+    err.textContent = "Connection error. Please check your internet and try again.";
   }})
   .finally(function() {{ btn.disabled = false; btn.textContent = "Sign In →"; }});
 }}
@@ -415,8 +438,11 @@ function doLogout() {{
   var token = localStorage.getItem(TKEY);
   if (!token) return;
   fetch("/api/clinic-auth/verify", {{ headers: {{ "X-Clinic-Token": token }} }})
-    .then(function(r) {{ if (r.ok) showDash(); else localStorage.removeItem(TKEY); }})
-    .catch(function() {{}});
+    .then(function(r) {{
+      if (r.ok) {{ try {{ showDash(); }} catch(e) {{ localStorage.removeItem(TKEY); }} }}
+      else {{ localStorage.removeItem(TKEY); }}
+    }})
+    .catch(function() {{ localStorage.removeItem(TKEY); }});
 }})();
 </script>
 </body>
@@ -508,7 +534,9 @@ async def patient_chat_page(clinic_slug: str, db: Session = Depends(get_db)):
 # ── Startup: init DB + seed demo clinics ─────────────────────────────────────
 @app.on_event("startup")
 def on_startup():
+    from backend.db.database import migrate_db
     init_db()
+    migrate_db()
     _seed_all_demo_clinics()
 
 

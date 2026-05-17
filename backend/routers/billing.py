@@ -4,11 +4,13 @@ POST /billing/webhook — called by Stripe for subscription events.
 """
 import logging
 
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy.orm import Session
 
 from backend.db.database import get_db
-from backend.db.crud import get_clinic_by_stripe_customer, update_clinic
+from backend.db.crud import get_clinic_by_stripe_customer, update_clinic, get_clinic
 from backend.services.stripe_svc import handle_webhook
 
 router = APIRouter(prefix="/billing")
@@ -37,11 +39,17 @@ async def stripe_webhook(
         customer_id = session.get("customer")
         subscription_id = session.get("subscription")
         if slug:
-            update_clinic(db, slug, {
+            now = datetime.utcnow()
+            existing = get_clinic(db, slug)
+            update_data = {
                 "stripe_customer_id":     customer_id or "",
                 "stripe_subscription_id": subscription_id or "",
                 "subscription_status":    "active",
-            })
+                "subscription_ends_at":   now + timedelta(days=30),
+            }
+            if existing and not existing.activated_at:
+                update_data["activated_at"] = now
+            update_clinic(db, slug, update_data)
             logger.info("Clinic %s activated via Stripe checkout", slug)
 
     elif etype in ("customer.subscription.updated", "customer.subscription.deleted"):

@@ -3,7 +3,7 @@ Admin API — protected by X-Admin-Password header.
 Provides CRUD for clinics, usage stats, and billing actions.
 """
 import logging
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse
@@ -51,6 +51,7 @@ class ClinicIn(BaseModel):
     hipaa_verify_method: str = "Full name + date of birth + last 4 digits of SSN"
     twilio_phone: str = ""
     monthly_rate: float = 299.0
+    initial_password: Optional[str] = None   # optional portal login password set at creation time
 
 
 class ClinicPatch(BaseModel):
@@ -74,7 +75,7 @@ class ClinicPatch(BaseModel):
     hipaa_verify_method: Optional[str] = None
     twilio_phone: Optional[str] = None
     monthly_rate: Optional[float] = None
-    subscription_status: Optional[str] = None   # trial | active | past_due | cancelled
+    subscription_status: Optional[Literal["trial", "active", "past_due", "cancelled"]] = None
 
 
 class SmsRequest(BaseModel):
@@ -94,7 +95,13 @@ def list_clinics(db: Session = Depends(get_db)):
 def create_clinic(body: ClinicIn, db: Session = Depends(get_db)):
     if crud.get_clinic(db, body.slug):
         raise HTTPException(400, f"Slug '{body.slug}' already exists.")
-    clinic = crud.create_clinic(db, body.model_dump())
+    data = body.model_dump(exclude={"initial_password"})
+    if body.initial_password:
+        from backend.routers.clinic_auth import hash_password
+        if len(body.initial_password) < 6:
+            raise HTTPException(400, "initial_password must be at least 6 characters.")
+        data["customer_password_hash"] = hash_password(body.initial_password)
+    clinic = crud.create_clinic(db, data)
     return _serialize(clinic)
 
 
@@ -135,6 +142,23 @@ def activate_subscription(slug: str, db: Session = Depends(get_db)):
 
 class NotesRequest(BaseModel):
     notes: str
+
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str
+
+
+@router.post("/clinics/{slug}/reset-password", dependencies=[Depends(require_admin)])
+def reset_clinic_password(slug: str, body: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Reset a clinic's portal login password."""
+    from backend.routers.clinic_auth import hash_password
+    if len(body.new_password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters.")
+    clinic = crud.update_clinic(db, slug, {"customer_password_hash": hash_password(body.new_password)})
+    if not clinic:
+        raise HTTPException(404, "Clinic not found.")
+    logger.info("Password reset by admin for clinic: %s", slug)
+    return {"ok": True, "slug": slug}
 
 
 @router.patch("/clinics/{slug}/notes", dependencies=[Depends(require_admin)])

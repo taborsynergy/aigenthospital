@@ -52,9 +52,14 @@ class LoginRequest(BaseModel):
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     clinic = crud.get_clinic_by_email(db, body.email)
     if not clinic:
-        return JSONResponse(status_code=401, content={"error": "Invalid email or password."})
+        logger.warning("Login failed — no clinic found for email: %s", body.email)
+        return JSONResponse(status_code=401, content={"error": "No account found with that email address."})
+    if not clinic.customer_password_hash:
+        logger.warning("Login failed — clinic %s has no password set", clinic.slug)
+        return JSONResponse(status_code=401, content={"error": "No password set for this account. Contact admin@tabor.taborsynergy.com"})
     if not verify_password(body.password, clinic.customer_password_hash):
-        return JSONResponse(status_code=401, content={"error": "Invalid email or password."})
+        logger.warning("Login failed — wrong password for clinic: %s", clinic.slug)
+        return JSONResponse(status_code=401, content={"error": "Incorrect password. Please try again."})
 
     token = uuid.uuid4().hex
     crud.set_session_token(db, clinic.id, token)

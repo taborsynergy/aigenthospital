@@ -25,7 +25,10 @@ def get_clinic_by_stripe_customer(db: Session, customer_id: str) -> Optional[Cli
 
 
 def get_clinic_by_email(db: Session, email: str) -> Optional[Clinic]:
-    return db.query(Clinic).filter(Clinic.email == email, Clinic.is_active == True).first()
+    return db.query(Clinic).filter(
+        func.lower(Clinic.email) == email.lower().strip(),
+        Clinic.is_active == True,
+    ).first()
 
 
 def get_clinic_by_token(db: Session, token: str) -> Optional[Clinic]:
@@ -42,7 +45,7 @@ def set_session_token(db: Session, clinic_id: int, token: str) -> None:
 
 
 def list_clinics(db: Session) -> list[Clinic]:
-    return db.query(Clinic).order_by(Clinic.created_at.desc()).all()
+    return db.query(Clinic).filter(Clinic.is_active == True).order_by(Clinic.created_at.desc()).all()
 
 
 def create_clinic(db: Session, data: dict) -> Clinic:
@@ -67,15 +70,17 @@ def update_clinic(db: Session, slug: str, data: dict) -> Optional[Clinic]:
 
 
 def activate_subscription(db: Session, slug: str) -> Optional[Clinic]:
-    """Mark a clinic as active and set subscription_ends_at 30 days from now."""
+    """Mark a clinic as active and add 30 days — stacks on top of any remaining days."""
     clinic = get_clinic(db, slug)
     if not clinic:
         return None
     now = datetime.utcnow()
     clinic.subscription_status = "active"
-    clinic.subscription_ends_at = now + timedelta(days=30)
+    # Extend from current end if still in the future, otherwise from now
+    base = clinic.subscription_ends_at if (clinic.subscription_ends_at and clinic.subscription_ends_at > now) else now
+    clinic.subscription_ends_at = base + timedelta(days=30)
     if not clinic.activated_at:
-        clinic.activated_at = now   # record first payment date
+        clinic.activated_at = now
     db.commit()
     db.refresh(clinic)
     return clinic

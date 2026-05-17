@@ -109,7 +109,7 @@
     </div>
 
     <!-- ── Clinics tab ─────────────────────────────────────────── -->
-    <div id="tab-clinics" class="tab-content active">
+    <div id="tab-clinics" class="tab-content">
       <div class="stat-cards">
         <div class="stat-card">
           <div class="label">Total Clinics</div>
@@ -352,6 +352,11 @@
             <input name="monthly_rate" type="number" step="0.01" placeholder="299"/>
           </div>
 
+          <div class="field form-full" id="initial-password-field">
+            <label>Portal Login Password <small style="color:#64748b;font-weight:400">(optional — min 6 chars; use Reset Pw later if skipped)</small></label>
+            <input name="initial_password" type="password" placeholder="Set a password the clinic uses to log in"/>
+          </div>
+
         </div><!-- /form-grid -->
       </form>
     </div>
@@ -380,6 +385,29 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeNotesModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveNotes()">Save Notes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Reset Password Modal ───────────────────────────────────────── -->
+<div id="resetpw-modal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h3>Reset Password — <span id="resetpw-clinic-name"></span></h3>
+      <button class="modal-close" onclick="closeResetPw()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:#64748b;margin-bottom:12px">
+        Set a new portal login password for this clinic. Share the new password with the doctor securely.
+      </p>
+      <input id="resetpw-input" type="password" placeholder="New password (min. 6 chars)"
+        style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:14px"
+        onkeydown="if(event.key==='Enter') saveResetPw()" />
+      <div id="resetpw-error" style="color:#DC2626;font-size:13px;margin-top:8px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeResetPw()">Cancel</button>
+      <button class="btn btn-primary" style="background:#6D28D9" onclick="saveResetPw()">Reset Password</button>
     </div>
   </div>
 </div>

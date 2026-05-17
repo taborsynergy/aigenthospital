@@ -294,6 +294,7 @@ function renderClinics(data) {
         '<button class="btn btn-green btn-sm" onclick="openChat(\'' + c.slug + '\')">Chat</button> ' +
         '<button class="btn btn-sm" style="background:#059669;color:#fff" onclick="activateClinic(\'' + c.slug + '\')">Activate 30d</button> ' +
         '<button class="btn btn-sm" style="background:#DC2626;color:#fff" onclick="suspendClinic(\'' + c.slug + '\')">Suspend</button> ' +
+        '<button class="btn btn-sm" style="background:#6D28D9;color:#fff" onclick="openResetPw(\'' + c.slug + '\',\'' + esc(c.name) + '\')">Reset Pw</button> ' +
         '<button class="btn btn-danger btn-sm" onclick="deleteClinic(\'' + c.slug + '\')">Delete</button>' +
       '</td>' +
     '</tr>';
@@ -342,6 +343,7 @@ function openAddClinic() {
   document.getElementById("modal-title").textContent = "Add New Clinic";
   document.getElementById("clinic-form").reset();
   document.getElementById("field-slug").disabled = false;
+  document.getElementById("initial-password-field").style.display = "";
   openModal();
 }
 
@@ -357,6 +359,8 @@ function editClinic(slug) {
     if (el) el.value = c[k] || "";
   });
   document.getElementById("field-slug").disabled = true;
+  // Password field not shown when editing — use "Reset Pw" button instead
+  document.getElementById("initial-password-field").style.display = "none";
   openModal();
 }
 
@@ -369,6 +373,8 @@ function submitClinic(e) {
   var data = {};
   new FormData(form).forEach(function (v, k) { data[k] = v; });
   data.monthly_rate = parseFloat(data.monthly_rate) || 299;
+  // On edit, strip initial_password — use Reset Pw endpoint instead
+  if (editingSlug) delete data.initial_password;
 
   var url    = editingSlug ? API + "/admin/api/clinics/" + editingSlug : API + "/admin/api/clinics";
   var method = editingSlug ? "PATCH" : "POST";
@@ -442,10 +448,16 @@ function sendCheckout(slug) {
     .then(function (r) { return r.json(); })
     .then(function (data) {
       if (data.url) {
-        var msg = data.mock
-          ? "Mock checkout URL (Stripe not configured):\n" + data.url
-          : "Checkout URL (send to clinic):\n" + data.url;
-        prompt("Copy this link and send it to the clinic:", data.url);
+        var label = data.mock ? "Mock checkout URL copied (Stripe not configured). Send to clinic:" : "Checkout link copied! Send it to the clinic.";
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(data.url).then(function () {
+            toast(label);
+          }).catch(function () {
+            prompt("Copy this link and send it to the clinic:", data.url);
+          });
+        } else {
+          prompt("Copy this link and send it to the clinic:", data.url);
+        }
       } else {
         toast("Error: " + (data.error || "Unknown"), true);
       }
@@ -506,6 +518,35 @@ function loadSmsConvos(slug) {
         '</tr>';
       }).join("");
     });
+}
+
+// ── Reset Password modal ──────────────────────────────────────────
+var resetPwSlug = "";
+function openResetPw(slug, name) {
+  resetPwSlug = slug;
+  document.getElementById("resetpw-clinic-name").textContent = name;
+  document.getElementById("resetpw-input").value = "";
+  document.getElementById("resetpw-error").textContent = "";
+  document.getElementById("resetpw-modal").classList.remove("hidden");
+  setTimeout(function () { document.getElementById("resetpw-input").focus(); }, 100);
+}
+function closeResetPw() {
+  document.getElementById("resetpw-modal").classList.add("hidden");
+}
+function saveResetPw() {
+  var pw = document.getElementById("resetpw-input").value.trim();
+  if (pw.length < 6) {
+    document.getElementById("resetpw-error").textContent = "Password must be at least 6 characters.";
+    return;
+  }
+  fetch(API + "/admin/api/clinics/" + resetPwSlug + "/reset-password", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ new_password: pw }),
+  })
+    .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+    .then(function () { closeResetPw(); toast("Password reset successfully."); })
+    .catch(function () { document.getElementById("resetpw-error").textContent = "Error resetting password."; });
 }
 
 // ── Utilities ─────────────────────────────────────────────────────

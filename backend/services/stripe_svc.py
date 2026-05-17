@@ -23,7 +23,7 @@ def create_checkout_session(clinic_slug: str, clinic_name: str,
                              customer_email: str = "") -> dict:
     stripe = _client()
     if not stripe or not settings.stripe_price_id:
-        mock_url = f"{settings.base_url}/admin?checkout=mock&clinic={clinic_slug}"
+        mock_url = f"{settings.base_url}/ts-mgmt/?checkout=mock&clinic={clinic_slug}"
         logger.warning("Stripe not configured — returning mock checkout URL")
         return {"url": mock_url, "mock": True}
 
@@ -31,8 +31,8 @@ def create_checkout_session(clinic_slug: str, clinic_name: str,
         params = {
             "mode": "subscription",
             "line_items": [{"price": settings.stripe_price_id, "quantity": 1}],
-            "success_url": f"{settings.base_url}/admin?checkout=success&clinic={clinic_slug}",
-            "cancel_url":  f"{settings.base_url}/admin?checkout=cancelled&clinic={clinic_slug}",
+            "success_url": f"{settings.base_url}/ts-mgmt/?checkout=success&clinic={clinic_slug}",
+            "cancel_url":  f"{settings.base_url}/ts-mgmt/?checkout=cancelled&clinic={clinic_slug}",
             "metadata":    {"clinic_slug": clinic_slug},
             "subscription_data": {"metadata": {"clinic_slug": clinic_slug}},
         }
