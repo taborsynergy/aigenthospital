@@ -542,13 +542,18 @@ def on_startup():
 
 def _seed_all_demo_clinics():
     from backend.db.database import SessionLocal
-    from backend.db.crud import get_clinic as _get, create_clinic
+    from backend.db.crud import create_clinic
+    from backend.db.models import Clinic
     from backend.routers.clinic_auth import hash_password
+
+    def _exists(db, slug: str) -> bool:
+        # Check by slug only — ignores is_active so a soft-deleted row blocks re-insert
+        return db.query(Clinic.id).filter(Clinic.slug == slug).first() is not None
 
     db = SessionLocal()
     try:
         # ── Original demo clinic ──────────────────────────────────────────────
-        if not _get(db, "demo-clinic"):
+        if not _exists(db, "demo-clinic"):
             create_clinic(db, {
                 "slug":                 "demo-clinic",
                 "name":                 "Sunshine Medical Group",
@@ -573,7 +578,7 @@ def _seed_all_demo_clinics():
             })
 
         # ── STARTER — Smile Dental Care ───────────────────────────────────────
-        if not _get(db, "smile-dental-care"):
+        if not _exists(db, "smile-dental-care"):
             create_clinic(db, {
                 "slug":                 "smile-dental-care",
                 "name":                 "Smile Dental Care",
@@ -599,7 +604,7 @@ def _seed_all_demo_clinics():
             })
 
         # ── PROFESSIONAL — City Family Clinic ─────────────────────────────────
-        if not _get(db, "city-family-clinic"):
+        if not _exists(db, "city-family-clinic"):
             create_clinic(db, {
                 "slug":                 "city-family-clinic",
                 "name":                 "City Family Clinic",
@@ -625,7 +630,7 @@ def _seed_all_demo_clinics():
             })
 
         # ── ENTERPRISE — Global Care Hospital ────────────────────────────────
-        if not _get(db, "global-care-hospital"):
+        if not _exists(db, "global-care-hospital"):
             create_clinic(db, {
                 "slug":                 "global-care-hospital",
                 "name":                 "Global Care Hospital",
@@ -651,7 +656,7 @@ def _seed_all_demo_clinics():
             })
 
         # ── WHITE LABEL — MedTech Solutions ──────────────────────────────────
-        if not _get(db, "medtech-solutions"):
+        if not _exists(db, "medtech-solutions"):
             create_clinic(db, {
                 "slug":                 "medtech-solutions",
                 "name":                 "MedTech Solutions",
@@ -677,7 +682,7 @@ def _seed_all_demo_clinics():
             })
 
         # ── DEMO RECORDING CLINIC — Tabor Demo Hospital ───────────────────────
-        if not _get(db, "tabor-demo"):
+        if not _exists(db, "tabor-demo"):
             create_clinic(db, {
                 "slug":                 "tabor-demo",
                 "name":                 "Tabor Demo Hospital",
