@@ -672,7 +672,7 @@ function loadPlan() {{
       var ALL_PLANS = [
         {{ key:"starter",      name:"Starter",      price:297,  limit:300,  sms:false, embed:false, custom:false, wl:false, locs:1,    sup:"Email" }},
         {{ key:"professional", name:"Professional",  price:597,  limit:1000, sms:true,  embed:true,  custom:true,  wl:false, locs:3,    sup:"Priority email" }},
-        {{ key:"enterprise",   name:"Enterprise",    price:997,  limit:null, sms:true,  embed:true,  custom:true,  wl:true,  locs:null, sup:"Dedicated manager" }},
+        {{ key:"enterprise",   name:"Enterprise",    price:997,  limit:null, sms:true,  embed:true,  custom:true,  wl:true,  locs:null, sup:"Priority email" }},
       ];
       var FEAT_ROWS = [
         ["Conversations/month", function(pl) {{ return pl.limit === null ? "Unlimited" : pl.limit.toLocaleString(); }}],
@@ -711,7 +711,7 @@ var _selectedUpgradePlan = null;
 var _UPGRADE_PLANS = [
   {{ key:"starter",      name:"Starter",      price:297,  desc:"300 patient sessions/mo · Email support" }},
   {{ key:"professional", name:"Professional",  price:597,  desc:"1,000 sessions/mo · SMS · Website widget · Priority email" }},
-  {{ key:"enterprise",   name:"Enterprise",    price:997,  desc:"Unlimited sessions · White-label · Dedicated manager" }},
+  {{ key:"enterprise",   name:"Enterprise",    price:997,  desc:"Unlimited sessions · White-label · Priority email" }},
 ];
 
 var _PLAN_ORDER = {{ starter:0, professional:1, enterprise:2 }};
