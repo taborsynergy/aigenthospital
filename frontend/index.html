@@ -1308,6 +1308,7 @@ function submitSignup(e) {
   var btn = document.getElementById("signup-submit-btn");
   btn.disabled = true;
   btn.textContent = "Setting up Aria…";
+  showSignupError("");
 
   var data = {
     practice_name:  document.getElementById("f-name").value.trim(),
@@ -1318,15 +1319,28 @@ function submitSignup(e) {
     plan:           document.getElementById("f-plan").value,
   };
 
+  function resetBtn() {
+    btn.disabled = false;
+    btn.textContent = "Create My Free Trial →";
+  }
+
+  var controller = new AbortController();
+  var timer = setTimeout(function() {
+    controller.abort();
+  }, 20000);
+
   fetch("/api/signup", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
+    signal: controller.signal,
   })
   .then(function(r) {
+    clearTimeout(timer);
     return r.json().then(function(body) { return { ok: r.ok, body: body }; });
   })
   .then(function(res) {
+    resetBtn();
     if (!res.ok) {
       var b = res.body;
       var msg = b.error || (Array.isArray(b.detail)
@@ -1348,12 +1362,14 @@ function submitSignup(e) {
     document.getElementById("success-modal").classList.add("open");
     document.getElementById("signup-form").reset();
   })
-  .catch(function() {
-    showSignupError("Network error. Please check your connection and try again.");
-  })
-  .finally(function() {
-    btn.disabled = false;
-    btn.textContent = "Create My Free Trial →";
+  .catch(function(err) {
+    clearTimeout(timer);
+    resetBtn();
+    if (err && err.name === "AbortError") {
+      showSignupError("Request timed out. Please try again.");
+    } else {
+      showSignupError("Network error. Please check your connection and try again.");
+    }
   });
 }
 </script>
