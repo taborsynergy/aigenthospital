@@ -7,7 +7,7 @@ import re
 import uuid
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -39,7 +39,7 @@ def _make_slug(name: str) -> str:
 
 
 @router.post("/api/signup")
-def signup(body: SignupRequest, db: Session = Depends(get_db)):
+def signup(body: SignupRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     plan = body.plan.lower() if body.plan.lower() in PLAN_RATES else "professional"
     rate = PLAN_RATES[plan]
 
@@ -76,7 +76,7 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
     chat_url = f"{settings.base_url}/c/{slug}"
     logger.info("Trial signup: slug=%s plan=%s email=%s", slug, plan, body.contact_email)
 
-    send_trial_signup_email({
+    background_tasks.add_task(send_trial_signup_email, {
         "practice_name": body.practice_name,
         "specialty":     body.specialty,
         "contact_email": body.contact_email,
@@ -110,13 +110,13 @@ class QuoteRequest(BaseModel):
 
 
 @router.post("/api/quote")
-def request_quote(body: QuoteRequest):
+def request_quote(body: QuoteRequest, background_tasks: BackgroundTasks):
     data = body.model_dump()
-    emailed = send_quote_email(data)
-    logger.info("Quote request from %s <%s> emailed=%s", body.company, body.email, emailed)
+    background_tasks.add_task(send_quote_email, data)
+    logger.info("Quote request from %s <%s>", body.company, body.email)
     return {
         "ok": True,
-        "emailed": emailed,
+        "emailed": True,
         "message": (
             "Thank you! We've received your request and will contact you within one business day."
         ),
