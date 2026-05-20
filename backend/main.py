@@ -315,6 +315,7 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('share', this)">📤 Share with Patients</button>
       <button class="tab-btn" onclick="switchTab('appts', this)" id="tab-btn-appts">📋 Appointments</button>
+      <button class="tab-btn" onclick="switchTab('plan', this)" id="tab-btn-plan">💳 Plan & Billing</button>
       <button class="tab-btn" onclick="switchTab('try', this)">💬 Try Aria</button>
       <button class="tab-btn" onclick="switchTab('embed', this)">🔧 Embed on Website</button>
     </div>
@@ -401,7 +402,69 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
       </div>
     </div>
 
-    <!-- ── TAB 3: Try Aria ── -->
+    <!-- ── TAB 3: Plan & Billing ── -->
+    <div id="tab-plan" class="tab-panel">
+      <div id="plan-loading" class="share-card" style="text-align:center;padding:40px;">
+        Loading plan details…
+      </div>
+      <div id="plan-content" style="display:none;">
+
+        <!-- Current plan card -->
+        <div class="share-card" id="plan-summary-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+            <div>
+              <h2 id="plan-name-heading" style="margin-bottom:4px;">— Plan</h2>
+              <div id="plan-status-text" style="font-size:13px;color:#6B7280;"></div>
+            </div>
+            <div id="plan-price-badge" style="font-size:22px;font-weight:800;color:#1E40AF;"></div>
+          </div>
+
+          <!-- Usage bar -->
+          <div id="plan-usage-section" style="margin-bottom:20px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:#374151;margin-bottom:6px;">
+              <span>Conversations this month</span>
+              <span id="plan-usage-text"></span>
+            </div>
+            <div style="background:#E5E7EB;border-radius:99px;height:8px;overflow:hidden;">
+              <div id="plan-usage-bar" style="height:100%;border-radius:99px;background:#1E40AF;width:0%;transition:width .5s;"></div>
+            </div>
+          </div>
+
+          <!-- Feature list -->
+          <div id="plan-features" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+        </div>
+
+        <!-- All plans comparison -->
+        <div class="share-card">
+          <h2 style="margin-bottom:18px;">Compare Plans</h2>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;padding:10px 12px;border-bottom:2px solid #E5E7EB;color:#374151;">Feature</th>
+                  <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #E5E7EB;color:#6B7280;">Starter<br><span style="font-weight:400;">$297/mo</span></th>
+                  <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #1E40AF;color:#1E40AF;background:#EFF6FF;">Professional<br><span style="font-weight:400;">$597/mo</span></th>
+                  <th style="text-align:center;padding:10px 12px;border-bottom:2px solid #7C3AED;color:#7C3AED;">Enterprise<br><span style="font-weight:400;">$997/mo</span></th>
+                </tr>
+              </thead>
+              <tbody id="plan-compare-body">
+                <tr><td colspan="4" style="text-align:center;padding:20px;color:#9CA3AF;">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:16px;text-align:center;">
+            <a href="mailto:admin@tabor.taborsynergy.com?subject=Plan Upgrade Request"
+               style="display:inline-block;background:#1E40AF;color:#fff;padding:10px 28px;
+                      border-radius:8px;font-weight:700;text-decoration:none;font-size:14px;">
+              Upgrade Plan →
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── TAB 4: Try Aria ── -->
     <div id="tab-try" class="tab-panel">
       <div class="share-card" style="text-align:center;padding:28px 24px;">
         <div style="font-size:48px;margin-bottom:12px;">💬</div>
@@ -462,6 +525,7 @@ function switchTab(name, btn) {{
   document.getElementById("tab-" + name).classList.add("active");
   btn.classList.add("active");
   if (name === "appts") loadAppts();
+  if (name === "plan")  loadPlan();
 }}
 
 var _allAppts = [];
@@ -517,6 +581,98 @@ function renderAppts(appts) {{
       '<td style="white-space:nowrap;font-size:12px;color:#6B7280;">' + (a.booked_at || "—") + '</td>' +
     '</tr>';
   }}).join("");
+}}
+
+function loadPlan() {{
+  var token = localStorage.getItem(TKEY);
+  fetch("/api/" + SLUG + "/plan", {{ headers: {{ "X-Clinic-Token": token || "" }} }})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(p) {{
+      document.getElementById("plan-loading").style.display = "none";
+      document.getElementById("plan-content").style.display = "block";
+
+      // Heading & status
+      document.getElementById("plan-name-heading").textContent = p.plan_name + " Plan";
+      document.getElementById("plan-price-badge").textContent  = "$" + p.price + "/mo";
+      var statusMap = {{ trial:"🟡 Trial", active:"🟢 Active", past_due:"🔴 Past Due", cancelled:"⚫ Cancelled" }};
+      var statusStr = (statusMap[p.subscription_status] || p.subscription_status);
+      if (p.subscription_status === "trial" && p.trial_ends_at)
+        statusStr += " · Ends " + p.trial_ends_at;
+      else if (p.subscription_status === "active" && p.subscription_ends_at)
+        statusStr += " · Renews " + p.subscription_ends_at;
+      document.getElementById("plan-status-text").textContent = statusStr;
+
+      // Usage bar
+      var used  = p.conversations_used;
+      var limit = p.conversations_limit;
+      var usageSection = document.getElementById("plan-usage-section");
+      var usageText    = document.getElementById("plan-usage-text");
+      var usageBar     = document.getElementById("plan-usage-bar");
+      if (limit === null) {{
+        usageText.textContent = used + " used (Unlimited)";
+        usageBar.style.width  = "20%";
+        usageBar.style.background = "#059669";
+      }} else {{
+        var pct = Math.min(100, Math.round((used / limit) * 100));
+        usageText.textContent  = used + " / " + limit;
+        usageBar.style.width   = pct + "%";
+        usageBar.style.background = pct >= 90 ? "#DC2626" : pct >= 70 ? "#D97706" : "#1E40AF";
+      }}
+
+      // Feature cards
+      var fRows = [
+        ["💬 SMS / WhatsApp",          p.features.sms],
+        ["🔧 Website embed widget",    p.features.widget_embed],
+        ["✏️ Custom agent name",       p.features.custom_agent_name],
+        ["🏷️ White-label branding",   p.features.white_label],
+        ["📍 Max locations",           p.features.max_locations === null ? "Unlimited" : p.features.max_locations],
+        ["🎧 Support",                 p.features.support],
+      ];
+      var featEl = document.getElementById("plan-features");
+      featEl.innerHTML = fRows.map(function(r) {{
+        var val = r[1];
+        var display = val === true  ? '<span style="color:#059669;font-weight:700;">✅ Included</span>'
+                    : val === false ? '<span style="color:#9CA3AF;">❌ Not included</span>'
+                    : '<span style="color:#1E40AF;font-weight:600;">' + val + '</span>';
+        return '<div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:10px 12px;">' +
+               '<div style="font-size:12px;color:#6B7280;margin-bottom:3px;">' + r[0] + '</div>' +
+               '<div style="font-size:13px;">' + display + '</div></div>';
+      }}).join("");
+
+      // Comparison table
+      var ALL_PLANS = [
+        {{ key:"starter",      name:"Starter",      price:297,  limit:300,  sms:false, embed:false, custom:false, wl:false, locs:1,    sup:"Email" }},
+        {{ key:"professional", name:"Professional",  price:597,  limit:1000, sms:true,  embed:true,  custom:true,  wl:false, locs:3,    sup:"Priority email" }},
+        {{ key:"enterprise",   name:"Enterprise",    price:997,  limit:null, sms:true,  embed:true,  custom:true,  wl:true,  locs:null, sup:"Dedicated manager" }},
+      ];
+      var FEAT_ROWS = [
+        ["Conversations/month", function(pl) {{ return pl.limit === null ? "Unlimited" : pl.limit.toLocaleString(); }}],
+        ["Web AI chat",         function()   {{ return "✅"; }}],
+        ["Appointment booking", function()   {{ return "✅"; }}],
+        ["Insurance & billing", function()   {{ return "✅"; }}],
+        ["Appointments dashboard", function(){{ return "✅"; }}],
+        ["SMS / WhatsApp",      function(pl) {{ return pl.sms   ? "✅" : "❌"; }}],
+        ["Website embed widget",function(pl) {{ return pl.embed ? "✅" : "❌"; }}],
+        ["Custom agent name",   function(pl) {{ return pl.custom? "✅" : "❌"; }}],
+        ["White-label",         function(pl) {{ return pl.wl    ? "✅" : "❌"; }}],
+        ["Max clinic locations",function(pl) {{ return pl.locs  === null ? "Unlimited" : pl.locs; }}],
+        ["Support",             function(pl) {{ return pl.sup; }}],
+      ];
+      var tbody = document.getElementById("plan-compare-body");
+      tbody.innerHTML = FEAT_ROWS.map(function(row) {{
+        var cells = ALL_PLANS.map(function(pl) {{
+          var isActive = (pl.key === p.plan_key);
+          return '<td style="text-align:center;padding:9px 12px;' +
+                 (isActive ? 'background:#EFF6FF;font-weight:600;' : '') + '">' +
+                 row[1](pl) + '</td>';
+        }}).join("");
+        return '<tr><td style="padding:9px 12px;color:#374151;border-bottom:1px solid #F3F4F6;">' +
+               row[0] + '</td>' + cells + '</tr>';
+      }}).join("");
+    }})
+    .catch(function() {{
+      document.getElementById("plan-loading").textContent = "⚠️ Failed to load plan details.";
+    }});
 }}
 
 function filterAppts() {{

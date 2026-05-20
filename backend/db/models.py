@@ -34,6 +34,7 @@ class Clinic(Base):
     stripe_customer_id      = Column(String, default="")
     stripe_subscription_id  = Column(String, default="")
     subscription_status     = Column(String, default="trial")   # trial | active | past_due | cancelled
+    plan                    = Column(String, default="professional")  # starter | professional | enterprise
     monthly_rate            = Column(Float,  default=299.0)
     trial_ends_at           = Column(DateTime, nullable=True)
     subscription_ends_at    = Column(DateTime, nullable=True)  # set when payment confirmed; expires after 30 days

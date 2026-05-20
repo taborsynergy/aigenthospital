@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from backend.db.database import get_db
 from backend.db.crud import get_clinic_by_twilio_number, get_or_create_sms_session
 from backend.agent import aria
+from backend.plans import can_use_sms
 from backend.services.twilio_svc import twiml_response
 
 router = APIRouter(prefix="/sms")
@@ -30,6 +31,16 @@ async def inbound_sms(
         logger.warning("No clinic found for Twilio number: %s", To)
         return Response(
             content=twiml_response("Sorry, this number is not currently active."),
+            media_type="application/xml",
+        )
+
+    if not can_use_sms(clinic):
+        logger.info("SMS blocked — plan does not include SMS: clinic=%s", clinic.slug)
+        return Response(
+            content=twiml_response(
+                "SMS is not available on your clinic's current plan. "
+                f"Please contact us at {clinic.phone} or visit our website."
+            ),
             media_type="application/xml",
         )
 

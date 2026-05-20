@@ -166,6 +166,22 @@ def get_usage_summary(db: Session, clinic_id: int) -> dict:
     }
 
 
+def get_usage_this_month(db: Session, clinic_id: int) -> int:
+    """Return number of conversations started this calendar month."""
+    from sqlalchemy import extract
+    now = datetime.utcnow()
+    count = (
+        db.query(func.count(UsageLog.id))
+        .filter(
+            UsageLog.clinic_id == clinic_id,
+            extract("year",  UsageLog.created_at) == now.year,
+            extract("month", UsageLog.created_at) == now.month,
+        )
+        .scalar()
+    )
+    return count or 0
+
+
 def get_all_usage_summary(db: Session) -> list[dict]:
     rows = (
         db.query(

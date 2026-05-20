@@ -54,6 +54,7 @@ def migrate_db():
         ("website",                "VARCHAR",   "DEFAULT ''"),
         ("twilio_phone",           "VARCHAR",   "DEFAULT ''"),
         ("is_active",              "BOOLEAN",   "DEFAULT TRUE"),
+        ("plan",                   "VARCHAR",   "DEFAULT 'professional'"),
     ]
 
     with engine.connect() as conn:

@@ -11,6 +11,7 @@ from backend.agent import aria
 from backend.db.database import get_db
 from backend.db.crud import get_clinic, get_clinic_by_token, list_appointments
 from backend.models.schemas import ChatMessage, ChatResponse
+from backend.plans import get_plan, monthly_conversation_limit
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ def _greeting(clinic) -> str:
 _CONTACT = "admin@tabor.taborsynergy.com"
 
 
-def _access_blocked(clinic) -> str | None:
+def _access_blocked(clinic, db=None) -> str | None:
     """Return a block message if the clinic cannot use the chat, else None."""
     now = datetime.utcnow()
     if clinic.subscription_status == "trial":
@@ -47,6 +48,20 @@ def _access_blocked(clinic) -> str | None:
             f"This clinic's subscription is {clinic.subscription_status}. "
             f"Please contact us at {_CONTACT} to restore access."
         )
+
+    # Monthly conversation limit
+    if db:
+        limit = monthly_conversation_limit(clinic)
+        if limit is not None:
+            from backend.db.crud import get_usage_this_month
+            used = get_usage_this_month(db, clinic.id)
+            if used >= limit:
+                plan = get_plan(clinic)
+                return (
+                    f"Your clinic has reached its {limit}-conversation limit for this month "
+                    f"on the {plan['name']} plan. "
+                    f"Please contact us at {_CONTACT} to upgrade."
+                )
     return None
 
 
@@ -61,7 +76,7 @@ async def websocket_chat(websocket: WebSocket, clinic_slug: str, session_id: str
     await websocket.accept()
     logger.info("WS connected: clinic=%s session=%s", clinic_slug, session_id)
 
-    block_msg = _access_blocked(clinic)
+    block_msg = _access_blocked(clinic, db)
     if block_msg:
         await websocket.send_json({"type": "message", "content": block_msg, "session_id": session_id})
         await websocket.close(code=4003)
@@ -125,7 +140,7 @@ async def rest_chat(clinic_slug: str, body: ChatMessage, db: Session = Depends(g
     if not clinic:
         return JSONResponse(status_code=404, content={"error": "Clinic not found."})
 
-    block_msg = _access_blocked(clinic)
+    block_msg = _access_blocked(clinic, db)
     if block_msg:
         return JSONResponse(status_code=403, content={"error": block_msg})
 
@@ -145,11 +160,13 @@ async def clinic_config(clinic_slug: str, db: Session = Depends(get_db)):
     clinic = get_clinic(db, clinic_slug)
     if not clinic:
         return JSONResponse(status_code=404, content={"error": "Clinic not found."})
+    plan = get_plan(clinic)
     return {
-        "agent_name":  clinic.agent_name,
-        "clinic_name": clinic.name,
-        "specialty":   clinic.specialty,
-        "phone":       clinic.phone,
+        "agent_name":   clinic.agent_name,
+        "clinic_name":  clinic.name,
+        "specialty":    clinic.specialty,
+        "phone":        clinic.phone,
+        "white_label":  plan["white_label"],
     }
 
 
@@ -183,6 +200,40 @@ async def get_appointments(
         }
         for a in appts
     ]
+
+
+@router.get("/api/{clinic_slug}/plan")
+async def clinic_plan(
+    clinic_slug: str,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Return plan details + usage for the clinic portal."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    from backend.db.crud import get_usage_this_month
+    plan = get_plan(clinic)
+    used = get_usage_this_month(db, clinic.id)
+    limit = plan["conversations_limit"]
+    return {
+        "plan_key":              getattr(clinic, "plan", "professional") or "professional",
+        "plan_name":             plan["name"],
+        "price":                 plan["price"],
+        "conversations_used":    used,
+        "conversations_limit":   limit,
+        "features": {
+            "sms":               plan["sms"],
+            "widget_embed":      plan["widget_embed"],
+            "custom_agent_name": plan["custom_agent_name"],
+            "white_label":       plan["white_label"],
+            "max_locations":     plan["max_locations"],
+            "support":           plan["support"],
+        },
+        "subscription_status":   clinic.subscription_status,
+        "trial_ends_at":         clinic.trial_ends_at.strftime("%B %d, %Y") if clinic.trial_ends_at else None,
+        "subscription_ends_at":  clinic.subscription_ends_at.strftime("%B %d, %Y") if clinic.subscription_ends_at else None,
+    }
 
 
 @router.get("/api/health")
