@@ -554,9 +554,17 @@ async def patient_chat_page(clinic_slug: str, db: Session = Depends(get_db)):
 # ── Startup ───────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 def on_startup():
-    from backend.db.database import migrate_db
-    init_db()
-    migrate_db()
+    import logging as _log
+    _logger = _log.getLogger(__name__)
+    try:
+        init_db()
+    except Exception:
+        _logger.exception("init_db failed — continuing anyway")
+    try:
+        from backend.db.database import migrate_db
+        migrate_db()
+    except Exception:
+        _logger.exception("migrate_db failed — continuing anyway")
 
 
 # ── Static files ──────────────────────────────────────────────────────────────

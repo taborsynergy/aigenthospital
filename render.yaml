@@ -3,7 +3,8 @@ services:
     name: taborsynergy-agent
     runtime: python
     buildCommand: pip install --upgrade pip && pip install --prefer-binary -r requirements.txt
-    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 30
+    healthCheckPath: /api/health
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
