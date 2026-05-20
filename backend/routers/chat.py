@@ -92,12 +92,17 @@ async def websocket_chat(websocket: WebSocket, clinic_slug: str, session_id: str
                     clinic, session_id, user_message, channel="web", db=db
                 )
             except Exception as agent_err:
+                err_type = type(agent_err).__name__
                 logger.exception("Agent error [%s]: clinic=%s session=%s",
-                                 type(agent_err).__name__, clinic_slug, session_id)
+                                 err_type, clinic_slug, session_id)
                 await websocket.send_json({"type": "typing", "active": False})
                 await websocket.send_json({
                     "type": "error",
-                    "content": f"I'm sorry, I ran into a technical issue. Please try again or call us at {clinic.phone}.",
+                    "content": (
+                        f"I'm sorry, I ran into a technical issue. "
+                        f"Please try again or call us at {clinic.phone}."
+                    ),
+                    "error_type": err_type,
                 })
                 continue
 

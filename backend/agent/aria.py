@@ -20,6 +20,7 @@ from backend.agent.tools import TOOLS, dispatch_tool
 logger = logging.getLogger(__name__)
 
 MOCK_MODE = os.getenv("MOCK_MODE", "0") == "1"
+FALLBACK_MODEL = "claude-3-5-sonnet-20241022"
 
 # On Windows, use OS certificate store (handles corporate SSL inspection)
 # On Linux/Mac (production), default SSL works fine
@@ -94,15 +95,26 @@ async def chat(
     is_escalated = False
     total_input = 0
     total_output = 0
+    model = settings.model
 
     while True:
-        response = await _client.messages.create(
-            model=settings.model,
-            max_tokens=settings.max_tokens,
-            system=system_prompt,
-            tools=TOOLS,
-            messages=history,
-        )
+        try:
+            response = await _client.messages.create(
+                model=model,
+                max_tokens=settings.max_tokens,
+                system=system_prompt,
+                tools=TOOLS,
+                messages=history,
+            )
+        except (anthropic.NotFoundError, anthropic.BadRequestError) as api_err:
+            if model != FALLBACK_MODEL:
+                logger.warning(
+                    "Model %s failed [%s] — falling back to %s. Error: %s",
+                    model, type(api_err).__name__, FALLBACK_MODEL, str(api_err)[:300],
+                )
+                model = FALLBACK_MODEL
+                continue
+            raise
 
         total_input  += response.usage.input_tokens
         total_output += response.usage.output_tokens
