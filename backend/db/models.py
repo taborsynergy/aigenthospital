@@ -50,6 +50,27 @@ class Clinic(Base):
     created_at  = Column(DateTime, default=datetime.utcnow)
 
 
+class Appointment(Base):
+    __tablename__ = "appointments"
+
+    id                   = Column(Integer,  primary_key=True, index=True)
+    clinic_id            = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    confirmation_number  = Column(String,   unique=True, index=True)
+    patient_name         = Column(String,   nullable=False)
+    patient_phone        = Column(String,   default="")
+    patient_email        = Column(String,   default="")
+    patient_dob          = Column(String,   default="")
+    appointment_type     = Column(String,   nullable=False)
+    appointment_datetime = Column(String,   nullable=False)   # free-form from Aria, e.g. "Monday, May 21 at 10:00 AM"
+    provider             = Column(String,   default="")
+    is_new_patient       = Column(Boolean,  default=False)
+    chief_complaint      = Column(String,   default="")
+    status               = Column(String,   default="scheduled")  # scheduled | cancelled | rescheduled
+    channel              = Column(String,   default="web")         # web | sms
+    session_id           = Column(String,   default="")
+    created_at           = Column(DateTime, default=datetime.utcnow)
+
+
 class UsageLog(Base):
     __tablename__ = "usage_logs"
 

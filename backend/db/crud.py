@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from backend.db.models import Clinic, UsageLog, SmsConversation
+from backend.db.models import Clinic, UsageLog, SmsConversation, Appointment
 
 
 # ── Clinics ──────────────────────────────────────────────────────────────────
@@ -103,6 +103,35 @@ def deactivate_clinic(db: Session, slug: str) -> bool:
     clinic.is_active = False
     db.commit()
     return True
+
+
+# ── Appointments ─────────────────────────────────────────────────────────────
+
+def create_appointment(db: Session, data: dict) -> Appointment:
+    appt = Appointment(**data)
+    db.add(appt)
+    db.commit()
+    db.refresh(appt)
+    return appt
+
+
+def list_appointments(db: Session, clinic_id: int, limit: int = 200) -> list[Appointment]:
+    return (
+        db.query(Appointment)
+        .filter(Appointment.clinic_id == clinic_id)
+        .order_by(Appointment.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def update_appointment_status(db: Session, confirmation_number: str, status: str) -> Optional[Appointment]:
+    appt = db.query(Appointment).filter(Appointment.confirmation_number == confirmation_number).first()
+    if appt:
+        appt.status = status
+        db.commit()
+        db.refresh(appt)
+    return appt
 
 
 # ── Usage logs ────────────────────────────────────────────────────────────────

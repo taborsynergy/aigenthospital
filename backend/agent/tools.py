@@ -189,7 +189,14 @@ TOOLS: list[dict] = [
 ]
 
 
-async def dispatch_tool(name: str, inputs: dict[str, Any], clinic=None) -> dict[str, Any]:
+async def dispatch_tool(
+    name: str,
+    inputs: dict[str, Any],
+    clinic=None,
+    db=None,
+    session_id: str = "",
+    channel: str = "web",
+) -> dict[str, Any]:
     """Route tool calls to the appropriate mock service."""
     match name:
         case "check_appointment_availability":
@@ -197,6 +204,9 @@ async def dispatch_tool(name: str, inputs: dict[str, Any], clinic=None) -> dict[
         case "book_appointment":
             return pms.book_appointment(
                 clinic=clinic,
+                db=db,
+                session_id=session_id,
+                channel=channel,
                 patient_name=inputs["patient_name"],
                 appointment_type=inputs["appointment_type"],
                 datetime_str=inputs["datetime"],
@@ -208,9 +218,9 @@ async def dispatch_tool(name: str, inputs: dict[str, Any], clinic=None) -> dict[
                 chief_complaint=inputs.get("chief_complaint"),
             )
         case "reschedule_appointment":
-            return pms.reschedule_appointment(clinic=clinic, **inputs)
+            return pms.reschedule_appointment(clinic=clinic, db=db, **inputs)
         case "cancel_appointment":
-            return pms.cancel_appointment(clinic=clinic, **inputs)
+            return pms.cancel_appointment(clinic=clinic, db=db, **inputs)
         case "verify_insurance":
             return insurance.verify_insurance(**inputs)
         case "get_patient_balance":

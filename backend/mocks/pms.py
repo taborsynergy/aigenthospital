@@ -121,10 +121,37 @@ def book_appointment(
     is_new_patient: bool = False,
     chief_complaint: Optional[str] = None,
     clinic=None,
+    db=None,
+    session_id: str = "",
+    channel: str = "web",
 ) -> dict:
     providers = _parse_providers(clinic)
     chosen_provider = provider or providers[0]["name"]
     confirmation_number = f"{_clinic_prefix(clinic)}-{random.randint(10000, 99999)}"
+
+    if db and clinic:
+        try:
+            from backend.db.crud import create_appointment
+            create_appointment(db, {
+                "clinic_id":            clinic.id,
+                "confirmation_number":  confirmation_number,
+                "patient_name":         patient_name,
+                "patient_phone":        patient_phone or "",
+                "patient_email":        patient_email or "",
+                "patient_dob":          patient_dob or "",
+                "appointment_type":     appointment_type,
+                "appointment_datetime": datetime_str,
+                "provider":             chosen_provider,
+                "is_new_patient":       is_new_patient,
+                "chief_complaint":      chief_complaint or "",
+                "status":               "scheduled",
+                "channel":              channel,
+                "session_id":           session_id,
+            })
+        except Exception:
+            import logging as _log
+            _log.getLogger(__name__).exception("Failed to persist appointment")
+
     return {
         "success": True,
         "confirmation_number": confirmation_number,
@@ -149,10 +176,31 @@ def reschedule_appointment(
     current_appointment_date: Optional[str] = None,
     reason: Optional[str] = None,
     clinic=None,
+    db=None,
 ) -> dict:
+    new_conf = f"{_clinic_prefix(clinic)}-{random.randint(10000, 99999)}"
+
+    if db and clinic:
+        try:
+            from backend.db.crud import create_appointment
+            create_appointment(db, {
+                "clinic_id":            clinic.id,
+                "confirmation_number":  new_conf,
+                "patient_name":         patient_name,
+                "patient_dob":          patient_dob or "",
+                "appointment_type":     "rescheduled visit",
+                "appointment_datetime": new_datetime,
+                "provider":             "",
+                "status":               "rescheduled",
+                "channel":              "web",
+            })
+        except Exception:
+            import logging as _log
+            _log.getLogger(__name__).exception("Failed to persist reschedule")
+
     return {
         "success": True,
-        "confirmation_number": f"{_clinic_prefix(clinic)}-{random.randint(10000, 99999)}",
+        "confirmation_number": new_conf,
         "patient_name": patient_name,
         "new_datetime": new_datetime,
         "message": "Appointment rescheduled successfully.",
@@ -165,7 +213,26 @@ def cancel_appointment(
     patient_dob: Optional[str] = None,
     reason: Optional[str] = None,
     clinic=None,
+    db=None,
 ) -> dict:
+    if db and clinic:
+        try:
+            from backend.db.crud import create_appointment
+            create_appointment(db, {
+                "clinic_id":            clinic.id,
+                "confirmation_number":  f"{_clinic_prefix(clinic)}-CXL-{random.randint(1000,9999)}",
+                "patient_name":         patient_name,
+                "patient_dob":          patient_dob or "",
+                "appointment_type":     "cancellation",
+                "appointment_datetime": appointment_date,
+                "provider":             "",
+                "status":               "cancelled",
+                "channel":              "web",
+            })
+        except Exception:
+            import logging as _log
+            _log.getLogger(__name__).exception("Failed to persist cancellation")
+
     return {
         "success": True,
         "patient_name": patient_name,

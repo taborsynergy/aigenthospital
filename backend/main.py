@@ -189,6 +189,53 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
       margin-bottom: 20px; line-height: 1.7;
     }}
     .aria-hint strong {{ display: block; font-size: 16px; margin-bottom: 6px; }}
+
+    /* ── Appointments tab ── */
+    .appt-toolbar {{
+      display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+    }}
+    .appt-toolbar input {{
+      flex: 1; min-width: 180px; border: 1px solid #D1D5DB; border-radius: 8px;
+      padding: 8px 12px; font-size: 14px; outline: none;
+    }}
+    .appt-toolbar input:focus {{ border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }}
+    .btn-refresh {{
+      background: #1E40AF; color: #fff; border: none; border-radius: 8px;
+      padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background .2s; white-space: nowrap;
+    }}
+    .btn-refresh:hover {{ background: #1E3A8A; }}
+    .appt-count {{ font-size: 13px; color: #6B7280; }}
+    .appt-table-wrap {{
+      background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.07);
+      overflow-x: auto;
+    }}
+    .appt-table {{
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }}
+    .appt-table th {{
+      background: #F8FAFC; color: #374151; font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: .5px;
+      padding: 12px 14px; text-align: left; border-bottom: 1px solid #E5E7EB;
+      white-space: nowrap;
+    }}
+    .appt-table td {{
+      padding: 12px 14px; border-bottom: 1px solid #F3F4F6; color: #1F2937;
+      vertical-align: top;
+    }}
+    .appt-table tr:last-child td {{ border-bottom: none; }}
+    .appt-table tr:hover td {{ background: #F9FAFB; }}
+    .badge {{
+      display: inline-block; border-radius: 20px; padding: 2px 10px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+    }}
+    .badge-scheduled  {{ background: #D1FAE5; color: #065F46; }}
+    .badge-cancelled  {{ background: #FEE2E2; color: #991B1B; }}
+    .badge-rescheduled{{ background: #FEF3C7; color: #92400E; }}
+    .appt-empty {{
+      text-align: center; padding: 48px 20px; color: #9CA3AF; font-size: 14px;
+    }}
+    .appt-empty p {{ margin-top: 8px; }}
   </style>
 </head>
 <body>
@@ -235,6 +282,7 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('share', this)">📤 Share with Patients</button>
+      <button class="tab-btn" onclick="switchTab('appts', this)" id="tab-btn-appts">📋 Appointments</button>
       <button class="tab-btn" onclick="switchTab('try', this)">💬 Try Aria</button>
       <button class="tab-btn" onclick="switchTab('embed', this)">🔧 Embed on Website</button>
     </div>
@@ -289,7 +337,39 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
 
     </div>
 
-    <!-- ── TAB 2: Try Aria ── -->
+    <!-- ── TAB 2: Appointments ── -->
+    <div id="tab-appts" class="tab-panel">
+      <div class="share-card" style="padding-bottom:12px;">
+        <h2 style="margin-bottom:14px;">📋 Patient Appointments</h2>
+        <div class="appt-toolbar">
+          <input id="appt-search" type="text" placeholder="Search by patient name, type, provider…"
+                 oninput="filterAppts()" />
+          <button class="btn-refresh" onclick="loadAppts()">↻ Refresh</button>
+          <span class="appt-count" id="appt-count"></span>
+        </div>
+        <div class="appt-table-wrap">
+          <table class="appt-table">
+            <thead>
+              <tr>
+                <th>Confirmation #</th>
+                <th>Patient</th>
+                <th>Appointment</th>
+                <th>Date / Time</th>
+                <th>Provider</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Booked At</th>
+              </tr>
+            </thead>
+            <tbody id="appt-tbody">
+              <tr><td colspan="8" class="appt-empty">Loading appointments…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB 3: Try Aria ── -->
     <div id="tab-try" class="tab-panel">
       <div class="share-card" style="text-align:center;padding:28px 24px;">
         <div style="font-size:48px;margin-bottom:12px;">💬</div>
@@ -349,6 +429,75 @@ function switchTab(name, btn) {{
   document.querySelectorAll(".tab-btn").forEach(function(b) {{ b.classList.remove("active"); }});
   document.getElementById("tab-" + name).classList.add("active");
   btn.classList.add("active");
+  if (name === "appts") loadAppts();
+}}
+
+var _allAppts = [];
+
+function loadAppts() {{
+  var token = localStorage.getItem(TKEY);
+  var tbody = document.getElementById("appt-tbody");
+  var countEl = document.getElementById("appt-count");
+  tbody.innerHTML = '<tr><td colspan="8" class="appt-empty">Loading…</td></tr>';
+  if (countEl) countEl.textContent = "";
+  fetch("/api/" + SLUG + "/appointments", {{
+    headers: {{ "X-Clinic-Token": token || "" }}
+  }})
+  .then(function(r) {{ return r.json(); }})
+  .then(function(data) {{
+    if (!Array.isArray(data)) {{
+      tbody.innerHTML = '<tr><td colspan="8" class="appt-empty">⚠️ Failed to load appointments.</td></tr>';
+      return;
+    }}
+    _allAppts = data;
+    renderAppts(data);
+  }})
+  .catch(function() {{
+    tbody.innerHTML = '<tr><td colspan="8" class="appt-empty">⚠️ Network error loading appointments.</td></tr>';
+  }});
+}}
+
+function renderAppts(appts) {{
+  var tbody = document.getElementById("appt-tbody");
+  var countEl = document.getElementById("appt-count");
+  if (countEl) countEl.textContent = appts.length + " record" + (appts.length === 1 ? "" : "s");
+  if (!appts.length) {{
+    tbody.innerHTML = '<tr><td colspan="8" class="appt-empty">📭 No appointments yet.<p>Share the patient link and appointments booked via Aria will appear here.</p></td></tr>';
+    return;
+  }}
+  tbody.innerHTML = appts.map(function(a) {{
+    var badgeCls = a.status === "scheduled" ? "badge-scheduled"
+                 : a.status === "cancelled"  ? "badge-cancelled"
+                 : "badge-rescheduled";
+    var newPt = a.is_new_patient ? '<span style="font-size:10px;color:#7C3AED;font-weight:600;">NEW</span> ' : "";
+    var phone = a.patient_phone ? '<br><span style="color:#6B7280;font-size:11px;">📞 ' + a.patient_phone + '</span>' : "";
+    var email = a.patient_email ? '<br><span style="color:#6B7280;font-size:11px;">✉️ ' + a.patient_email + '</span>' : "";
+    var dob   = a.patient_dob   ? '<br><span style="color:#6B7280;font-size:11px;">DOB: ' + a.patient_dob + '</span>' : "";
+    var cc    = a.chief_complaint ? '<br><span style="color:#6B7280;font-size:11px;font-style:italic;">' + a.chief_complaint + '</span>' : "";
+    return '<tr>' +
+      '<td style="font-family:monospace;font-size:12px;">' + (a.confirmation_number || "—") + '</td>' +
+      '<td>' + newPt + '<strong>' + a.patient_name + '</strong>' + phone + email + dob + '</td>' +
+      '<td>' + a.appointment_type + cc + '</td>' +
+      '<td style="white-space:nowrap;">' + (a.appointment_datetime || "—") + '</td>' +
+      '<td>' + (a.provider || "—") + '</td>' +
+      '<td><span style="font-size:11px;color:#4B5563;">' + (a.channel || "web").toUpperCase() + '</span></td>' +
+      '<td><span class="badge ' + badgeCls + '">' + a.status + '</span></td>' +
+      '<td style="white-space:nowrap;font-size:12px;color:#6B7280;">' + (a.booked_at || "—") + '</td>' +
+    '</tr>';
+  }}).join("");
+}}
+
+function filterAppts() {{
+  var q = (document.getElementById("appt-search").value || "").toLowerCase();
+  if (!q) {{ renderAppts(_allAppts); return; }}
+  var filtered = _allAppts.filter(function(a) {{
+    return (a.patient_name || "").toLowerCase().includes(q)
+        || (a.appointment_type || "").toLowerCase().includes(q)
+        || (a.provider || "").toLowerCase().includes(q)
+        || (a.confirmation_number || "").toLowerCase().includes(q)
+        || (a.appointment_datetime || "").toLowerCase().includes(q);
+  }});
+  renderAppts(filtered);
 }}
 
 function copyText(elemId, btn) {{
