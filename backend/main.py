@@ -453,13 +453,30 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
             </table>
           </div>
           <div style="margin-top:16px;text-align:center;">
-            <a href="mailto:admin@tabor.taborsynergy.com?subject=Plan Upgrade Request"
+            <button id="upgrade-btn" onclick="openUpgradeModal()"
                style="display:inline-block;background:#1E40AF;color:#fff;padding:10px 28px;
-                      border-radius:8px;font-weight:700;text-decoration:none;font-size:14px;">
+                      border-radius:8px;font-weight:700;border:none;cursor:pointer;font-size:14px;">
               Upgrade Plan →
-            </a>
+            </button>
           </div>
         </div>
+
+<!-- ── Upgrade Modal ── -->
+<div id="upgrade-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:32px;max-width:460px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,.25);position:relative;">
+    <button onclick="closeUpgradeModal()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#6B7280;">✕</button>
+    <h2 style="margin:0 0 4px;font-size:20px;">Upgrade Your Plan</h2>
+    <p style="color:#6B7280;margin:0 0 20px;font-size:14px;">Choose a plan below. After clicking "Pay with PayPal" you'll complete payment, then we'll activate your new plan within 24 hours.</p>
+    <div id="upgrade-options" style="display:flex;flex-direction:column;gap:12px;"></div>
+    <div id="upgrade-msg" style="margin-top:14px;font-size:14px;display:none;"></div>
+    <div style="margin-top:20px;text-align:right;">
+      <button id="upgrade-submit-btn" onclick="submitUpgrade()"
+        style="background:#1E40AF;color:#fff;padding:10px 24px;border-radius:8px;font-weight:700;border:none;cursor:pointer;font-size:14px;">
+        Pay with PayPal →
+      </button>
+    </div>
+  </div>
+</div>
 
       </div>
     </div>
@@ -591,6 +608,18 @@ function loadPlan() {{
       document.getElementById("plan-loading").style.display = "none";
       document.getElementById("plan-content").style.display = "block";
 
+      // Track current plan for upgrade modal
+      _currentPlanKey = p.plan_key || "professional";
+      var upgradeBtn = document.getElementById("upgrade-btn");
+      if (upgradeBtn) {{
+        if (_currentPlanKey === "enterprise") {{
+          upgradeBtn.style.display = "none";
+        }} else {{
+          upgradeBtn.style.display = "inline-block";
+          upgradeBtn.textContent = "Upgrade Plan →";
+        }}
+      }}
+
       // Heading & status
       document.getElementById("plan-name-heading").textContent = p.plan_name + " Plan";
       document.getElementById("plan-price-badge").textContent  = "$" + p.price + "/mo";
@@ -673,6 +702,109 @@ function loadPlan() {{
     .catch(function() {{
       document.getElementById("plan-loading").textContent = "⚠️ Failed to load plan details.";
     }});
+}}
+
+// ── Upgrade modal ──────────────────────────────────────────────────────────
+var _currentPlanKey = "professional";
+var _selectedUpgradePlan = null;
+
+var _UPGRADE_PLANS = [
+  {{ key:"starter",      name:"Starter",      price:297,  desc:"300 patient sessions/mo · Email support" }},
+  {{ key:"professional", name:"Professional",  price:597,  desc:"1,000 sessions/mo · SMS · Website widget · Priority email" }},
+  {{ key:"enterprise",   name:"Enterprise",    price:997,  desc:"Unlimited sessions · White-label · Dedicated manager" }},
+];
+
+var _PLAN_ORDER = {{ starter:0, professional:1, enterprise:2 }};
+
+function openUpgradeModal() {{
+  var modal = document.getElementById("upgrade-modal");
+  modal.style.display = "flex";
+  document.getElementById("upgrade-msg").style.display = "none";
+  document.getElementById("upgrade-submit-btn").disabled = false;
+  document.getElementById("upgrade-submit-btn").textContent = "Pay with PayPal →";
+  _selectedUpgradePlan = null;
+  var currentOrder = _PLAN_ORDER[_currentPlanKey] !== undefined ? _PLAN_ORDER[_currentPlanKey] : 1;
+  var higher = _UPGRADE_PLANS.filter(function(p) {{ return _PLAN_ORDER[p.key] > currentOrder; }});
+  var optionsEl = document.getElementById("upgrade-options");
+  if (!higher.length) {{
+    optionsEl.innerHTML = '<p style="color:#6B7280;text-align:center;">You are already on the highest plan.</p>';
+    document.getElementById("upgrade-submit-btn").style.display = "none";
+    return;
+  }}
+  document.getElementById("upgrade-submit-btn").style.display = "";
+  optionsEl.innerHTML = higher.map(function(p) {{
+    var colors = {{ starter:"#6B7280", professional:"#1E40AF", enterprise:"#7C3AED" }};
+    var c = colors[p.key] || "#1E40AF";
+    return '<label style="display:flex;align-items:flex-start;gap:12px;border:2px solid #E5E7EB;border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color .15s;" ' +
+           'data-key="' + p.key + '" onclick="selectUpgradePlan(this, \\'' + p.key + '\\')">' +
+           '<input type="radio" name="upgrade_plan" value="' + p.key + '" style="margin-top:3px;">' +
+           '<div>' +
+           '<div style="font-weight:700;color:' + c + ';font-size:15px;">' + p.name + ' — $' + p.price + '/mo</div>' +
+           '<div style="font-size:12px;color:#6B7280;margin-top:3px;">' + p.desc + '</div>' +
+           '</div></label>';
+  }}).join("");
+}}
+
+function selectUpgradePlan(label, key) {{
+  _selectedUpgradePlan = key;
+  document.querySelectorAll("#upgrade-options label").forEach(function(el) {{
+    var colors = {{ starter:"#6B7280", professional:"#1E40AF", enterprise:"#7C3AED" }};
+    var isThis = el.dataset.key === key;
+    el.style.borderColor = isThis ? (colors[key] || "#1E40AF") : "#E5E7EB";
+    el.style.background  = isThis ? "#F0F4FF" : "#fff";
+    var radio = el.querySelector("input[type=radio]");
+    if (radio) radio.checked = isThis;
+  }});
+}}
+
+function closeUpgradeModal() {{
+  document.getElementById("upgrade-modal").style.display = "none";
+}}
+
+function submitUpgrade() {{
+  if (!_selectedUpgradePlan) {{
+    showUpgradeMsg("Please select a plan.", "#DC2626");
+    return;
+  }}
+  var btn = document.getElementById("upgrade-submit-btn");
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  var token = localStorage.getItem(TKEY);
+  fetch("/api/" + SLUG + "/upgrade-request", {{
+    method: "POST",
+    headers: {{ "Content-Type": "application/json", "X-Clinic-Token": token || "" }},
+    body: JSON.stringify({{ plan: _selectedUpgradePlan }})
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    if (!res.ok) {{
+      showUpgradeMsg("⚠️ " + (res.data.error || "Request failed."), "#DC2626");
+      btn.disabled = false;
+      btn.textContent = "Pay with PayPal →";
+      return;
+    }}
+    var d = res.data;
+    window.open(d.paypal_url, "_blank");
+    showUpgradeMsg(
+      "✅ PayPal payment link opened! Once payment is confirmed, we'll activate your <strong>" +
+      d.new_plan.charAt(0).toUpperCase() + d.new_plan.slice(1) +
+      "</strong> plan ($" + d.new_price + "/mo) within 24 hours.",
+      "#059669"
+    );
+    btn.style.display = "none";
+  }})
+  .catch(function() {{
+    showUpgradeMsg("⚠️ Network error. Please try again.", "#DC2626");
+    btn.disabled = false;
+    btn.textContent = "Pay with PayPal →";
+  }});
+}}
+
+function showUpgradeMsg(html, color) {{
+  var el = document.getElementById("upgrade-msg");
+  el.innerHTML = html;
+  el.style.color = color || "#374151";
+  el.style.display = "block";
 }}
 
 function filterAppts() {{
