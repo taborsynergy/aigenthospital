@@ -23,12 +23,14 @@ MOCK_MODE = os.getenv("MOCK_MODE", "0") == "1"
 
 # On Windows, use OS certificate store (handles corporate SSL inspection)
 # On Linux/Mac (production), default SSL works fine
+_timeout = httpx.Timeout(60.0, connect=10.0)
+
 if platform.system() == "Windows":
     import truststore
     _ssl_ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    _http_client = httpx.AsyncClient(verify=_ssl_ctx)
+    _http_client = httpx.AsyncClient(verify=_ssl_ctx, timeout=_timeout)
 else:
-    _http_client = httpx.AsyncClient()
+    _http_client = httpx.AsyncClient(timeout=_timeout)
 
 _client = anthropic.AsyncAnthropic(
     api_key=settings.anthropic_api_key,
@@ -97,13 +99,7 @@ async def chat(
         response = await _client.messages.create(
             model=settings.model,
             max_tokens=settings.max_tokens,
-            system=[
-                {
-                    "type": "text",
-                    "text": system_prompt,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
+            system=system_prompt,
             tools=TOOLS,
             messages=history,
         )

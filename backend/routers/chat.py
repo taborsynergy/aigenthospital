@@ -91,8 +91,9 @@ async def websocket_chat(websocket: WebSocket, clinic_slug: str, session_id: str
                 response_text, is_escalated = await aria.chat(
                     clinic, session_id, user_message, channel="web", db=db
                 )
-            except Exception:
-                logger.exception("Agent error: clinic=%s session=%s", clinic_slug, session_id)
+            except Exception as agent_err:
+                logger.exception("Agent error [%s]: clinic=%s session=%s",
+                                 type(agent_err).__name__, clinic_slug, session_id)
                 await websocket.send_json({"type": "typing", "active": False})
                 await websocket.send_json({
                     "type": "error",
@@ -150,3 +151,19 @@ async def clinic_config(clinic_slug: str, db: Session = Depends(get_db)):
 @router.get("/api/health")
 async def health():
     return {"status": "ok", "service": "Tabor Synergy Agent"}
+
+
+@router.get("/api/health/ai")
+async def health_ai():
+    """Test that the Anthropic API key is valid and the model responds."""
+    try:
+        from backend.agent.aria import _client
+        from backend.config import settings
+        resp = await _client.messages.create(
+            model=settings.model,
+            max_tokens=10,
+            messages=[{"role": "user", "content": "ping"}],
+        )
+        return {"status": "ok", "model": resp.model, "reply": resp.content[0].text if resp.content else ""}
+    except Exception as e:
+        return {"status": "error", "error_type": type(e).__name__, "detail": str(e)[:300]}
