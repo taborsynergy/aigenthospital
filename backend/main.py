@@ -17,6 +17,38 @@ from backend.routers.billing import router as billing_router
 from backend.routers.signup import router as signup_router
 from backend.routers.clinic_auth import router as clinic_auth_router
 
+_SPECIALTY_ICONS = {
+    "dental": "🦷", "dentistry": "🦷", "orthodontics": "🦷",
+    "endodontics": "🦷", "periodontics": "🦷", "oral surgery": "🦷",
+    "dermatology": "🔬",
+    "pediatrics": "👶", "pediatric": "👶",
+    "orthopedics": "🦴", "orthopedic": "🦴", "sports medicine": "🦴", "chiropractic": "🦴",
+    "ophthalmology": "👁️", "optometry": "👁️", "eye care": "👁️",
+    "ob-gyn": "🤰", "obstetrics": "🤰", "gynecology": "🤰", "prenatal": "🤰",
+    "ent": "👂", "ear, nose": "👂", "ear nose": "👂",
+    "cardiology": "❤️", "cardiac": "❤️", "heart": "❤️",
+    "oncology": "🎗️", "cancer": "🎗️",
+    "family medicine": "🏠", "family practice": "🏠", "primary care": "🏠",
+    "urgent care": "🚑", "emergency": "🚑",
+    "neurology": "🧠", "neuroscience": "🧠", "psychiatry": "🧠", "psychology": "🧠",
+    "pulmonology": "🫁", "respiratory": "🫁",
+    "nephrology": "🫘", "kidney": "🫘",
+    "gastroenterology": "🏥", "gastro": "🏥",
+    "endocrinology": "💉", "diabetes": "💉",
+    "radiology": "🩻",
+    "physical therapy": "🏃", "rehabilitation": "🏃",
+    "urology": "🏥", "rheumatology": "🏥", "surgery": "🏥",
+}
+
+
+def _specialty_icon(specialty: str) -> str:
+    s = specialty.lower()
+    for key, icon in _SPECIALTY_ICONS.items():
+        if key in s:
+            return icon
+    return "🏥"
+
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s — %(message)s",
@@ -671,13 +703,13 @@ async def patient_chat_page(clinic_slug: str, db: Session = Depends(get_db)):
 <body>
 <div class="topbar">
   <div>
-    <div class="topbar-brand">🏥 {clinic.name}</div>
+    <div class="topbar-brand">{_specialty_icon(clinic.specialty)} {clinic.name}</div>
     <div class="topbar-sub">{clinic.specialty}</div>
   </div>
 </div>
 <div class="body">
   <div class="welcome-card">
-    <div class="avatar">🤖</div>
+    <div class="avatar">{_specialty_icon(clinic.specialty)}</div>
     <h1>Hi, I'm {clinic.agent_name}!</h1>
     <p>I'm the AI front desk assistant for <strong>{clinic.name}</strong>. I can help you book appointments, check insurance, answer billing questions, and more — 24 hours a day.</p>
     <div class="feature-pills">

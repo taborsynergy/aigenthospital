@@ -34,6 +34,39 @@
   injectCSS();
   const { launcher, badge, widget, connBar, msgList, typingEl, input, sendBtn, chipsEl } = buildUI();
 
+  // Specialty → emoji map (mirrors server-side _SPECIALTY_ICONS in main.py)
+  var SPECIALTY_ICONS = {
+    "dental": "🦷", "dentistry": "🦷", "orthodontics": "🦷",
+    "endodontics": "🦷", "periodontics": "🦷", "oral surgery": "🦷",
+    "dermatology": "🔬",
+    "pediatrics": "👶", "pediatric": "👶",
+    "orthopedics": "🦴", "orthopedic": "🦴", "sports medicine": "🦴", "chiropractic": "🦴",
+    "ophthalmology": "👁️", "optometry": "👁️", "eye care": "👁️",
+    "ob-gyn": "🤰", "obstetrics": "🤰", "gynecology": "🤰", "prenatal": "🤰",
+    "ent": "👂", "ear, nose": "👂", "ear nose": "👂",
+    "cardiology": "❤️", "cardiac": "❤️", "heart": "❤️",
+    "oncology": "🎗️", "cancer": "🎗️",
+    "family medicine": "🏠", "family practice": "🏠", "primary care": "🏠",
+    "urgent care": "🚑", "emergency": "🚑",
+    "neurology": "🧠", "neuroscience": "🧠", "psychiatry": "🧠", "psychology": "🧠",
+    "pulmonology": "🫁", "respiratory": "🫁",
+    "nephrology": "🫘", "kidney": "🫘",
+    "gastroenterology": "🏥", "gastro": "🏥",
+    "endocrinology": "💉", "diabetes": "💉",
+    "radiology": "🩻",
+    "physical therapy": "🏃", "rehabilitation": "🏃",
+  };
+
+  function specialtyIcon(specialty) {
+    if (!specialty) return "🏥";
+    var s = specialty.toLowerCase();
+    var keys = Object.keys(SPECIALTY_ICONS);
+    for (var i = 0; i < keys.length; i++) {
+      if (s.indexOf(keys[i]) !== -1) return SPECIALTY_ICONS[keys[i]];
+    }
+    return "🏥";
+  }
+
   // Fetch clinic config and update header dynamically
   var apiBase   = location.protocol + "//" + location.host;
   var configUrl = CLINIC_SLUG
@@ -42,12 +75,15 @@
   fetch(configUrl)
     .then(function (r) { return r.json(); })
     .then(function (cfg) {
-      var nameEl = document.getElementById("aria-header-name");
-      var subEl  = document.getElementById("aria-header-sub");
+      var nameEl    = document.getElementById("aria-header-name");
+      var subEl     = document.getElementById("aria-header-sub");
+      var avatarEl  = document.getElementById("aria-avatar");
       var agentName  = cfg.agent_name  || cfg.agent;
       var clinicName = cfg.clinic_name || cfg.clinic;
-      if (nameEl && agentName)  nameEl.textContent = agentName;
-      if (subEl  && clinicName) subEl.textContent  = clinicName + " · Front Desk";
+      var specialty  = cfg.specialty   || "";
+      if (nameEl   && agentName)  nameEl.textContent  = agentName;
+      if (subEl    && clinicName) subEl.textContent   = clinicName + " · Front Desk";
+      if (avatarEl && specialty)  avatarEl.textContent = specialtyIcon(specialty);
     })
     .catch(function () { /* keep defaults */ });
 
@@ -248,10 +284,10 @@
     // Header
     widget.innerHTML = `
       <div id="aria-header">
-        <div id="aria-avatar">🦷</div>
+        <div id="aria-avatar">🏥</div>
         <div id="aria-header-info">
           <div id="aria-header-name">Aria</div>
-          <div id="aria-header-sub">Bright Smiles Dental · Front Desk</div>
+          <div id="aria-header-sub">Front Desk Assistant</div>
         </div>
         <div id="aria-status-dot" title="Online"></div>
         <button id="aria-close-btn" aria-label="Close chat">✕</button>
