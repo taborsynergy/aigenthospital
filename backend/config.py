@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     smtp_pass: str = ""                  # App password (not your login password)
     notify_email: str = "admin@tabor.taborsynergy.com"   # Where quote emails are delivered
 
+    # ── Mock PMS defaults (used by pms.py when real EHR is not connected) ──
+    providers: str = "Dr. Provider"
+    clinic_name: str = "Tabor Synergy"
+    address: str = ""
+    cancellation_policy: str = "Please cancel at least 24 hours in advance to avoid a cancellation fee."
+
     # ── Server ───────────────────────────────────────────────────────
     allowed_origins: str = "*"
     base_url: str = "https://aifrontdesk.taborsynergy.com"   # Used for Stripe redirect URLs

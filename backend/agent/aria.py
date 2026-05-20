@@ -136,7 +136,12 @@ async def chat(
             for block in response.content:
                 if block.type != "tool_use":
                     continue
-                result = await dispatch_tool(block.name, block.input)
+                try:
+                    result = await dispatch_tool(block.name, block.input)
+                except Exception as tool_err:
+                    logger.exception("Tool error [%s] name=%s inputs=%s",
+                                     type(tool_err).__name__, block.name, block.input)
+                    result = {"error": f"Tool execution failed: {type(tool_err).__name__}"}
                 if block.name == "escalate_to_human":
                     is_escalated = True
                 tool_results.append({
