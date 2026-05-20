@@ -14,6 +14,7 @@ from backend.config import settings
 from backend.db.database import get_db
 from backend.db import crud
 from backend.agent.aria import invalidate_prompt
+from backend.plans import PLANS, get_plan
 
 router = APIRouter(prefix="/admin/api")
 logger = logging.getLogger(__name__)
@@ -182,14 +183,19 @@ def clinic_usage(slug: str, db: Session = Depends(get_db)):
 @router.get("/stats", dependencies=[Depends(require_admin)])
 def overall_stats(db: Session = Depends(get_db)):
     clinics = crud.list_clinics(db)
-    usage_by_id = {r["clinic_id"]: r for r in crud.get_all_usage_summary(db)}
+    usage_by_id    = {r["clinic_id"]: r for r in crud.get_all_usage_summary(db)}
+    sessions_by_id = crud.get_all_monthly_sessions(db)
     return {
-        "total_clinics": len(clinics),
+        "total_clinics":  len(clinics),
         "active_clinics": sum(1 for c in clinics if c.subscription_status == "active"),
         "trial_clinics":  sum(1 for c in clinics if c.subscription_status == "trial"),
         "mrr": sum(c.monthly_rate for c in clinics if c.subscription_status == "active"),
         "clinics": [
-            {**_serialize(c), "usage": usage_by_id.get(c.id, {"messages": 0, "tokens": 0})}
+            {
+                **_serialize(c),
+                "usage": usage_by_id.get(c.id, {"messages": 0, "tokens": 0}),
+                "sessions_this_month": sessions_by_id.get(c.id, 0),
+            }
             for c in clinics
         ],
     }
@@ -263,6 +269,7 @@ def _serialize(clinic) -> dict:
         "hipaa_verify_method": clinic.hipaa_verify_method,
         "twilio_phone":        clinic.twilio_phone,
         "stripe_customer_id":  clinic.stripe_customer_id,
+        "plan":                clinic.plan or "professional",
         "subscription_status": clinic.subscription_status,
         "monthly_rate":        clinic.monthly_rate,
         "trial_ends_at":          clinic.trial_ends_at.isoformat() if clinic.trial_ends_at else None,

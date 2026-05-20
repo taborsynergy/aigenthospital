@@ -167,11 +167,11 @@ def get_usage_summary(db: Session, clinic_id: int) -> dict:
 
 
 def get_usage_this_month(db: Session, clinic_id: int) -> int:
-    """Return number of conversations started this calendar month."""
+    """Count distinct patient sessions this calendar month (1 session = 1 patient visit)."""
     from sqlalchemy import extract
     now = datetime.utcnow()
     count = (
-        db.query(func.count(UsageLog.id))
+        db.query(func.count(func.distinct(UsageLog.session_id)))
         .filter(
             UsageLog.clinic_id == clinic_id,
             extract("year",  UsageLog.created_at) == now.year,
@@ -180,6 +180,25 @@ def get_usage_this_month(db: Session, clinic_id: int) -> int:
         .scalar()
     )
     return count or 0
+
+
+def get_all_monthly_sessions(db: Session) -> dict:
+    """Return {clinic_id: session_count} for the current calendar month — single query."""
+    from sqlalchemy import extract
+    now = datetime.utcnow()
+    rows = (
+        db.query(
+            UsageLog.clinic_id,
+            func.count(func.distinct(UsageLog.session_id)).label("sessions"),
+        )
+        .filter(
+            extract("year",  UsageLog.created_at) == now.year,
+            extract("month", UsageLog.created_at) == now.month,
+        )
+        .group_by(UsageLog.clinic_id)
+        .all()
+    )
+    return {r.clinic_id: r.sessions for r in rows}
 
 
 def get_all_usage_summary(db: Session) -> list[dict]:

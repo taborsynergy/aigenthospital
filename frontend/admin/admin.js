@@ -95,10 +95,15 @@ function loadPipeline() {
     });
 }
 
-function planLabel(rate) {
-  if (rate >= 997) return "Pro — $997/mo";
-  if (rate >= 597) return "Growth — $597/mo";
-  return "Starter — $297/mo";
+var PLAN_LIMITS = { starter: 300, professional: 1000, enterprise: null };
+var PLAN_COLORS = { starter: "#6B7280", professional: "#1E40AF", enterprise: "#7C3AED" };
+var PLAN_NAMES  = { starter: "Starter", professional: "Professional", enterprise: "Enterprise" };
+
+function planLabel(c) {
+  var key  = (c.plan || "professional").toLowerCase();
+  var name = PLAN_NAMES[key] || "Professional";
+  return '<span style="font-weight:700;color:' + (PLAN_COLORS[key] || "#1E40AF") + '">' + name + '</span>'
+       + ' <span style="color:#64748b;font-size:12px;">$' + (c.monthly_rate || 0) + '/mo</span>';
 }
 
 function renderPipeline(all, stats) {
@@ -154,7 +159,7 @@ function renderPipeline(all, stats) {
       "<td><strong>" + esc(c.name) + "</strong></td>" +
       "<td>" + esc(c.specialty) + "</td>" +
       "<td>" + esc(c.email) + (c.phone ? "<br><small>" + esc(c.phone) + "</small>" : "") + "</td>" +
-      "<td>" + planLabel(c.monthly_rate) + "</td>" +
+      "<td>" + planLabel(c) + "</td>" +
       "<td>" + (c.trial_ends_at ? c.trial_ends_at.slice(0,10) : "—") + "</td>" +
       "<td><strong style='color:" + (d <= 3 ? "#DC2626" : "#D97706") + "'>" + d + " days</strong></td>" +
       "<td><button class='btn btn-sm' style='background:#059669;color:#fff' onclick='activateClinic(\"" + esc(c.slug) + "\")'>Activate</button> " +
@@ -169,7 +174,7 @@ function renderPipeline(all, stats) {
     var renewColor = renewDays !== null && renewDays <= 5 ? "#DC2626" : "#059669";
     return "<tr>" +
       "<td><strong>" + esc(c.name) + "</strong><br><small style='color:#64748b'>" + esc(c.email) + "</small></td>" +
-      "<td style='color:#059669;font-weight:700'>" + planLabel(c.monthly_rate) + "</td>" +
+      "<td style='color:#059669;font-weight:700'>" + planLabel(c) + "</td>" +
       "<td>" + (c.activated_at ? c.activated_at.slice(0,10) : "—") + "</td>" +
       "<td style='color:" + renewColor + ";font-weight:600'>" + (renewDays !== null ? renewDays + "d" : "—") + "</td>" +
       "<td>" + (u.messages || 0) + " msgs</td>" +
@@ -187,7 +192,7 @@ function renderPipeline(all, stats) {
       "<td><strong>" + esc(c.name) + "</strong></td>" +
       "<td>" + esc(c.specialty) + "</td>" +
       "<td>" + esc(c.email) + "</td>" +
-      "<td>" + planLabel(c.monthly_rate) + "</td>" +
+      "<td>" + planLabel(c) + "</td>" +
       "<td>" + (c.created_at ? c.created_at.slice(0,10) : "—") + "</td>" +
       "<td>" + (c.trial_ends_at ? c.trial_ends_at.slice(0,10) : "—") + "</td>" +
       "<td>" + (d !== null ? d + " days" : "—") + "</td>" +
@@ -201,7 +206,7 @@ function renderPipeline(all, stats) {
       "<td><strong>" + esc(c.name) + "</strong></td>" +
       "<td>" + esc(c.specialty) + "</td>" +
       "<td>" + esc(c.email) + "</td>" +
-      "<td>" + planLabel(c.monthly_rate) + "</td>" +
+      "<td>" + planLabel(c) + "</td>" +
       "<td style='color:#DC2626'>" + endDate + "</td>" +
       "<td><button class='btn btn-sm' style='background:#059669;color:#fff' onclick='activateClinic(\"" + esc(c.slug) + "\")'>Reactivate</button> " +
           "<a class='btn btn-outline btn-sm' href='mailto:" + esc(c.email) + "?subject=Your%20Tabor%20Synergy%20trial&body=Hi%2C%20your%20trial%20has%20expired.%20Ready%20to%20continue%3F'>Win-Back Email</a></td>" +
@@ -287,7 +292,7 @@ function renderClinics(data) {
       '<td>' + esc(c.specialty) + '</td>' +
       '<td>' + esc(c.agent_name) + '</td>' +
       '<td>' + statusBadge(c) + '</td>' +
-      '<td>$' + c.monthly_rate + '/mo</td>' +
+      '<td>' + planLabel(c) + '</td>' +
       '<td>' + (c.created_at ? c.created_at.slice(0, 10) : "—") + '</td>' +
       '<td>' +
         '<button class="btn btn-outline btn-sm" onclick="editClinic(\'' + c.slug + '\')">Edit</button> ' +
@@ -399,19 +404,40 @@ function loadUsage() {
     .then(function (data) { renderUsage(data.clinics || []); });
 }
 
+function usageBar(used, limit) {
+  if (limit === null || limit === undefined) {
+    return '<div style="font-size:12px;color:#059669;font-weight:600;">' + used + ' sessions &nbsp;∞ unlimited</div>';
+  }
+  var pct   = Math.min(100, Math.round((used / limit) * 100));
+  var color = pct >= 90 ? "#DC2626" : pct >= 70 ? "#D97706" : "#059669";
+  return '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<div style="flex:1;background:#E5E7EB;border-radius:99px;height:7px;overflow:hidden;min-width:80px;">' +
+      '<div style="width:' + pct + '%;height:100%;background:' + color + ';border-radius:99px;"></div>' +
+    '</div>' +
+    '<span style="font-size:12px;color:' + color + ';font-weight:600;white-space:nowrap;">' + used + ' / ' + limit + '</span>' +
+  '</div>';
+}
+
 function renderUsage(rows) {
+  var thead = document.querySelector("#tab-usage table thead tr");
+  if (thead) thead.innerHTML =
+    '<th>Clinic</th><th>Plan</th><th>Sessions This Month</th><th>Total Messages (all time)</th><th>Status</th>';
+
   var tbody = document.getElementById("usage-tbody");
   if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="icon">📊</div><p>No usage data yet.</p></div></td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(function (c) {
-    var u = c.usage || {};
+    var u     = c.usage || {};
+    var used  = c.sessions_this_month || 0;
+    var key   = (c.plan || "professional").toLowerCase();
+    var limit = PLAN_LIMITS[key] !== undefined ? PLAN_LIMITS[key] : 1000;
     return '<tr>' +
-      '<td><strong>' + esc(c.name) + '</strong></td>' +
-      '<td>' + esc(c.specialty) + '</td>' +
-      '<td>' + (u.messages || 0) + '</td>' +
-      '<td>' + ((u.tokens || 0)).toLocaleString() + '</td>' +
+      '<td><strong>' + esc(c.name) + '</strong><br><small style="color:#64748b">' + esc(c.specialty) + '</small></td>' +
+      '<td>' + planLabel(c) + '</td>' +
+      '<td>' + usageBar(used, limit) + '</td>' +
+      '<td style="color:#64748b">' + (u.messages || 0).toLocaleString() + ' msgs &nbsp;·&nbsp; ' + (u.tokens || 0).toLocaleString() + ' tokens</td>' +
       '<td><span class="badge badge-' + c.subscription_status + '">' + c.subscription_status + '</span></td>' +
     '</tr>';
   }).join("");
