@@ -4,6 +4,8 @@ Mock payment processing (Stripe/Square stand-in).
 import uuid
 from typing import Optional
 
+from backend.config import settings
+
 
 def send_payment_link(
     patient_name: str,
@@ -12,7 +14,8 @@ def send_payment_link(
     contact: str,
 ) -> dict:
     link_id = uuid.uuid4().hex[:12]
-    payment_url = f"https://pay.brightsmilesdental.com/{link_id}"
+    base = settings.base_url.rstrip("/")
+    payment_url = f"{base}/pay/{link_id}"
 
     return {
         "success": True,
@@ -33,8 +36,9 @@ def send_intake_form(
     patient_phone: Optional[str] = None,
 ) -> dict:
     form_id = uuid.uuid4().hex[:10]
-    form_url = f"https://intake.brightsmilesdental.com/{form_id}"
-    contact = patient_email if channel == "email" else patient_phone
+    base = settings.base_url.rstrip("/")
+    form_url = f"{base}/intake/{form_id}"
+    contact = patient_email or patient_phone or "on file"
 
     return {
         "success": True,

@@ -9,15 +9,27 @@ import uuid
 
 from backend.config import settings
 
-# Providers parsed from config (comma-separated string)
-def _parse_providers() -> list[dict]:
-    raw = settings.providers
+def _parse_providers(clinic=None) -> list[dict]:
+    raw = (clinic.providers if clinic and clinic.providers else None) or settings.providers
     providers = []
     for i, p in enumerate(raw.split(",")):
         p = p.strip()
         if p:
             providers.append({"id": f"p{i+1}", "name": p})
     return providers or [{"id": "p1", "name": "Dr. Provider"}]
+
+
+def _clinic_prefix(clinic=None) -> str:
+    name = (clinic.name if clinic else None) or settings.clinic_name
+    return name[:3].upper().replace(" ", "")
+
+
+def _clinic_address(clinic=None) -> str:
+    return (clinic.address if clinic else None) or settings.address or ""
+
+
+def _cancellation_policy(clinic=None) -> str:
+    return (clinic.cancellation_policy if clinic else None) or settings.cancellation_policy
 
 
 MOCK_PATIENTS = {
@@ -57,8 +69,9 @@ def check_availability(
     date_range_end: Optional[str] = None,
     provider: Optional[str] = None,
     duration_minutes: Optional[int] = None,
+    clinic=None,
 ) -> dict:
-    providers = _parse_providers()
+    providers = _parse_providers(clinic)
     start = (
         datetime.strptime(date_range_start, "%Y-%m-%d").date()
         if date_range_start
@@ -107,10 +120,11 @@ def book_appointment(
     patient_dob: Optional[str] = None,
     is_new_patient: bool = False,
     chief_complaint: Optional[str] = None,
+    clinic=None,
 ) -> dict:
-    providers = _parse_providers()
+    providers = _parse_providers(clinic)
     chosen_provider = provider or providers[0]["name"]
-    confirmation_number = f"{settings.clinic_name[:3].upper().replace(' ', '')}-{random.randint(10000, 99999)}"
+    confirmation_number = f"{_clinic_prefix(clinic)}-{random.randint(10000, 99999)}"
     return {
         "success": True,
         "confirmation_number": confirmation_number,
@@ -118,7 +132,7 @@ def book_appointment(
         "appointment_type": appointment_type,
         "datetime": datetime_str,
         "provider": chosen_provider,
-        "location": settings.address,
+        "location": _clinic_address(clinic),
         "prep_instructions": (
             "Please arrive 15 minutes early and bring your insurance card and a photo ID."
             if is_new_patient
@@ -134,11 +148,11 @@ def reschedule_appointment(
     patient_dob: Optional[str] = None,
     current_appointment_date: Optional[str] = None,
     reason: Optional[str] = None,
+    clinic=None,
 ) -> dict:
-    prefix = settings.clinic_name[:3].upper().replace(" ", "")
     return {
         "success": True,
-        "confirmation_number": f"{prefix}-{random.randint(10000, 99999)}",
+        "confirmation_number": f"{_clinic_prefix(clinic)}-{random.randint(10000, 99999)}",
         "patient_name": patient_name,
         "new_datetime": new_datetime,
         "message": "Appointment rescheduled successfully.",
@@ -150,12 +164,13 @@ def cancel_appointment(
     appointment_date: str,
     patient_dob: Optional[str] = None,
     reason: Optional[str] = None,
+    clinic=None,
 ) -> dict:
     return {
         "success": True,
         "patient_name": patient_name,
         "cancelled_date": appointment_date,
-        "cancellation_policy": settings.cancellation_policy,
+        "cancellation_policy": _cancellation_policy(clinic),
         "message": "Appointment cancelled. We hope to see you again soon.",
     }
 
@@ -192,6 +207,7 @@ def add_to_waitlist(
     appointment_type: str,
     preferred_provider: Optional[str] = None,
     earliest_available: Optional[str] = None,
+    clinic=None,
 ) -> dict:
     return {
         "success": True,

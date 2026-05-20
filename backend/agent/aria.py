@@ -137,7 +137,7 @@ async def chat(
                 if block.type != "tool_use":
                     continue
                 try:
-                    result = await dispatch_tool(block.name, block.input)
+                    result = await dispatch_tool(block.name, block.input, clinic=clinic)
                 except Exception as tool_err:
                     logger.exception("Tool error [%s] name=%s inputs=%s",
                                      type(tool_err).__name__, block.name, block.input)
