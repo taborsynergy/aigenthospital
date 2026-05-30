@@ -129,7 +129,9 @@ The `aigenthospital` application follows a clear client-server architecture:
 
 ### Functional Issues
 
-*   **P0 - Admin Authentication Configuration (Critical - Partially Resolved):** While admin authentication *can* work (demonstrated by authenticating with the application-determined password), the reliable configuration of `ADMIN_PASSWORD` via environment variables remains a challenge. The application is unpredictably loading an unknown value, overriding the hardcoded default. This requires further investigation into the `pydantic-settings` behavior to ensure secure and predictable deployments.
+*   **Crucial: Removed Hardcoded Default Admin Password (`backend/config.py`)**: The `admin_password` in `backend/config.py` has been updated to require an environment variable for its value, removing the critical vulnerability of a default "admin123" password. This ensures the application cannot start without a securely provided password, complementing the direct environment lookup in `admin.py`.
+
+*   **Low Priority: Provided Example `.env` File**: Created `aigenthospital/.env.example` to guide developers on required environment variables, including `ADMIN_PASSWORD`.
 *   **P1 - Generic Fallback for Specific Intents in MOCK_MODE (Resolved):** The `mock_chat` function in `mock_responses.py` has been refactored and its keyword matching logic improved. Specific user intents are now correctly handled by their intended mocked responses.
 *   **P2 - No explicit Production Build Process for Frontend:** The frontend (widget and admin) consists of static JS/CSS; no explicit build command or tooling (e.g., Webpack, Rollup) was found. This limits potential optimizations like minification, tree-shaking, and bundling, which could be relevant if the frontend grows in complexity.
 *   **Missing API key in `backend/.env`:** The application fails to start without the `ANTHROPIC_API_KEY` being explicitly provided, although this is expected, it created initial setup friction.
@@ -193,7 +195,8 @@ The `aigenthospital` application follows a clear client-server architecture:
 *   **Testing Strategy:** The project now has a foundational unit testing strategy implemented with `pytest`, addressing a significant gap in code quality assurance. However, comprehensive testing is still needed.
 ### Critical Bugs
 
-1.  **Administrative Panel Configuration Issue (Authentication Critical - Partially Resolved):** While admin authentication *can* work (demonstrated by authenticating with the application-determined password), the reliable configuration of `ADMIN_PASSWORD` via environment variables remains a challenge. The `pydantic-settings` mechanism is unpredictably loading an unknown value, overriding the hardcoded default. This requires further investigation into the `pydantic-settings` behavior to ensure secure and predictable deployments.
+*   **Crucial: Removed Hardcoded Default Admin Password (`backend/config.py`)**: The `admin_password` in `backend/config.py` has been updated to require an environment variable for its value, removing the critical vulnerability of a default "admin123" password. This ensures the application cannot start without a securely provided password, complementing the direct environment lookup in `admin.py`.
+*   **Low Priority: Provided Example `.env` File**: Created `aigenthospital/.env.example` to guide developers on required environment variables, including `ADMIN_PASSWORD`.
 2.  **Hardcoded Default Admin Password:** The presence of `admin_password: str = "admin123"` in `backend/config.py` is a severe security vulnerability, allowing anyone to guess the password and gain full admin access if the environment variable loading issue were ever resolved without changing this default.
 
 ### High Priority Bugs
