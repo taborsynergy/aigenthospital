@@ -2,6 +2,7 @@
 Admin API — protected by X-Admin-Password header.
 Provides CRUD for clinics, usage stats, and billing actions.
 """
+import os
 import logging
 from typing import Literal, Optional
 
@@ -23,10 +24,12 @@ logger = logging.getLogger(__name__)
 # ── Auth ─────────────────────────────────────────────────────────────────────
 
 def require_admin(x_admin_password: Optional[str] = Header(None)):
-    if x_admin_password != settings.admin_password:
+    if x_admin_password != os.environ.get("ADMIN_PASSWORD"): # Direct check against os.environ
         raise HTTPException(status_code=401, detail="Invalid admin password")
 
 
+
+# ── Schemas ───────────────────────────────────────────────────────────────────
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class ClinicIn(BaseModel):

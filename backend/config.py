@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # ── Anthropic ────────────────────────────────────────────────────
-    anthropic_api_key: str
+    anthropic_api_key: str = "dummy-api-key"
     model: str = "claude-sonnet-4-6"
     max_tokens: int = 1024
 
@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./tabor_agent.db"
 
     # ── Admin ────────────────────────────────────────────────────────
-    admin_password: str = "admin123"
+    admin_password: str
     admin_panel_path: str = "/ts-mgmt"   # Secret URL — change via ADMIN_PANEL_PATH env var
 
     # ── PayPal ───────────────────────────────────────────────────────
