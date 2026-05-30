@@ -202,6 +202,56 @@ async def get_appointments(
     ]
 
 
+class _UpgradeBody(ChatMessage.__base__):  # reuse pydantic Base
+    plan: str
+
+
+from pydantic import BaseModel as _BM
+
+class _UpgradeBody(_BM):
+    plan: str
+
+
+@router.post("/api/{clinic_slug}/upgrade-request")
+async def upgrade_request(
+    clinic_slug: str,
+    body: _UpgradeBody,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Doctor requests a plan upgrade — returns PayPal link and emails admin."""
+    from backend.config import settings as cfg
+    from backend.services.email_svc import send_upgrade_request_email
+
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    _PRICES = {"starter": 297, "professional": 597, "enterprise": 997}
+    new_plan    = (body.plan or "").lower()
+    current_key = (getattr(clinic, "plan", None) or "professional").lower()
+
+    if new_plan not in _PRICES:
+        return JSONResponse(status_code=400, content={"error": "Invalid plan."})
+    if _PRICES.get(new_plan, 0) <= _PRICES.get(current_key, 0):
+        return JSONResponse(status_code=400, content={"error": "Select a higher plan to upgrade."})
+
+    new_price  = _PRICES[new_plan]
+    paypal_url = cfg.paypal_me_url.rstrip("/") + f"/{new_price}"
+
+    send_upgrade_request_email({
+        "clinic_name":  clinic.name,
+        "clinic_email": clinic.email,
+        "clinic_slug":  clinic.slug,
+        "current_plan": current_key,
+        "new_plan":     new_plan,
+        "new_price":    new_price,
+        "paypal_url":   paypal_url,
+    })
+
+    return {"ok": True, "paypal_url": paypal_url, "new_plan": new_plan, "new_price": new_price}
+
+
 @router.get("/api/{clinic_slug}/plan")
 async def clinic_plan(
     clinic_slug: str,

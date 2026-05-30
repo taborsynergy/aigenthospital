@@ -154,6 +154,65 @@ def send_trial_signup_email(data: dict) -> bool:
     return _send(msg)
 
 
+def send_upgrade_request_email(data: dict) -> bool:
+    """Notify admin when a clinic requests a plan upgrade."""
+    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+        logger.warning("SMTP not configured — upgrade request NOT emailed. Details: %s", data)
+        return False
+
+    clinic   = data.get("clinic_name", "Unknown")
+    subject  = f"[Tabor Synergy] Upgrade Request — {clinic} → {data.get('new_plan','').title()}"
+
+    plain = "\n".join([
+        f"{clinic} has requested a plan upgrade.",
+        "",
+        f"Clinic:       {clinic}",
+        f"Email:        {data.get('clinic_email', '—')}",
+        f"Current Plan: {data.get('current_plan', '—').title()}",
+        f"New Plan:     {data.get('new_plan', '—').title()} (${data.get('new_price', '—')}/mo)",
+        f"PayPal Link:  {data.get('paypal_url', '—')}",
+        "",
+        "Action required: after payment is received, activate the new plan in the admin dashboard.",
+        "  1. Open the admin panel",
+        f"  2. Find clinic: {data.get('clinic_slug', '—')}",
+        "  3. Edit the clinic, set the new plan and rate, then click Activate 30d",
+        "",
+        "— Tabor Synergy automated notification",
+    ])
+
+    html = f"""
+<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#7C3AED;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Plan Upgrade Request</h2>
+  <p style="color:#e9d5ff;margin:4px 0 0">Tabor Synergy — AI Medical Front Desk</p>
+</div>
+<div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0">
+  <p style="margin-top:0"><strong>{clinic}</strong> has requested a plan upgrade.</p>
+  <table style="width:100%;border-collapse:collapse">
+    <tr><td style="padding:8px;color:#666;width:40%">Clinic</td>
+        <td style="padding:8px;font-weight:bold">{data.get('clinic_name','—')}</td></tr>
+    <tr style="background:#fff"><td style="padding:8px;color:#666">Email</td>
+        <td style="padding:8px"><a href="mailto:{data.get('clinic_email','')}">{data.get('clinic_email','—')}</a></td></tr>
+    <tr><td style="padding:8px;color:#666">Current Plan</td>
+        <td style="padding:8px">{data.get('current_plan','—').title()}</td></tr>
+    <tr style="background:#fff"><td style="padding:8px;color:#666">Requested Plan</td>
+        <td style="padding:8px;font-weight:bold;color:#7C3AED">{data.get('new_plan','—').title()} — ${data.get('new_price','—')}/mo</td></tr>
+    <tr><td style="padding:8px;color:#666">PayPal Link</td>
+        <td style="padding:8px"><a href="{data.get('paypal_url','')}" style="background:#003087;color:#fff;padding:6px 14px;border-radius:4px;text-decoration:none;font-weight:bold">Open PayPal →</a></td></tr>
+  </table>
+  <div style="margin-top:20px;padding:14px;background:#EDE9FE;border-left:4px solid #7C3AED;border-radius:4px">
+    <strong>Action required:</strong> After confirming payment, go to the admin panel,
+    find <code>{data.get('clinic_slug','—')}</code>, update the plan to
+    <strong>{data.get('new_plan','—').title()}</strong> and click <strong>Activate 30d</strong>.
+  </div>
+  <p style="margin-top:20px;font-size:12px;color:#999">Tabor Synergy — automated notification</p>
+</div>
+</body></html>
+"""
+    msg = _build_msg(subject, plain, html)
+    return _send(msg)
+
+
 def send_quote_email(data: dict) -> bool:
     """Send a White Label quote request to the notify_email address."""
     if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
