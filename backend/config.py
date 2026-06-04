@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -44,9 +44,7 @@ class Settings(BaseSettings):
     allowed_origins: str = "*"
     base_url: str = "https://aifrontdesk.taborsynergy.com"   # Used for Stripe redirect URLs
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"   # tolerate stale keys from previous config versions
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
 settings = Settings()

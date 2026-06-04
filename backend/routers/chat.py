@@ -3,8 +3,9 @@ import logging
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Header, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.agent import aria
@@ -202,13 +203,7 @@ async def get_appointments(
     ]
 
 
-class _UpgradeBody(ChatMessage.__base__):  # reuse pydantic Base
-    plan: str
-
-
-from pydantic import BaseModel as _BM
-
-class _UpgradeBody(_BM):
+class _UpgradeBody(BaseModel):
     plan: str
 
 
@@ -216,6 +211,7 @@ class _UpgradeBody(_BM):
 async def upgrade_request(
     clinic_slug: str,
     body: _UpgradeBody,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     x_clinic_token: str = Header(None),
 ):
@@ -239,7 +235,7 @@ async def upgrade_request(
     new_price  = _PRICES[new_plan]
     paypal_url = cfg.paypal_me_url.rstrip("/") + f"/{new_price}"
 
-    send_upgrade_request_email({
+    background_tasks.add_task(send_upgrade_request_email, {
         "clinic_name":  clinic.name,
         "clinic_email": clinic.email,
         "clinic_slug":  clinic.slug,

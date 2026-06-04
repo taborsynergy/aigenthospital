@@ -274,7 +274,7 @@ def mock_chat(messages: list[dict]) -> tuple[str, bool]:
             False,
         )
 
-    if _has(last, "reschedule", "move my appointment") or _has(full, "reschedule") and _has(full, "friday"):
+    if _has(last, "reschedule", "move my appointment") or (_has(full, "reschedule") and _has(full, "friday")):
         return (
             "I can help you reschedule! Friday looks available — I can confirm the reschedule "
             "to Friday for you. Would you like to lock that in?",
