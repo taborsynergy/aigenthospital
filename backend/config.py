@@ -41,8 +41,9 @@ class Settings(BaseSettings):
     cancellation_policy: str = "Please cancel at least 24 hours in advance to avoid a cancellation fee."
 
     # ── Server ───────────────────────────────────────────────────────
-    allowed_origins: str = "*"
+    allowed_origins: str = "https://aifrontdesk.taborsynergy.com,https://taborsynergy-agent.onrender.com"
     base_url: str = "https://aifrontdesk.taborsynergy.com"   # Used for Stripe redirect URLs
+    debug_mode: bool = False   # Set DEBUG_MODE=true locally to enable /docs and /openapi.json
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -4,9 +4,10 @@ POST /sms/inbound — called by Twilio when a patient texts the clinic's number.
 """
 import logging
 
-from fastapi import APIRouter, Depends, Form, Response
+from fastapi import APIRouter, Depends, Form, Request, Response
 from sqlalchemy.orm import Session
 
+from backend.config import settings
 from backend.db.database import get_db
 from backend.db.crud import get_clinic_by_twilio_number, get_or_create_sms_session
 from backend.agent import aria
@@ -19,11 +20,23 @@ logger = logging.getLogger(__name__)
 
 @router.post("/inbound")
 async def inbound_sms(
+    request: Request,
     From: str = Form(...),
     To: str = Form(...),
     Body: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    # Validate Twilio signature when credentials are configured
+    if settings.twilio_auth_token:
+        from twilio.request_validator import RequestValidator
+        validator = RequestValidator(settings.twilio_auth_token)
+        form_params = dict(await request.form())
+        twilio_sig = request.headers.get("X-Twilio-Signature", "")
+        # Reconstruct the URL Twilio signed — use base_url in proxy environments
+        url = settings.base_url.rstrip("/") + "/sms/inbound" if settings.base_url else str(request.url)
+        if not validator.validate(url, form_params, twilio_sig):
+            logger.warning("Invalid Twilio signature — possible spoofed SMS from %s", request.client.host)
+            return Response(content="", media_type="application/xml", status_code=403)
     logger.info("Inbound SMS: from=%s to=%s body=%s", From, To, Body[:60])
 
     clinic = get_clinic_by_twilio_number(db, To)

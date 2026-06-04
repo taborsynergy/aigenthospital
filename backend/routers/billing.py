@@ -6,9 +6,10 @@ import logging
 
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from backend.config import settings
 from backend.db.database import get_db
 from backend.db.crud import get_clinic_by_stripe_customer, update_clinic, get_clinic
 from backend.services.stripe_svc import handle_webhook
@@ -24,11 +25,15 @@ async def stripe_webhook(
     db: Session = Depends(get_db),
 ):
     payload = await request.body()
-    event = handle_webhook(payload, stripe_signature or "")
 
-    if event is None:
-        # Stripe not configured or signature check failed — accept silently
+    # If Stripe is not configured (PayPal mode), accept silently
+    if not settings.stripe_webhook_secret:
         return {"received": True}
+
+    event = handle_webhook(payload, stripe_signature or "")
+    if event is None:
+        logger.warning("Stripe webhook rejected — invalid signature from %s", request.client.host)
+        raise HTTPException(status_code=400, detail="Invalid Stripe webhook signature")
 
     etype = event["type"]
     logger.info("Stripe event: %s", etype)

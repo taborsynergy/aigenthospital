@@ -1,8 +1,9 @@
 import logging
 from pathlib import Path
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -57,13 +58,38 @@ logging.basicConfig(
 app = FastAPI(
     title="Tabor Synergy — Universal Medical Front Desk Agent",
     version="2.0.0",
+    docs_url="/docs"        if settings.debug_mode else None,
+    redoc_url="/redoc"      if settings.debug_mode else None,
+    openapi_url="/openapi.json" if settings.debug_mode else None,
 )
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https://api.qrserver.com; "
+            "connect-src 'self' wss: ws:; "
+            "frame-ancestors 'none';"
+        )
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 origins = ["*"] if settings.allowed_origins == "*" else settings.allowed_origins.split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=origins != ["*"],  # wildcard + credentials is invalid per CORS spec
+    allow_credentials=origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
