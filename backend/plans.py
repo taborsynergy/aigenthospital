@@ -22,26 +22,30 @@ PLANS = {
         "price":               597,
         "conversations_limit": 1000,
         "sms":                 True,
+        "whatsapp":            True,
         "widget_embed":        True,
         "custom_agent_name":   True,
         "white_label":         False,
         "max_locations":       3,
+        "monthly_reports":     True,
         "support":             "Priority email support",
         "color":               "#1E40AF",
-        "coming_soon":         ["whatsapp_channels", "custom_insurance_knowledge", "monthly_performance_report"],
+        "coming_soon":         ["custom_insurance_knowledge"],
     },
     "enterprise": {
         "name":                "Enterprise",
         "price":               997,
         "conversations_limit": None,      # unlimited
         "sms":                 True,
+        "whatsapp":            True,
         "widget_embed":        True,
         "custom_agent_name":   True,
         "white_label":         True,
         "max_locations":       None,      # unlimited
+        "monthly_reports":     True,
         "support":             "Dedicated account manager + 24/7 priority",
         "color":               "#7C3AED",
-        "coming_soon":         ["whatsapp_channels", "custom_insurance_knowledge", "monthly_performance_report", "ehr_system_integration", "custom_ai_training"],
+        "coming_soon":         ["custom_insurance_knowledge", "ehr_system_integration", "custom_ai_training"],
     },
 }
 
@@ -82,3 +86,13 @@ def get_coming_soon_features(clinic) -> list[str]:
 def is_feature_coming_soon(clinic, feature: str) -> bool:
     """Check if a specific feature is coming soon for this plan."""
     return feature in get_coming_soon_features(clinic)
+
+
+def can_use_whatsapp(clinic) -> bool:
+    """Check if clinic plan supports WhatsApp messaging."""
+    return get_plan(clinic).get("whatsapp", False)
+
+
+def can_use_monthly_reports(clinic) -> bool:
+    """Check if clinic plan supports monthly performance reports."""
+    return get_plan(clinic).get("monthly_reports", False)

@@ -13,7 +13,7 @@ from backend.db.database import get_db
 from backend.schemas import ClinicProfileUpdate
 from backend.db.crud import get_clinic, get_clinic_by_token, list_appointments
 from backend.models.schemas import ChatMessage, ChatResponse
-from backend.plans import get_plan, monthly_conversation_limit
+from backend.plans import get_plan, monthly_conversation_limit, can_use_monthly_reports
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -254,6 +254,41 @@ async def get_analytics(
     except Exception:
         logger.exception("Analytics error: clinic=%s report=%s", clinic_slug, report)
         return JSONResponse(status_code=500, content={"error": "Failed to compute analytics."})
+
+
+# ── Monthly performance report ──────────────────────────────────────────────────
+
+@router.get("/api/{clinic_slug}/report/monthly")
+async def get_monthly_report(
+    clinic_slug: str,
+    year: int = None,
+    month: int = None,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Get monthly performance report (Professional+ plans only)."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    if not can_use_monthly_reports(clinic):
+        return JSONResponse(status_code=403, content={
+            "error": "Monthly reports not available on your plan. Upgrade to Professional or above."
+        })
+
+    from backend.services.monthly_report_svc import generate_monthly_report, get_last_month_report
+
+    if not year or not month:
+        report = get_last_month_report(clinic.id, db)
+    else:
+        if month < 1 or month > 12:
+            return JSONResponse(status_code=400, content={"error": "Month must be 1-12"})
+        if year < 2020 or year > datetime.utcnow().year:
+            return JSONResponse(status_code=400, content={"error": "Invalid year"})
+        report = generate_monthly_report(clinic.id, db, year, month)
+
+    logger.info("Monthly report generated: clinic=%s", clinic_slug)
+    return report
 
 
 # ── Clinic profile (self-edit by clinic staff) ────────────────────────────────
