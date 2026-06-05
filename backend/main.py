@@ -8,9 +8,14 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
 from backend.config import settings
 from backend.db.database import get_db, init_db
 from backend.db.crud import get_clinic
+from backend.limiter import limiter
 from backend.routers.chat import router as chat_router
 from backend.routers.admin import router as admin_router
 from backend.routers.sms import router as sms_router
@@ -83,6 +88,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
 origins = ["*"] if settings.allowed_origins == "*" else settings.allowed_origins.split(",")

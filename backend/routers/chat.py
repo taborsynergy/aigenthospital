@@ -145,6 +145,9 @@ async def rest_chat(clinic_slug: str, body: ChatMessage, db: Session = Depends(g
     if block_msg:
         return JSONResponse(status_code=403, content={"error": block_msg})
 
+    if not body.message or not body.message.strip():
+        return JSONResponse(status_code=400, content={"error": "Message cannot be empty."})
+
     session_id = body.session_id or str(uuid.uuid4())
     try:
         response_text, is_escalated = await aria.chat(

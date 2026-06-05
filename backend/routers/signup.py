@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from backend.config import settings
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class SignupRequest(BaseModel):
     practice_name: str
-    contact_email: str
+    contact_email: EmailStr
     password: str = ""   # default "" so FastAPI never returns a 422 array; we validate below
     specialty: str
     phone: str = ""
@@ -40,31 +40,30 @@ def _make_slug(name: str) -> str:
 
 @router.post("/api/signup")
 def signup(body: SignupRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    plan = body.plan.lower() if body.plan.lower() in PLAN_RATES else "professional"
-    rate = PLAN_RATES[plan]
-
-    slug = _make_slug(body.practice_name)
-    # Ensure uniqueness (extremely unlikely collision, but be safe)
-    while crud.get_clinic(db, slug):
-        slug = _make_slug(body.practice_name)
-
-    trial_ends_at = datetime.utcnow() + timedelta(days=14)
-
     if not body.practice_name.strip():
         return JSONResponse(status_code=400, content={"error": "Practice name is required."})
     if not body.specialty.strip():
         return JSONResponse(status_code=400, content={"error": "Specialty is required."})
-    if not body.contact_email.strip():
-        return JSONResponse(status_code=400, content={"error": "Email is required."})
     if len(body.password) < 6:
         return JSONResponse(status_code=400, content={"error": "Password must be at least 6 characters."})
+
+    plan_key = body.plan.lower()
+    if plan_key not in PLAN_RATES:
+        return JSONResponse(status_code=400, content={"error": f"Invalid plan '{body.plan}'. Valid plans: {', '.join(PLAN_RATES)}."})
+    rate = PLAN_RATES[plan_key]
+
+    slug = _make_slug(body.practice_name)
+    while crud.get_clinic(db, slug):
+        slug = _make_slug(body.practice_name)
+
+    trial_ends_at = datetime.utcnow() + timedelta(days=14)
 
     clinic = crud.create_clinic(db, {
         "slug":                   slug,
         "name":                   body.practice_name,
         "specialty":              body.specialty,
         "agent_name":             "Aria",
-        "email":                  body.contact_email,
+        "email":                  str(body.contact_email),
         "phone":                  body.phone,
         "subscription_status":    "trial",
         "plan":                   plan,
@@ -74,14 +73,14 @@ def signup(body: SignupRequest, background_tasks: BackgroundTasks, db: Session =
     })
 
     chat_url = f"{settings.base_url}/c/{slug}"
-    logger.info("Trial signup: slug=%s plan=%s email=%s", slug, plan, body.contact_email)
+    logger.info("Trial signup: slug=%s plan=%s email=%s", slug, plan_key, body.contact_email)
 
     background_tasks.add_task(send_trial_signup_email, {
         "practice_name": body.practice_name,
         "specialty":     body.specialty,
         "contact_email": body.contact_email,
         "phone":         body.phone,
-        "plan":          plan,
+        "plan":          plan_key,
         "monthly_rate":  rate,
         "trial_ends_at": trial_ends_at.strftime("%B %d, %Y"),
         "slug":          slug,
@@ -91,7 +90,7 @@ def signup(body: SignupRequest, background_tasks: BackgroundTasks, db: Session =
     return {
         "slug":          slug,
         "chat_url":      chat_url,
-        "plan":          plan,
+        "plan":          plan_key,
         "monthly_rate":  rate,
         "trial_ends_at": trial_ends_at.strftime("%B %d, %Y"),
     }

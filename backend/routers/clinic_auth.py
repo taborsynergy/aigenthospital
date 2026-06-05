@@ -9,10 +9,12 @@ import logging
 import os
 import uuid
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+from backend.limiter import limiter
 
 from backend.db.database import get_db
 from backend.db import crud
@@ -49,7 +51,8 @@ class LoginRequest(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/login")
-def login(body: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     clinic = crud.get_clinic_by_email(db, body.email)
     if not clinic:
         logger.warning("Login failed — no clinic found for email: %s", body.email)
