@@ -12,7 +12,7 @@ jobs:
     name: Lint & Test
     runs-on: ubuntu-latest
     env:
-      ADMIN_PASSWORD:    test-admin-password
+      ADMIN_PASSWORD:    test-admin-secret
       ANTHROPIC_API_KEY: dummy-api-key
       DATABASE_URL:      sqlite:///./test.db
       MOCK_MODE:         "1"
