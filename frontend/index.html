@@ -942,107 +942,111 @@
     <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">Loading pricing...</div>
   </div>
   <script>
-    // Dynamically load plans from API and render pricing cards with correct Coming Soon badges
-    fetch('/api/plans').then(r => r.json()).then(data => {
-      const container = document.getElementById('pricing-cards-container');
-      container.innerHTML = '';
+    (function() {
+      fetch('/api/plans')
+        .then(r => {
+          if (!r.ok) throw new Error('API error: ' + r.status);
+          return r.json();
+        })
+        .then(data => {
+          if (!data.plans) throw new Error('Missing plans in response');
+          renderPricingCards(data.plans);
+        })
+        .catch(e => {
+          console.error('Pricing load error:', e);
+          const container = document.getElementById('pricing-cards-container');
+          if (container) {
+            container.innerHTML = '<div style="grid-column:1/-1;color:red;padding:40px;text-align:center">Failed to load pricing. Please refresh the page.</div>';
+          }
+        });
 
-      const planOrder = {starter:0, professional:1, enterprise:2};
-      const featureMapping = {
-        professional: {
-          'sms': 'SMS + WhatsApp channels',
-          'monthly': 'Monthly performance report',
-          'custom': 'Custom insurance knowledge',
-          'multi': 'Multi-location routing',
-          'ehr': 'EHR system integration',
-          'custom_ai': 'Custom AI training',
-        }
-      };
+      function renderPricingCards(plans) {
+        const container = document.getElementById('pricing-cards-container');
+        if (!container) return;
+        container.innerHTML = '';
 
-      Object.entries(data.plans).sort((a,b) => (planOrder[a[0]]||999) - (planOrder[b[0]]||999)).forEach(([key, plan]) => {
-        let card = document.createElement('div');
+        // Render Starter
+        const starterCard = document.createElement('div');
+        starterCard.className = 'pricing-card reveal';
+        starterCard.innerHTML = `
+          <h3>Starter</h3>
+          <div class="price">$297<span>/mo</span></div>
+          <div class="trial-tag">✓ 14-day free trial included</div>
+          <ul>
+            <li><span class="li-check">✓</span>Solo practice, 1 location</li>
+            <li><span class="li-check">✓</span>Appointment booking chat</li>
+            <li><span class="li-check">✓</span>Basic insurance Q&A</li>
+            <li><span class="li-check">✓</span>Email support</li>
+          </ul>
+          <button class="btn-trial" onclick="openSignup('starter')">Start Free Trial →</button>
+        `;
+        container.appendChild(starterCard);
 
-        if (key === 'starter') {
-          card.className = 'pricing-card reveal';
-          card.innerHTML = `
-            <h3>Starter</h3>
-            <div class="price">$297<span>/mo</span></div>
-            <div class="trial-tag">✓ 14-day free trial included</div>
-            <ul>
-              <li><span class="li-check">✓</span>Solo practice, 1 location</li>
-              <li><span class="li-check">✓</span>Appointment booking chat</li>
-              <li><span class="li-check">✓</span>Basic insurance Q&A</li>
-              <li><span class="li-check">✓</span>Email support</li>
-            </ul>
-            <button class="btn-trial" onclick="openSignup('starter')">Start Free Trial →</button>
-          `;
-        } else if (key === 'professional') {
-          card.className = 'pricing-card popular reveal';
-          const whatsappBadge = plan.coming_soon.includes('whatsapp_channels') ? ' <span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : '';
-          const reportBadge = plan.coming_soon.includes('monthly_performance_report') ? ' <span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : '';
-          const insuranceBadge = plan.coming_soon.includes('custom_insurance_knowledge') ? ' <span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : '';
-          card.innerHTML = `
-            <div class="badge-pop">Most Popular</div>
-            <h3>Growth</h3>
-            <div class="price">$597<span>/mo</span></div>
-            <div class="trial-tag">✓ 14-day free trial included</div>
-            <ul>
-              <li><span class="li-check">✓</span>2–5 doctor group practice</li>
-              <li><span class="li-check">✓</span>SMS + WhatsApp channels${whatsappBadge}</li>
-              <li><span class="li-check">✓</span>All Starter features</li>
-              <li><span class="li-check">✓</span>Custom insurance knowledge${insuranceBadge}</li>
-              <li><span class="li-check">✓</span>Monthly performance report${reportBadge}</li>
-              <li><span class="li-check">✓</span>Priority support</li>
-            </ul>
-            <button class="btn-trial" onclick="openSignup('professional')">Start Free Trial →</button>
-          `;
-        } else if (key === 'enterprise') {
-          card.className = 'pricing-card reveal';
-          const routingBadge = plan.coming_soon.includes('multi_location_routing') ? ' <span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : '';
-          const ehrBadge = plan.coming_soon.includes('ehr_system_integration') ? ' <span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : '';
-          const aiTrainingBadge = plan.coming_soon.includes('custom_ai_training') ? ' <span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : '';
-          card.innerHTML = `
-            <h3>Pro</h3>
-            <div class="price">$997<span>/mo</span></div>
-            <div class="trial-tag">✓ 14-day free trial included</div>
-            <ul>
-              <li><span class="li-check">✓</span>Multi-location practices</li>
-              <li><span class="li-check">✓</span>All Growth features</li>
-              <li><span class="li-check">✓</span>Multi-location routing${routingBadge}</li>
-              <li><span class="li-check">✓</span>EHR system integration${ehrBadge}</li>
-              <li><span class="li-check">✓</span>Custom AI training${aiTrainingBadge}</li>
-              <li><span class="li-check">✓</span>Dedicated onboarding</li>
-            </ul>
-            <button class="btn-trial" onclick="openSignup('enterprise')">Start Free Trial →</button>
-          `;
-        }
-        container.appendChild(card);
-      });
+        // Render Professional/Growth
+        const prof = plans.professional || {};
+        const profComingSoon = prof.coming_soon || [];
+        const profCard = document.createElement('div');
+        profCard.className = 'pricing-card popular reveal';
+        profCard.innerHTML = `
+          <div class="badge-pop">Most Popular</div>
+          <h3>Growth</h3>
+          <div class="price">$597<span>/mo</span></div>
+          <div class="trial-tag">✓ 14-day free trial included</div>
+          <ul>
+            <li><span class="li-check">✓</span>2–5 doctor group practice</li>
+            <li><span class="li-check">✓</span>SMS + WhatsApp channels${profComingSoon.includes('whatsapp_channels') ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : ''}</li>
+            <li><span class="li-check">✓</span>All Starter features</li>
+            <li><span class="li-check">✓</span>Custom insurance knowledge${profComingSoon.includes('custom_insurance_knowledge') ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : ''}</li>
+            <li><span class="li-check">✓</span>Monthly performance report${profComingSoon.includes('monthly_performance_report') ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : ''}</li>
+            <li><span class="li-check">✓</span>Priority support</li>
+          </ul>
+          <button class="btn-trial" onclick="openSignup('professional')">Start Free Trial →</button>
+        `;
+        container.appendChild(profCard);
 
-      // Add White Label card at the end
-      const wlCard = document.createElement('div');
-      wlCard.className = 'pricing-card whitelabel reveal';
-      wlCard.innerHTML = `
-        <div class="badge-pop">White Label</div>
-        <h3>White Label License</h3>
-        <div class="price">$2,999<span> one-time</span></div>
-        <div class="trial-tag" style="color:var(--violet)">&nbsp;</div>
-        <ul>
-          <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Full source code transfer</li>
-          <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Your brand, your domain</li>
-          <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Remove all Tabor branding</li>
-          <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Deploy on your own servers</li>
-          <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Resell to your own clients</li>
-          <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>6 months of email support</li>
-        </ul>
-        <div class="wl-note">You own the code outright</div>
-        <button class="btn-license" onclick="openQuoteForm()">Get a Quote →</button>
-      `;
-      container.appendChild(wlCard);
-    }).catch(e => {
-      console.error('Failed to load plans:', e);
-      document.getElementById('pricing-cards-container').innerHTML = '<div style="grid-column:1/-1;color:red">Failed to load pricing</div>';
-    });
+        // Render Enterprise/Pro
+        const ent = plans.enterprise || {};
+        const entComingSoon = ent.coming_soon || [];
+        const entCard = document.createElement('div');
+        entCard.className = 'pricing-card reveal';
+        entCard.innerHTML = `
+          <h3>Pro</h3>
+          <div class="price">$997<span>/mo</span></div>
+          <div class="trial-tag">✓ 14-day free trial included</div>
+          <ul>
+            <li><span class="li-check">✓</span>Multi-location practices</li>
+            <li><span class="li-check">✓</span>All Growth features</li>
+            <li><span class="li-check">✓</span>Multi-location routing${entComingSoon.includes('multi_location_routing') ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : ''}</li>
+            <li><span class="li-check">✓</span>EHR system integration${entComingSoon.includes('ehr_system_integration') ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : ''}</li>
+            <li><span class="li-check">✓</span>Custom AI training${entComingSoon.includes('custom_ai_training') ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : ''}</li>
+            <li><span class="li-check">✓</span>Dedicated onboarding</li>
+          </ul>
+          <button class="btn-trial" onclick="openSignup('enterprise')">Start Free Trial →</button>
+        `;
+        container.appendChild(entCard);
+
+        // Render White Label
+        const wlCard = document.createElement('div');
+        wlCard.className = 'pricing-card whitelabel reveal';
+        wlCard.innerHTML = `
+          <div class="badge-pop">White Label</div>
+          <h3>White Label License</h3>
+          <div class="price">$2,999<span> one-time</span></div>
+          <div class="trial-tag" style="color:var(--violet)">&nbsp;</div>
+          <ul>
+            <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Full source code transfer</li>
+            <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Your brand, your domain</li>
+            <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Remove all Tabor branding</li>
+            <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Deploy on your own servers</li>
+            <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Resell to your own clients</li>
+            <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>6 months of email support</li>
+          </ul>
+          <div class="wl-note">You own the code outright</div>
+          <button class="btn-license" onclick="openQuoteForm()">Get a Quote →</button>
+        `;
+        container.appendChild(wlCard);
+      }
+    })();
   </script>
 </section>
 
