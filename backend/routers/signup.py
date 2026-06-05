@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from backend.config import settings
 from backend.db.database import get_db
 from backend.db import crud
-from backend.plans import PLAN_RATES
+from backend.plans import PLAN_RATES, PLANS
 from backend.services.email_svc import send_quote_email, send_trial_signup_email
 from backend.routers.clinic_auth import hash_password
 
@@ -119,4 +119,29 @@ def request_quote(body: QuoteRequest, background_tasks: BackgroundTasks):
         "message": (
             "Thank you! We've received your request and will contact you within one business day."
         ),
+    }
+
+
+@router.get("/api/plans")
+def get_all_plans():
+    """Get all available plans with features and coming_soon items."""
+    return {
+        "plans": {
+            key: {
+                "name": plan["name"],
+                "price": plan["price"],
+                "color": plan["color"],
+                "max_locations": plan["max_locations"],
+                "conversations_limit": plan["conversations_limit"],
+                "features": {
+                    "sms": plan["sms"],
+                    "widget_embed": plan["widget_embed"],
+                    "custom_agent_name": plan["custom_agent_name"],
+                    "white_label": plan["white_label"],
+                },
+                "support": plan["support"],
+                "coming_soon": plan.get("coming_soon", []),
+            }
+            for key, plan in PLANS.items()
+        }
     }

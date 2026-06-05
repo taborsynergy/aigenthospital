@@ -15,6 +15,7 @@ PLANS = {
         "max_locations":       1,
         "support":             "Email support",
         "color":               "#6B7280",
+        "coming_soon":         [],
     },
     "professional": {
         "name":                "Professional",
@@ -27,6 +28,7 @@ PLANS = {
         "max_locations":       3,
         "support":             "Priority email support",
         "color":               "#1E40AF",
+        "coming_soon":         ["whatsapp_channels", "custom_insurance_knowledge", "monthly_performance_report"],
     },
     "enterprise": {
         "name":                "Enterprise",
@@ -39,6 +41,7 @@ PLANS = {
         "max_locations":       None,      # unlimited
         "support":             "Dedicated account manager + 24/7 priority",
         "color":               "#7C3AED",
+        "coming_soon":         ["whatsapp_channels", "custom_insurance_knowledge", "monthly_performance_report", "ehr_system_integration", "custom_ai_training"],
     },
 }
 
@@ -69,3 +72,13 @@ def is_white_label(clinic) -> bool:
 
 def monthly_conversation_limit(clinic) -> int | None:
     return get_plan(clinic)["conversations_limit"]
+
+
+def get_coming_soon_features(clinic) -> list[str]:
+    """Get list of features coming soon for this plan."""
+    return get_plan(clinic).get("coming_soon", [])
+
+
+def is_feature_coming_soon(clinic, feature: str) -> bool:
+    """Check if a specific feature is coming soon for this plan."""
+    return feature in get_coming_soon_features(clinic)
