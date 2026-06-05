@@ -1139,6 +1139,41 @@ def on_startup():
     except Exception:
         _logger.exception("migrate_db failed — continuing anyway")
 
+    # Schedule background jobs (trial expiry checks, etc.)
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from apscheduler.triggers.cron import CronTrigger
+        from backend.jobs.trial_jobs import check_trial_expiry_and_remind
+        from backend.db.database import SessionLocal
+
+        scheduler = BackgroundScheduler()
+
+        def _trial_job_wrapper():
+            """Wrapper to create session and call job."""
+            db = SessionLocal()
+            try:
+                result = check_trial_expiry_and_remind(db)
+                _logger.info(f"Trial job completed: {result}")
+            except Exception as e:
+                _logger.error(f"Trial job failed: {e}")
+            finally:
+                db.close()
+
+        # Schedule daily at 1 AM UTC
+        scheduler.add_job(
+            _trial_job_wrapper,
+            CronTrigger(hour=1, minute=0),
+            id="trial_expiry_check",
+            name="Trial Expiry Check",
+            replace_existing=True
+        )
+        scheduler.start()
+        _logger.info("Background scheduler started (trial expiry checks scheduled for 1 AM UTC daily)")
+    except ImportError:
+        _logger.warning("APScheduler not installed — background jobs disabled. Install with: pip install apscheduler")
+    except Exception as e:
+        _logger.error(f"Failed to start background scheduler: {e}")
+
 
 # ── Static files ──────────────────────────────────────────────────────────────
 frontend_dir = Path(__file__).parent.parent / "frontend"

@@ -2,6 +2,8 @@
 Plan definitions and feature-gate helpers.
 Single source of truth — import from here everywhere.
 """
+from datetime import datetime
+
 
 PLANS = {
     "starter": {
@@ -121,3 +123,80 @@ def can_use_ehr_integration(clinic) -> bool:
 def can_use_custom_ai_training(clinic) -> bool:
     """Check if clinic plan supports custom AI training."""
     return get_plan(clinic).get("custom_ai_training", False)
+
+
+def is_clinic_active(clinic) -> bool:
+    """
+    Check if a clinic can access the platform.
+    Active if: (trial active) OR (paid subscription active).
+    """
+    # Check trial status
+    if clinic.subscription_status == "trial":
+        if clinic.trial_ends_at and datetime.utcnow() < clinic.trial_ends_at:
+            return True
+        return False
+
+    # Check paid subscription status
+    if clinic.subscription_status == "active":
+        if clinic.subscription_ends_at:
+            return datetime.utcnow() < clinic.subscription_ends_at
+        return True
+
+    return False
+
+
+def get_access_status(clinic) -> dict:
+    """Return detailed access status for a clinic."""
+    if clinic.subscription_status == "trial":
+        if clinic.trial_ends_at:
+            if datetime.utcnow() < clinic.trial_ends_at:
+                days_left = (clinic.trial_ends_at - datetime.utcnow()).days + 1
+                return {
+                    "active": True,
+                    "status": "trial",
+                    "days_remaining": days_left,
+                    "message": f"Trial active ({days_left} days remaining)"
+                }
+            return {
+                "active": False,
+                "status": "trial_expired",
+                "message": "Trial has expired"
+            }
+        return {"active": False, "status": "trial_no_date", "message": "Trial date not set"}
+
+    if clinic.subscription_status == "active":
+        if clinic.subscription_ends_at:
+            if datetime.utcnow() < clinic.subscription_ends_at:
+                days_left = (clinic.subscription_ends_at - datetime.utcnow()).days + 1
+                return {
+                    "active": True,
+                    "status": "paid_active",
+                    "days_remaining": days_left,
+                    "message": f"Subscription active ({days_left} days remaining)"
+                }
+            return {
+                "active": False,
+                "status": "subscription_expired",
+                "message": "Subscription has expired"
+            }
+        return {"active": True, "status": "paid_active", "message": "Subscription active (no end date)"}
+
+    if clinic.subscription_status == "past_due":
+        return {
+            "active": False,
+            "status": "past_due",
+            "message": "Payment failed, please update payment method"
+        }
+
+    if clinic.subscription_status == "trial_expired":
+        return {
+            "active": False,
+            "status": "trial_expired",
+            "message": "Trial expired, please upgrade to continue"
+        }
+
+    return {
+        "active": False,
+        "status": "unknown",
+        "message": "Unknown subscription status"
+    }

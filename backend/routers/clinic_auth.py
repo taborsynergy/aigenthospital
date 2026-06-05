@@ -118,6 +118,55 @@ def verify(x_clinic_token: str = Header(None), db: Session = Depends(get_db)):
     }
 
 
+@router.post("/signup")
+@limiter.limit("10/hour")
+def signup(request: Request, body: dict, db: Session = Depends(get_db)):
+    """Create a new clinic trial (14-day free trial on Starter plan)."""
+    email = (body.get("email") or "").lower().strip()
+    slug = (body.get("slug") or "").lower().strip()
+    name = (body.get("name") or "").strip()
+    specialty = (body.get("specialty") or "").strip()
+    password = body.get("password") or ""
+
+    # Validation
+    if not email or "@" not in email:
+        return JSONResponse(status_code=400, content={"error": "Valid email required"})
+    if not slug or len(slug) < 3:
+        return JSONResponse(status_code=400, content={"error": "Clinic ID must be at least 3 characters"})
+    if not name or len(name) < 2:
+        return JSONResponse(status_code=400, content={"error": "Clinic name required"})
+    if not specialty:
+        return JSONResponse(status_code=400, content={"error": "Specialty required"})
+    if len(password) < 8:
+        return JSONResponse(status_code=400, content={"error": "Password must be at least 8 characters"})
+
+    # Check if email or slug already exists
+    if crud.get_clinic_by_email(db, email):
+        return JSONResponse(status_code=400, content={"error": "Email already registered"})
+    if crud.get_clinic(db, slug):
+        return JSONResponse(status_code=400, content={"error": "Clinic ID already taken"})
+
+    # Hash password and create trial clinic
+    password_hash = hash_password(password)
+    clinic = crud.create_trial_clinic(db, email, slug, name, specialty, password_hash)
+
+    if not clinic:
+        return JSONResponse(status_code=400, content={"error": "Failed to create clinic"})
+
+    # Login and return token
+    token = uuid.uuid4().hex
+    crud.set_session_token(db, clinic.id, token)
+    logger.info("Trial signup: slug=%s, email=%s", clinic.slug, email)
+
+    return {
+        "token": token,
+        "slug": clinic.slug,
+        "name": clinic.name,
+        "trial_ends_at": clinic.trial_ends_at.isoformat() if clinic.trial_ends_at else None,
+        "subscription_status": "trial",
+    }
+
+
 @router.post("/logout")
 def logout(x_clinic_token: str = Header(None), db: Session = Depends(get_db)):
     clinic = crud.get_clinic_by_token(db, x_clinic_token)

@@ -403,3 +403,194 @@ def send_quote_email(data: dict) -> bool:
 
     msg = _build_msg(subject, plain, html, reply_to=data.get("email", ""))
     return _send(msg)
+
+
+# ── Trial Emails ──────────────────────────────────────────────────────────────
+
+def send_trial_confirmation_to_clinic(data: dict) -> bool:
+    """Send trial confirmation email to newly signed-up clinic."""
+    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+        logger.warning("SMTP not configured — trial confirmation NOT emailed. Details: %s", data)
+        return False
+
+    clinic_name = data.get("clinic_name", "Your Clinic")
+    clinic_email = data.get("clinic_email", "")
+    trial_ends = data.get("trial_ends_at", "—")
+    portal_url = data.get("portal_url", settings.base_url)
+    subject = f"Welcome to TaborSynergy Agent — 14-Day Free Trial!"
+
+    plain = "\n".join([
+        f"Welcome {clinic_name}!",
+        "",
+        "Your 14-day free trial of TaborSynergy Agent is now active.",
+        "",
+        "✅ Appointment booking chat",
+        "✅ Basic insurance Q&A",
+        "✅ Email support",
+        "",
+        f"Your trial ends: {trial_ends}",
+        f"Portal: {portal_url}",
+        "",
+        "Questions? Contact us at support@taborsynergy.com",
+        "— The TaborSynergy Team",
+    ])
+
+    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#0F3D91;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Welcome to TaborSynergy Agent!</h2>
+  <p style="color:#a0c4ff;margin:4px 0 0">14-Day Free Trial Activated</p>
+</div>
+<div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0">
+  <p style="margin-top:0">Hi <strong>{clinic_name}</strong>,</p>
+  <p>Your 14-day free trial is now active. Start booking appointments with AI immediately.</p>
+  <div style="background:#E0F2FE;padding:16px;border-left:4px solid #0F3D91;border-radius:4px;margin:20px 0">
+    <strong>What's Included:</strong>
+    <ul style="margin:8px 0;padding-left:20px">
+      <li>Appointment booking chat</li>
+      <li>Basic insurance Q&A</li>
+      <li>Email support</li>
+    </ul>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin:20px 0">
+    <tr><td style="padding:8px;color:#666;width:40%">Trial Ends</td>
+        <td style="padding:8px;font-weight:bold">{trial_ends}</td></tr>
+    <tr style="background:#fff"><td style="padding:8px;color:#666">Plan</td>
+        <td style="padding:8px">Starter (Free)</td></tr>
+  </table>
+  <div style="margin:20px 0;text-align:center">
+    <a href="{portal_url}" style="background:#0F3D91;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700">
+      Go to Your Portal →
+    </a>
+  </div>
+  <p style="margin-top:20px;font-size:12px;color:#999">TaborSynergy — automated notification</p>
+</div></body></html>"""
+
+    msg = _build_msg(subject, plain, html, reply_to=settings.notify_email)
+    if clinic_email:
+        msg.replace_header("To", clinic_email)
+    return _send(msg)
+
+
+def send_trial_expiry_reminder_to_clinic(data: dict) -> bool:
+    """Send trial expiry reminder email to clinic (5+ days before expiry)."""
+    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+        logger.warning("SMTP not configured — trial reminder NOT emailed. Details: %s", data)
+        return False
+
+    clinic_name = data.get("clinic_name", "Your Clinic")
+    clinic_email = data.get("clinic_email", "")
+    days_remaining = data.get("days_remaining", 5)
+    trial_ends = data.get("trial_ends_at", "—")
+    upgrade_url = data.get("upgrade_url", settings.base_url + "/clinic/upgrade")
+    subject = f"Your TaborSynergy Trial Expires in {days_remaining} Days"
+
+    plain = "\n".join([
+        f"Hi {clinic_name},",
+        "",
+        f"Your 14-day trial ends on {trial_ends} ({days_remaining} days remaining).",
+        "",
+        "Don't lose access! Upgrade now to continue using TaborSynergy Agent.",
+        "",
+        "Growth Plan: $597/month",
+        "  ✅ SMS & WhatsApp messaging",
+        "  ✅ Custom insurance knowledge",
+        "  ✅ Monthly reports",
+        "",
+        "Enterprise Plan: $997/month",
+        "  ✅ Multi-location routing",
+        "  ✅ EHR integration",
+        "  ✅ Custom AI training",
+        "",
+        f"Upgrade: {upgrade_url}",
+        "",
+        "— The TaborSynergy Team",
+    ])
+
+    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#DC2626;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Trial Expiring Soon</h2>
+  <p style="color:#fecaca;margin:4px 0 0">{days_remaining} days remaining</p>
+</div>
+<div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0">
+  <p style="margin-top:0">Hi <strong>{clinic_name}</strong>,</p>
+  <p>Your TaborSynergy Agent trial expires on <strong>{trial_ends}</strong> ({days_remaining} days remaining).</p>
+  <p style="margin:20px 0"><strong>Upgrade now</strong> to continue booking appointments and get access to:</p>
+  <div style="background:#FEF2F2;padding:16px;border-left:4px solid #DC2626;border-radius:4px">
+    <strong>Growth Plan: $597/month</strong>
+    <ul style="margin:8px 0;padding-left:20px;font-size:14px">
+      <li>SMS & WhatsApp messaging</li>
+      <li>Custom insurance knowledge</li>
+      <li>Monthly performance reports</li>
+      <li>Priority support</li>
+    </ul>
+  </div>
+  <p></p>
+  <div style="background:#EFF6FF;padding:16px;border-left:4px solid #0F3D91;border-radius:4px;margin:12px 0">
+    <strong>Enterprise Plan: $997/month</strong>
+    <ul style="margin:8px 0;padding-left:20px;font-size:14px">
+      <li>Multi-location intelligent routing</li>
+      <li>EHR system integration</li>
+      <li>Custom AI training</li>
+      <li>Dedicated account manager</li>
+    </ul>
+  </div>
+  <div style="margin:20px 0;text-align:center">
+    <a href="{upgrade_url}" style="background:#DC2626;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700">
+      Upgrade Now →
+    </a>
+  </div>
+  <p style="margin-top:20px;font-size:12px;color:#999">TaborSynergy — automated notification</p>
+</div></body></html>"""
+
+    msg = _build_msg(subject, plain, html, reply_to=settings.notify_email)
+    if clinic_email:
+        msg.replace_header("To", clinic_email)
+    return _send(msg)
+
+
+def send_trial_expired_to_clinic(data: dict) -> bool:
+    """Send trial expired notification to clinic."""
+    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+        logger.warning("SMTP not configured — trial expired email NOT sent. Details: %s", data)
+        return False
+
+    clinic_name = data.get("clinic_name", "Your Clinic")
+    clinic_email = data.get("clinic_email", "")
+    upgrade_url = data.get("upgrade_url", settings.base_url + "/clinic/upgrade")
+    subject = "Your TaborSynergy Agent Trial Has Ended"
+
+    plain = "\n".join([
+        f"Hi {clinic_name},",
+        "",
+        "Your 14-day trial has ended. To continue using TaborSynergy Agent and booking appointments,",
+        "please upgrade to a paid plan.",
+        "",
+        "Upgrade: " + upgrade_url,
+        "",
+        "Questions? Contact support@taborsynergy.com",
+        "— The TaborSynergy Team",
+    ])
+
+    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#6B7280;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Trial Ended</h2>
+  <p style="color:#e5e7eb;margin:4px 0 0">Upgrade to continue</p>
+</div>
+<div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0">
+  <p style="margin-top:0">Hi <strong>{clinic_name}</strong>,</p>
+  <p>Your 14-day trial has ended. To continue booking appointments and using TaborSynergy Agent, please upgrade to a paid plan.</p>
+  <div style="margin:20px 0;text-align:center">
+    <a href="{upgrade_url}" style="background:#0F3D91;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700">
+      Upgrade Now →
+    </a>
+  </div>
+  <p style="font-size:13px;color:#666">
+    Without an active subscription, patients will no longer be able to chat with your AI front desk.
+  </p>
+  <p style="margin-top:20px;font-size:12px;color:#999">TaborSynergy — automated notification</p>
+</div></body></html>"""
+
+    msg = _build_msg(subject, plain, html, reply_to=settings.notify_email)
+    if clinic_email:
+        msg.replace_header("To", clinic_email)
+    return _send(msg)

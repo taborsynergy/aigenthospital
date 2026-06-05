@@ -40,6 +40,36 @@ def get_clinic_by_email(db: Session, email: str) -> Optional[Clinic]:
     ).first()
 
 
+def create_trial_clinic(db: Session, email: str, slug: str, name: str, specialty: str,
+                        password_hash: str) -> Optional[Clinic]:
+    """Create a new trial clinic (14-day free trial on Starter plan)."""
+    # Verify email not already used
+    if get_clinic_by_email(db, email):
+        return None
+
+    # Verify slug not already used
+    if get_clinic(db, slug):
+        return None
+
+    clinic = Clinic(
+        slug=slug.lower(),
+        email=email.lower().strip(),
+        name=name.strip(),
+        specialty=specialty.strip(),
+        plan="starter",
+        subscription_status="trial",
+        customer_password_hash=password_hash,
+        is_active=True,
+        trial_ends_at=datetime.utcnow() + timedelta(days=14),
+        subscription_ends_at=None,  # No paid subscription yet
+        monthly_rate=297.0,  # Starter plan rate
+    )
+    db.add(clinic)
+    db.commit()
+    db.refresh(clinic)
+    return clinic
+
+
 def get_clinic_by_token(db: Session, token: str) -> Optional[Clinic]:
     if not token:
         return None
@@ -816,3 +846,81 @@ def get_active_training_context(db: Session, clinic_id: int) -> str:
         context_parts.append(f"[{item.training_type.upper()}] {item.title}\n{item.content}")
 
     return "\n\n".join(context_parts)
+
+
+# ── Trial Management ──────────────────────────────────────────────────────────
+
+def is_trial_active(clinic: Clinic) -> bool:
+    """Check if a clinic is in active trial (subscription_status='trial' and not expired)."""
+    if clinic.subscription_status != "trial":
+        return False
+    if not clinic.trial_ends_at:
+        return False
+    return datetime.utcnow() < clinic.trial_ends_at
+
+
+def is_subscription_active(clinic: Clinic) -> bool:
+    """Check if a clinic has an active paid subscription."""
+    if clinic.subscription_status == "active":
+        if clinic.subscription_ends_at:
+            return datetime.utcnow() < clinic.subscription_ends_at
+        return True
+    return False
+
+
+def can_access_clinic(clinic: Clinic) -> bool:
+    """Check if a clinic can be accessed (trial active OR subscription active)."""
+    return is_trial_active(clinic) or is_subscription_active(clinic)
+
+
+def get_trials_expiring_soon(db: Session, days_until: int = 5) -> list[Clinic]:
+    """Get all trial clinics expiring within N days."""
+    cutoff = datetime.utcnow() + timedelta(days=days_until)
+    return db.query(Clinic).filter(
+        Clinic.subscription_status == "trial",
+        Clinic.trial_ends_at.isnot(None),
+        Clinic.trial_ends_at <= cutoff,
+        Clinic.trial_ends_at > datetime.utcnow(),  # Not already expired
+    ).all()
+
+
+def get_expired_trials(db: Session) -> list[Clinic]:
+    """Get all trial clinics that have expired."""
+    return db.query(Clinic).filter(
+        Clinic.subscription_status == "trial",
+        Clinic.trial_ends_at.isnot(None),
+        Clinic.trial_ends_at <= datetime.utcnow(),
+    ).all()
+
+
+def expire_trial(db: Session, clinic_id: int) -> Optional[Clinic]:
+    """Mark a trial clinic as expired."""
+    clinic = get_clinic_by_id(db, clinic_id)
+    if clinic and clinic.subscription_status == "trial":
+        clinic.subscription_status = "trial_expired"
+        db.commit()
+        db.refresh(clinic)
+    return clinic
+
+
+def convert_trial_to_paid(db: Session, clinic_id: int, plan: str = "starter",
+                          stripe_subscription_id: str = "",
+                          stripe_customer_id: str = "") -> Optional[Clinic]:
+    """Convert a trial clinic to paid subscription."""
+    clinic = get_clinic_by_id(db, clinic_id)
+    if not clinic:
+        return None
+
+    # Set subscription details
+    clinic.subscription_status = "active"
+    clinic.plan = plan
+    clinic.subscription_ends_at = datetime.utcnow() + timedelta(days=30)
+    clinic.trial_ends_at = None  # Clear trial
+    if stripe_subscription_id:
+        clinic.stripe_subscription_id = stripe_subscription_id
+    if stripe_customer_id:
+        clinic.stripe_customer_id = stripe_customer_id
+
+    db.commit()
+    db.refresh(clinic)
+    return clinic
