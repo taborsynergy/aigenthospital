@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from backend.agent import aria
 from backend.db.database import get_db
+from backend.schemas import ClinicProfileUpdate
 from backend.db.crud import get_clinic, get_clinic_by_token, list_appointments
 from backend.models.schemas import ChatMessage, ChatResponse
 from backend.plans import get_plan, monthly_conversation_limit
@@ -253,6 +254,79 @@ async def get_analytics(
     except Exception:
         logger.exception("Analytics error: clinic=%s report=%s", clinic_slug, report)
         return JSONResponse(status_code=500, content={"error": "Failed to compute analytics."})
+
+
+# ── Clinic profile (self-edit by clinic staff) ────────────────────────────────
+
+@router.get("/api/{clinic_slug}/profile")
+async def get_profile(
+    clinic_slug: str,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Load current clinic profile for editing."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    return {
+        "name":                clinic.name or "",
+        "specialty":           clinic.specialty or "",
+        "address":             clinic.address or "",
+        "city_state":          clinic.city_state or "",
+        "phone":               clinic.phone or "",
+        "website":             clinic.website or "",
+        "office_hours":        clinic.office_hours or "",
+        "providers":           clinic.providers or "",
+        "services_offered":    clinic.services_offered or "",
+        "insurance_accepted":  clinic.insurance_accepted or "",
+        "cancellation_policy": clinic.cancellation_policy or "",
+        "after_hours_protocol": clinic.after_hours_protocol or "",
+        "timezone":            clinic.timezone or "US/Eastern",
+        "hipaa_verify_method": clinic.hipaa_verify_method or "",
+        "escalation_contact":  clinic.escalation_contact or "",
+        "pms_system":          clinic.pms_system or "",
+    }
+
+
+@router.patch("/api/{clinic_slug}/profile")
+async def update_profile(
+    clinic_slug: str,
+    body: ClinicProfileUpdate,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Clinic staff can self-edit their profile."""
+    from backend.db.crud import write_audit_log, update_clinic
+    import json
+
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    # Build updates from non-None fields
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        return JSONResponse(status_code=400, content={"error": "No fields to update."})
+
+    # Record before state for audit
+    before = {k: getattr(clinic, k, None) for k in updates.keys()}
+
+    # Apply updates
+    updated = update_clinic(db, clinic_slug, updates)
+    if not updated:
+        return JSONResponse(status_code=404, content={"error": "Clinic not found."})
+
+    # Audit log: what changed
+    after = {k: getattr(updated, k, None) for k in updates.keys()}
+    diff = {k: {"before": before.get(k), "after": after.get(k)} for k in updates.keys()}
+    write_audit_log(
+        db, f"clinic:{clinic_slug}", "clinic.profile_updated",
+        target=clinic_slug, detail=json.dumps(diff),
+    )
+    logger.info("Clinic profile updated: slug=%s fields=%s", clinic_slug, list(updates.keys()))
+
+    return {"ok": True, "updated_fields": list(updates.keys())}
 
 
 class _StatusBody(BaseModel):
