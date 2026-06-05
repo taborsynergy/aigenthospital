@@ -937,117 +937,69 @@
     <p class="section-sub" style="margin:0 auto">One flat monthly fee per clinic — no per-message fees, no surprises.<br>
     <strong style="color:var(--success);font-weight:700">✓ All plans include a 14-day free trial. No credit card required.</strong></p>
   </div>
-  <div class="pricing-cards" id="pricing-cards-container">
-    <!-- Cards will be dynamically populated from /api/plans -->
-    <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">Loading pricing...</div>
+  <div class="pricing-cards">
+    <!-- Starter -->
+    <div class="pricing-card reveal">
+      <h3>Starter</h3>
+      <div class="price">$297<span>/mo</span></div>
+      <div class="trial-tag">✓ 14-day free trial included</div>
+      <ul>
+        <li><span class="li-check">✓</span>Solo practice, 1 location</li>
+        <li><span class="li-check">✓</span>Appointment booking chat</li>
+        <li><span class="li-check">✓</span>Basic insurance Q&A</li>
+        <li><span class="li-check">✓</span>Email support</li>
+      </ul>
+      <button class="btn-trial" onclick="openSignup('starter')">Start Free Trial →</button>
+    </div>
+    <!-- Growth -->
+    <div class="pricing-card popular reveal">
+      <div class="badge-pop">Most Popular</div>
+      <h3>Growth</h3>
+      <div class="price">$597<span>/mo</span></div>
+      <div class="trial-tag">✓ 14-day free trial included</div>
+      <ul>
+        <li><span class="li-check">✓</span>2–5 doctor group practice</li>
+        <li><span class="li-check">✓</span>SMS + WhatsApp channels</li>
+        <li><span class="li-check">✓</span>All Starter features</li>
+        <li><span class="li-check">✓</span>Custom insurance knowledge <span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span></li>
+        <li><span class="li-check">✓</span>Monthly performance report</li>
+        <li><span class="li-check">✓</span>Priority support</li>
+      </ul>
+      <button class="btn-trial" onclick="openSignup('professional')">Start Free Trial →</button>
+    </div>
+    <!-- Pro -->
+    <div class="pricing-card reveal">
+      <h3>Pro</h3>
+      <div class="price">$997<span>/mo</span></div>
+      <div class="trial-tag">✓ 14-day free trial included</div>
+      <ul>
+        <li><span class="li-check">✓</span>Multi-location practices</li>
+        <li><span class="li-check">✓</span>All Growth features</li>
+        <li><span class="li-check">✓</span>Multi-location routing <span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span></li>
+        <li><span class="li-check">✓</span>EHR system integration <span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span></li>
+        <li><span class="li-check">✓</span>Custom AI training <span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span></li>
+        <li><span class="li-check">✓</span>Dedicated onboarding</li>
+      </ul>
+      <button class="btn-trial" onclick="openSignup('enterprise')">Start Free Trial →</button>
+    </div>
+    <!-- White Label -->
+    <div class="pricing-card whitelabel reveal">
+      <div class="badge-pop">White Label</div>
+      <h3>White Label License</h3>
+      <div class="price">$2,999<span> one-time</span></div>
+      <div class="trial-tag" style="color:var(--violet)">&nbsp;</div>
+      <ul>
+        <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Full source code transfer</li>
+        <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Your brand, your domain</li>
+        <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Remove all Tabor branding</li>
+        <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Deploy on your own servers</li>
+        <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Resell to your own clients</li>
+        <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>6 months of email support</li>
+      </ul>
+      <div class="wl-note">You own the code outright</div>
+      <button class="btn-license" onclick="openQuoteForm()">Get a Quote →</button>
+    </div>
   </div>
-  <script>
-    (function() {
-      fetch('/api/plans')
-        .then(r => {
-          if (!r.ok) throw new Error('API error: ' + r.status);
-          return r.json();
-        })
-        .then(data => {
-          if (!data.plans) throw new Error('Missing plans in response');
-          renderPricingCards(data.plans);
-        })
-        .catch(e => {
-          console.error('Pricing load error:', e);
-          const container = document.getElementById('pricing-cards-container');
-          if (container) {
-            container.innerHTML = '<div style="grid-column:1/-1;color:red;padding:40px;text-align:center">Failed to load pricing. Please refresh the page.</div>';
-          }
-        });
-
-      function renderPricingCards(plans) {
-        const container = document.getElementById('pricing-cards-container');
-        if (!container) return;
-        container.innerHTML = '';
-
-        // Render Starter
-        const starterCard = document.createElement('div');
-        starterCard.className = 'pricing-card reveal';
-        starterCard.innerHTML = `
-          <h3>Starter</h3>
-          <div class="price">$297<span>/mo</span></div>
-          <div class="trial-tag">✓ 14-day free trial included</div>
-          <ul>
-            <li><span class="li-check">✓</span>Solo practice, 1 location</li>
-            <li><span class="li-check">✓</span>Appointment booking chat</li>
-            <li><span class="li-check">✓</span>Basic insurance Q&A</li>
-            <li><span class="li-check">✓</span>Email support</li>
-          </ul>
-          <button class="btn-trial" onclick="openSignup('starter')">Start Free Trial →</button>
-        `;
-        container.appendChild(starterCard);
-
-        // Render Professional/Growth
-        const prof = plans.professional || {};
-        const profComingSoon = prof.coming_soon || [];
-        const profCard = document.createElement('div');
-        profCard.className = 'pricing-card popular reveal';
-        profCard.innerHTML = `
-          <div class="badge-pop">Most Popular</div>
-          <h3>Growth</h3>
-          <div class="price">$597<span>/mo</span></div>
-          <div class="trial-tag">✓ 14-day free trial included</div>
-          <ul>
-            <li><span class="li-check">✓</span>2–5 doctor group practice</li>
-            <li><span class="li-check">✓</span>SMS + WhatsApp channels${profComingSoon.includes('whatsapp_channels') ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : ''}</li>
-            <li><span class="li-check">✓</span>All Starter features</li>
-            <li><span class="li-check">✓</span>Custom insurance knowledge${profComingSoon.includes('custom_insurance_knowledge') ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : ''}</li>
-            <li><span class="li-check">✓</span>Monthly performance report${profComingSoon.includes('monthly_performance_report') ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : ''}</li>
-            <li><span class="li-check">✓</span>Priority support</li>
-          </ul>
-          <button class="btn-trial" onclick="openSignup('professional')">Start Free Trial →</button>
-        `;
-        container.appendChild(profCard);
-
-        // Render Enterprise/Pro
-        const ent = plans.enterprise || {};
-        const entComingSoon = ent.coming_soon || [];
-        const entCard = document.createElement('div');
-        entCard.className = 'pricing-card reveal';
-        entCard.innerHTML = `
-          <h3>Pro</h3>
-          <div class="price">$997<span>/mo</span></div>
-          <div class="trial-tag">✓ 14-day free trial included</div>
-          <ul>
-            <li><span class="li-check">✓</span>Multi-location practices</li>
-            <li><span class="li-check">✓</span>All Growth features</li>
-            <li><span class="li-check">✓</span>Multi-location routing${entComingSoon.includes('multi_location_routing') ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : ''}</li>
-            <li><span class="li-check">✓</span>EHR system integration${entComingSoon.includes('ehr_system_integration') ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : ''}</li>
-            <li><span class="li-check">✓</span>Custom AI training${entComingSoon.includes('custom_ai_training') ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:10px;font-weight:600">Coming Soon</span>' : ''}</li>
-            <li><span class="li-check">✓</span>Dedicated onboarding</li>
-          </ul>
-          <button class="btn-trial" onclick="openSignup('enterprise')">Start Free Trial →</button>
-        `;
-        container.appendChild(entCard);
-
-        // Render White Label
-        const wlCard = document.createElement('div');
-        wlCard.className = 'pricing-card whitelabel reveal';
-        wlCard.innerHTML = `
-          <div class="badge-pop">White Label</div>
-          <h3>White Label License</h3>
-          <div class="price">$2,999<span> one-time</span></div>
-          <div class="trial-tag" style="color:var(--violet)">&nbsp;</div>
-          <ul>
-            <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Full source code transfer</li>
-            <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Your brand, your domain</li>
-            <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Remove all Tabor branding</li>
-            <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Deploy on your own servers</li>
-            <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Resell to your own clients</li>
-            <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>6 months of email support</li>
-          </ul>
-          <div class="wl-note">You own the code outright</div>
-          <button class="btn-license" onclick="openQuoteForm()">Get a Quote →</button>
-        `;
-        container.appendChild(wlCard);
-      }
-    })();
-  </script>
 </section>
 
 <!-- ── Contact ────────────────────────────────────────────────────── -->
