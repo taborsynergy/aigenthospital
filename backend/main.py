@@ -21,17 +21,20 @@ from backend.db.crud import get_clinic
 from backend.limiter import limiter
 
 # ── Sentry (initialize before anything else) ─────────────────────────────────
-if settings.sentry_dsn:
-    import sentry_sdk
-    from sentry_sdk.integrations.fastapi import FastApiIntegration
-    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-    sentry_sdk.init(
-        dsn=settings.sentry_dsn,
-        integrations=[FastApiIntegration(), SqlalchemyIntegration()],
-        traces_sample_rate=0.1,   # 10% of requests traced for performance
-        send_default_pii=False,   # never send PII to Sentry
-        environment="production" if not settings.debug_mode else "development",
-    )
+if settings.sentry_dsn and settings.sentry_dsn.startswith("https://"):
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+            traces_sample_rate=0.1,   # 10% of requests traced for performance
+            send_default_pii=False,   # never send PII to Sentry
+            environment="production" if not settings.debug_mode else "development",
+        )
+    except Exception as e:
+        print(f"Warning: Sentry init failed: {e} — continuing without error tracking")
 
 # ── PHI redaction filter ──────────────────────────────────────────────────────
 _PHI_PATTERNS = [
