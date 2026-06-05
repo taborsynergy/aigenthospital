@@ -116,6 +116,12 @@ def migrate_db():
         ("ehr_configurations", "last_sync_at",  "TIMESTAMP", ""),
         ("ehr_configurations", "sync_status",   "VARCHAR", "DEFAULT 'inactive'"),
         ("ehr_configurations", "error_message", "TEXT",   "DEFAULT ''"),
+        # Custom AI training
+        ("custom_ai_training", "training_type", "VARCHAR", "DEFAULT ''"),
+        ("custom_ai_training", "title",         "VARCHAR", "DEFAULT ''"),
+        ("custom_ai_training", "content",       "TEXT",    "DEFAULT ''"),
+        ("custom_ai_training", "is_active",     "BOOLEAN", "DEFAULT TRUE"),
+        ("custom_ai_training", "priority",      "INTEGER", "DEFAULT 0"),
     ]
 
     inspector = inspect(engine)

@@ -47,9 +47,10 @@ PLANS = {
         "custom_insurance":    True,
         "location_routing":    True,
         "ehr_integration":     True,
+        "custom_ai_training":  True,
         "support":             "Dedicated account manager + 24/7 priority",
         "color":               "#7C3AED",
-        "coming_soon":         ["custom_ai_training"],
+        "coming_soon":         [],
     },
 }
 
@@ -115,3 +116,8 @@ def can_use_location_routing(clinic) -> bool:
 def can_use_ehr_integration(clinic) -> bool:
     """Check if clinic plan supports EHR system integration."""
     return get_plan(clinic).get("ehr_integration", False)
+
+
+def can_use_custom_ai_training(clinic) -> bool:
+    """Check if clinic plan supports custom AI training."""
+    return get_plan(clinic).get("custom_ai_training", False)

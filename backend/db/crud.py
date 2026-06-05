@@ -7,7 +7,7 @@ from sqlalchemy import func
 from backend.db.models import (
     Clinic, UsageLog, SmsConversation, Appointment, ChatSession, AuditLog,
     RecallCampaign, RecallLog, Location, WidgetConfig, InsuranceKnowledge,
-    EHRConfiguration,
+    EHRConfiguration, CustomAITraining,
 )
 
 _TOKEN_TTL_DAYS = 30
@@ -744,3 +744,75 @@ def get_or_create_ehr_configuration(db: Session, clinic_id: int) -> EHRConfigura
     if config:
         return config
     return create_ehr_configuration(db, clinic_id, {})
+
+
+# ── Custom AI Training ──────────────────────────────────────────────────────
+
+def list_custom_ai_training(db: Session, clinic_id: int) -> list[CustomAITraining]:
+    """Get all training items for a clinic, sorted by priority descending."""
+    return (
+        db.query(CustomAITraining)
+        .filter(CustomAITraining.clinic_id == clinic_id)
+        .order_by(CustomAITraining.priority.desc(), CustomAITraining.created_at.desc())
+        .all()
+    )
+
+
+def get_custom_ai_training(db: Session, training_id: int, clinic_id: int) -> CustomAITraining | None:
+    """Get a specific training item (must belong to this clinic)."""
+    return db.query(CustomAITraining).filter(
+        CustomAITraining.id == training_id,
+        CustomAITraining.clinic_id == clinic_id,
+    ).first()
+
+
+def create_custom_ai_training(db: Session, clinic_id: int, data: dict) -> CustomAITraining:
+    """Create a new training item for a clinic."""
+    training = CustomAITraining(clinic_id=clinic_id, **data)
+    db.add(training)
+    db.commit()
+    db.refresh(training)
+    return training
+
+
+def update_custom_ai_training(db: Session, training_id: int, clinic_id: int, data: dict) -> CustomAITraining | None:
+    """Update a training item."""
+    training = get_custom_ai_training(db, training_id, clinic_id)
+    if not training:
+        return None
+    for k, v in data.items():
+        setattr(training, k, v)
+    training.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(training)
+    return training
+
+
+def delete_custom_ai_training(db: Session, training_id: int, clinic_id: int) -> bool:
+    """Delete a training item."""
+    training = get_custom_ai_training(db, training_id, clinic_id)
+    if not training:
+        return False
+    db.delete(training)
+    db.commit()
+    return True
+
+
+def get_active_training_context(db: Session, clinic_id: int) -> str:
+    """
+    Get all active training items for a clinic formatted as context for the AI agent.
+    Returns a single formatted string suitable for system prompt injection.
+    """
+    items = db.query(CustomAITraining).filter(
+        CustomAITraining.clinic_id == clinic_id,
+        CustomAITraining.is_active.is_(True),
+    ).order_by(CustomAITraining.priority.desc()).all()
+
+    if not items:
+        return ""
+
+    context_parts = []
+    for item in items:
+        context_parts.append(f"[{item.training_type.upper()}] {item.title}\n{item.content}")
+
+    return "\n\n".join(context_parts)

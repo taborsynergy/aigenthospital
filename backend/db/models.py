@@ -229,6 +229,29 @@ class WidgetConfig(Base):
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class CustomAITraining(Base):
+    """
+    Custom AI training data for clinic-specific agent customization.
+    Allows clinics to teach Aria about their specific procedures, policies, and preferences.
+    """
+    __tablename__ = "custom_ai_training"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    # Training content
+    training_type   = Column(String,   default="")              # "procedure", "policy", "faq", "custom"
+    title           = Column(String,   nullable=False)          # e.g., "Telehealth Policy", "Intake Form"
+    content         = Column(Text,     nullable=False)          # Training data (max 5000 chars)
+    # Status
+    is_active       = Column(Boolean,  default=True)            # Whether to include in agent prompt
+    priority        = Column(Integer,  default=0)               # 0-10, higher = more important
+    # Metadata
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+Index("ix_custom_ai_clinic", CustomAITraining.clinic_id)
+
+
 class EHRConfiguration(Base):
     """
     EHR system integration configuration for clinics.
