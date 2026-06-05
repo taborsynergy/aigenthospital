@@ -196,3 +196,30 @@ class RecallLog(Base):
     sent_at         = Column(DateTime, default=datetime.utcnow, index=True)
 
 Index("ix_recall_logs_clinic_phone", RecallLog.clinic_id, RecallLog.patient_phone)
+
+
+class WidgetConfig(Base):
+    """
+    Clinic-controlled widget customization.
+    Defines branding, colors, text for the embeddable booking widget.
+    """
+    __tablename__ = "widget_configs"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id"), unique=True, index=True)
+    # Branding
+    logo_url        = Column(String,   default="")              # clinic logo
+    primary_color   = Column(String,   default="#007ACC")       # brand color (hex)
+    button_color    = Column(String,   default="#007ACC")       # CTA button color
+    font_family     = Column(String,   default="'Segoe UI', sans-serif")
+    # Text customization
+    widget_title    = Column(String,   default="Book an Appointment")
+    widget_subtitle = Column(String,   default="Quick and easy scheduling")
+    cta_button_text = Column(String,   default="Schedule Now")
+    # Behavior
+    show_logo       = Column(Boolean,  default=True)
+    show_ratings    = Column(Boolean,  default=True)
+    enable_chat     = Column(Boolean,  default=True)
+    # Metadata
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

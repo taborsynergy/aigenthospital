@@ -6,7 +6,7 @@ from sqlalchemy import func
 
 from backend.db.models import (
     Clinic, UsageLog, SmsConversation, Appointment, ChatSession, AuditLog,
-    RecallCampaign, RecallLog, Location,
+    RecallCampaign, RecallLog, Location, WidgetConfig,
 )
 
 _TOKEN_TTL_DAYS = 30
@@ -615,3 +615,40 @@ def get_location_by_name(db: Session, clinic_id: int, name: str) -> Optional[Loc
         Location.name == name,
         Location.is_active.is_(True),
     ).first()
+
+
+# ── Widget Config ──────────────────────────────────────────────────────────────
+
+def get_widget_config(db: Session, clinic_id: int) -> Optional[WidgetConfig]:
+    """Get widget customization for a clinic."""
+    return db.query(WidgetConfig).filter(WidgetConfig.clinic_id == clinic_id).first()
+
+
+def create_widget_config(db: Session, clinic_id: int, data: dict) -> WidgetConfig:
+    """Create widget config for a clinic."""
+    config = WidgetConfig(clinic_id=clinic_id, **data)
+    db.add(config)
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+def update_widget_config(db: Session, clinic_id: int, data: dict) -> Optional[WidgetConfig]:
+    """Update widget config for a clinic."""
+    config = get_widget_config(db, clinic_id)
+    if not config:
+        return None
+    for k, v in data.items():
+        setattr(config, k, v)
+    config.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+def get_or_create_widget_config(db: Session, clinic_id: int) -> WidgetConfig:
+    """Get existing widget config or create one with defaults."""
+    config = get_widget_config(db, clinic_id)
+    if config:
+        return config
+    return create_widget_config(db, clinic_id, {})

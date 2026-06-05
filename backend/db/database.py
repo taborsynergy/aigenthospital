@@ -85,6 +85,17 @@ def migrate_db():
         ("appointments", "reminder_24h_sent",   "BOOLEAN",   "DEFAULT FALSE"),
         ("appointments", "location_id",         "INTEGER",   ""),
         ("usage_logs",   "location_id",         "INTEGER",   ""),
+        # Widget config
+        ("widget_configs", "logo_url",          "VARCHAR",   "DEFAULT ''"),
+        ("widget_configs", "primary_color",     "VARCHAR",   "DEFAULT '#007ACC'"),
+        ("widget_configs", "button_color",      "VARCHAR",   "DEFAULT '#007ACC'"),
+        ("widget_configs", "font_family",       "VARCHAR",   "DEFAULT 'Segoe UI, sans-serif'"),
+        ("widget_configs", "widget_title",      "VARCHAR",   "DEFAULT 'Book an Appointment'"),
+        ("widget_configs", "widget_subtitle",   "VARCHAR",   "DEFAULT 'Quick and easy scheduling'"),
+        ("widget_configs", "cta_button_text",   "VARCHAR",   "DEFAULT 'Schedule Now'"),
+        ("widget_configs", "show_logo",         "BOOLEAN",   "DEFAULT TRUE"),
+        ("widget_configs", "show_ratings",      "BOOLEAN",   "DEFAULT TRUE"),
+        ("widget_configs", "enable_chat",       "BOOLEAN",   "DEFAULT TRUE"),
     ]
 
     inspector = inspect(engine)
