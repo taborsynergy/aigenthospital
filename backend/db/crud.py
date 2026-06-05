@@ -617,6 +617,23 @@ def get_location_by_name(db: Session, clinic_id: int, name: str) -> Optional[Loc
     ).first()
 
 
+def set_primary_location(db: Session, clinic_id: int, location_id: int) -> Optional[Location]:
+    """Set a location as primary (default) for the clinic."""
+    # Unset all other primary locations
+    db.query(Location).filter(
+        Location.clinic_id == clinic_id,
+        Location.is_primary.is_(True),
+    ).update({"is_primary": False})
+
+    # Set this location as primary
+    location = get_location(db, location_id, clinic_id)
+    if location:
+        location.is_primary = True
+        db.commit()
+        db.refresh(location)
+    return location
+
+
 # ── Widget Config ──────────────────────────────────────────────────────────────
 
 def get_widget_config(db: Session, clinic_id: int) -> Optional[WidgetConfig]:

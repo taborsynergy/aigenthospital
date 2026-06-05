@@ -102,6 +102,10 @@ def migrate_db():
         ("insurance_knowledge", "deductible_info", "TEXT",   "DEFAULT ''"),
         ("insurance_knowledge", "prior_auth_notes","TEXT",   "DEFAULT ''"),
         ("insurance_knowledge", "custom_knowledge","TEXT",   "DEFAULT ''"),
+        # Multi-location routing
+        ("locations", "zip_code_coverage",   "TEXT",   "DEFAULT ''"),
+        ("locations", "service_categories",  "TEXT",   "DEFAULT ''"),
+        ("locations", "is_primary",          "BOOLEAN","DEFAULT FALSE"),
     ]
 
     inspector = inspect(engine)

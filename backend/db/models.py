@@ -71,6 +71,10 @@ class Location(Base):
     office_hours        = Column(Text,     default="")              # "Mon-Fri 8am-5pm"
     providers           = Column(Text,     default="")              # CSV: "Dr. Smith, Dr. Jones"
     timezone            = Column(String,   default="US/Eastern")
+    # Multi-location routing (Pro+)
+    zip_code_coverage   = Column(Text,     default="")              # CSV zip codes: "12345,12346,12347"
+    service_categories  = Column(Text,     default="")              # CSV: "General, Pediatrics, Urgent Care"
+    is_primary          = Column(Boolean,  default=False)           # Default location if no match
     is_active           = Column(Boolean,  default=True)
     created_at          = Column(DateTime, default=datetime.utcnow)
     updated_at          = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

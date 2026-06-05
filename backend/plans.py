@@ -45,6 +45,7 @@ PLANS = {
         "max_locations":       None,      # unlimited
         "monthly_reports":     True,
         "custom_insurance":    True,
+        "location_routing":    True,
         "support":             "Dedicated account manager + 24/7 priority",
         "color":               "#7C3AED",
         "coming_soon":         ["ehr_system_integration", "custom_ai_training"],
@@ -103,3 +104,8 @@ def can_use_monthly_reports(clinic) -> bool:
 def can_use_custom_insurance(clinic) -> bool:
     """Check if clinic plan supports custom insurance knowledge."""
     return get_plan(clinic).get("custom_insurance", False)
+
+
+def can_use_location_routing(clinic) -> bool:
+    """Check if clinic plan supports multi-location intelligent routing."""
+    return get_plan(clinic).get("location_routing", False)

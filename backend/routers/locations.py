@@ -5,6 +5,7 @@ Clinics can have multiple physical locations, each with separate:
 - Address, phone, office hours
 - Providers
 - Timezone
+- (Pro+) Intelligent routing rules
 """
 import logging
 from typing import Optional
@@ -18,8 +19,10 @@ from backend.db.database import get_db
 from backend.db.models import Location
 from backend.db.crud import (
     get_clinic_by_token, list_locations, get_location,
-    create_location, update_location, delete_location,
+    create_location, update_location, delete_location, set_primary_location,
 )
+from backend.plans import can_use_location_routing
+from backend.services.routing_svc import route_to_location, get_routing_info
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
@@ -176,3 +179,98 @@ def remove_clinic_location(
 
     logger.info("Location deleted: clinic=%s location=%d", clinic_slug, location_id)
     return {"ok": True}
+
+
+# ── Multi-location routing (Pro+) ────────────────────────────────────────────
+
+class LocationRoutingUpdate(BaseModel):
+    zip_code_coverage: Optional[str] = None
+    service_categories: Optional[str] = None
+
+
+@router.patch("/{clinic_slug}/locations/{location_id}/routing")
+def update_location_routing(
+    clinic_slug: str,
+    location_id: int,
+    body: LocationRoutingUpdate,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Update intelligent routing rules for a location (Pro+)."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    if not can_use_location_routing(clinic):
+        return JSONResponse(status_code=403, content={
+            "error": "Multi-location routing not available on your plan. Upgrade to Pro or above."
+        })
+
+    location = get_location(db, location_id, clinic.id)
+    if not location:
+        raise HTTPException(404, "Location not found.")
+
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        return JSONResponse(status_code=400, content={"error": "No fields to update."})
+
+    location = update_location(db, location_id, clinic.id, updates)
+    logger.info("Location routing updated: clinic=%s location=%d", clinic_slug, location_id)
+    return {
+        "location_id": location.id,
+        "name": location.name,
+        "zip_code_coverage": location.zip_code_coverage or "",
+        "service_categories": location.service_categories or "",
+    }
+
+
+@router.post("/{clinic_slug}/locations/{location_id}/set-primary")
+def set_location_as_primary(
+    clinic_slug: str,
+    location_id: int,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Set a location as the primary/default for the clinic (Pro+)."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    if not can_use_location_routing(clinic):
+        return JSONResponse(status_code=403, content={
+            "error": "Multi-location routing not available on your plan. Upgrade to Pro or above."
+        })
+
+    location = set_primary_location(db, clinic.id, location_id)
+    if not location:
+        raise HTTPException(404, "Location not found.")
+
+    logger.info("Primary location set: clinic=%s location=%d", clinic_slug, location_id)
+    return {"ok": True, "primary_location": location.name}
+
+
+@router.post("/{clinic_slug}/routing/test")
+def test_location_routing(
+    clinic_slug: str,
+    patient_zip: Optional[str] = None,
+    appointment_type: Optional[str] = None,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Test routing logic - returns which location a patient would be routed to (Pro+)."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    if not can_use_location_routing(clinic):
+        return JSONResponse(status_code=403, content={
+            "error": "Multi-location routing not available on your plan. Upgrade to Pro or above."
+        })
+
+    location = route_to_location(clinic.id, db, patient_zip, appointment_type)
+    if not location:
+        return JSONResponse(status_code=404, content={"error": "No suitable location found."})
+
+    logger.info("Routing test: clinic=%s zip=%s type=%s → location=%s",
+                clinic_slug, patient_zip, appointment_type, location.name)
+    return get_routing_info(location)
