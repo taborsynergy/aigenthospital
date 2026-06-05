@@ -213,6 +213,137 @@ def send_upgrade_request_email(data: dict) -> bool:
     return _send(msg)
 
 
+def send_subscription_activated_email(data: dict) -> bool:
+    """Notify clinic when their subscription is activated via Stripe."""
+    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+        return False
+
+    clinic   = data.get("clinic_name", "Your clinic")
+    plan     = data.get("plan", "professional").title()
+    rate     = data.get("rate", "—")
+    ends_at  = data.get("ends_at", "—")
+    portal   = data.get("portal_url", settings.base_url)
+    subject  = f"[Tabor Synergy] Subscription Activated — {clinic} ({plan})"
+
+    plain = "\n".join([
+        f"Great news! Your {plan} subscription for {clinic} is now active.",
+        "",
+        f"Plan:          {plan}",
+        f"Monthly rate:  ${rate}/mo",
+        f"Active until:  {ends_at}",
+        f"Portal:        {portal}",
+        "",
+        "Thank you for choosing Tabor Synergy!",
+        "— The Tabor Synergy Team",
+    ])
+    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#059669;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Subscription Activated!</h2>
+  <p style="color:#d1fae5;margin:4px 0 0">Tabor Synergy — AI Medical Front Desk</p>
+</div>
+<div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0">
+  <p style="margin-top:0">Your <strong>{plan}</strong> subscription for <strong>{clinic}</strong> is now active.</p>
+  <table style="width:100%;border-collapse:collapse">
+    <tr><td style="padding:8px;color:#666;width:40%">Plan</td>
+        <td style="padding:8px;font-weight:bold;color:#059669">{plan}</td></tr>
+    <tr style="background:#fff"><td style="padding:8px;color:#666">Monthly Rate</td>
+        <td style="padding:8px">${rate}/mo</td></tr>
+    <tr><td style="padding:8px;color:#666">Active Until</td>
+        <td style="padding:8px">{ends_at}</td></tr>
+  </table>
+  <div style="margin-top:20px;text-align:center">
+    <a href="{portal}" style="background:#059669;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700">
+      Go to Your Portal →
+    </a>
+  </div>
+  <p style="margin-top:20px;font-size:12px;color:#999">Tabor Synergy — automated notification</p>
+</div></body></html>"""
+    msg = _build_msg(subject, plain, html, reply_to=settings.notify_email)
+    return _send(msg)
+
+
+def send_payment_failed_email(data: dict) -> bool:
+    """Notify clinic when a Stripe payment fails (dunning)."""
+    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+        return False
+
+    clinic   = data.get("clinic_name", "Your clinic")
+    email    = data.get("clinic_email", "")
+    amount   = data.get("amount_due", 0)
+    attempt  = data.get("attempt_count", 1)
+    portal   = data.get("portal_url", settings.base_url)
+    subject  = f"[Action Required] Payment Failed — {clinic}"
+
+    plain = "\n".join([
+        f"A payment of ${amount:.2f} for {clinic} has failed (attempt {attempt}).",
+        "",
+        "To keep your AI front desk running, please update your payment method:",
+        portal,
+        "",
+        "If payment continues to fail, your subscription will be suspended.",
+        "— The Tabor Synergy Team",
+    ])
+    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#DC2626;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Payment Failed — Action Required</h2>
+  <p style="color:#fecaca;margin:4px 0 0">Tabor Synergy — AI Medical Front Desk</p>
+</div>
+<div style="background:#FEF2F2;padding:24px;border-radius:0 0 8px 8px;border:1px solid #FCA5A5">
+  <p style="margin-top:0">A payment of <strong>${amount:.2f}</strong> for <strong>{clinic}</strong> has failed (attempt {attempt} of 4).</p>
+  <p>Please update your payment method to keep your AI front desk running:</p>
+  <div style="margin:20px 0;text-align:center">
+    <a href="{portal}" style="background:#DC2626;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700">
+      Update Payment Method →
+    </a>
+  </div>
+  <p style="font-size:13px;color:#991B1B">
+    If payment continues to fail, your subscription will be suspended and patients will not
+    be able to chat with your AI front desk.
+  </p>
+  <p style="font-size:12px;color:#999;margin-top:20px">Tabor Synergy — automated billing notification</p>
+</div></body></html>"""
+    msg = _build_msg(subject, plain, html, reply_to=settings.notify_email)
+    # Send both to admin and to the clinic
+    if email:
+        msg.replace_header("To", email)
+    return _send(msg)
+
+
+def send_subscription_cancelled_email(data: dict) -> bool:
+    """Notify clinic when their subscription is cancelled."""
+    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+        return False
+
+    clinic  = data.get("clinic_name", "Your clinic")
+    email   = data.get("clinic_email", "")
+    subject = f"[Tabor Synergy] Subscription Cancelled — {clinic}"
+
+    plain = "\n".join([
+        f"Your Tabor Synergy subscription for {clinic} has been cancelled.",
+        "",
+        "Your AI front desk will remain active until the end of your current billing period.",
+        "After that, patients will no longer be able to chat with Aria.",
+        "",
+        f"To reactivate, contact us at {settings.notify_email}",
+        "— The Tabor Synergy Team",
+    ])
+    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#6B7280;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Subscription Cancelled</h2>
+  <p style="color:#e5e7eb;margin:4px 0 0">Tabor Synergy — AI Medical Front Desk</p>
+</div>
+<div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0">
+  <p>Your subscription for <strong>{clinic}</strong> has been cancelled.</p>
+  <p>Aria will remain active until the end of your current billing period. After that, the chat service will be disabled.</p>
+  <p>Changed your mind? <a href="mailto:{settings.notify_email}">Contact us</a> to reactivate.</p>
+  <p style="font-size:12px;color:#999;margin-top:20px">Tabor Synergy — automated billing notification</p>
+</div></body></html>"""
+    msg = _build_msg(subject, plain, html)
+    if email:
+        msg.replace_header("To", email)
+    return _send(msg)
+
+
 def send_quote_email(data: dict) -> bool:
     """Send a White Label quote request to the notify_email address."""
     if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:

@@ -225,7 +225,11 @@ async def upgrade_request(
     db: Session = Depends(get_db),
     x_clinic_token: str = Header(None),
 ):
-    """Doctor requests a plan upgrade — returns PayPal link and emails admin."""
+    """
+    Clinic requests a plan upgrade — returns PayPal link and emails admin.
+    When STRIPE_STARTER/PROFESSIONAL/ENTERPRISE_PRICE_ID env vars are set in future,
+    a stripe checkout_url will also be returned automatically.
+    """
     from backend.config import settings as cfg
     from backend.services.email_svc import send_upgrade_request_email
 
@@ -290,6 +294,42 @@ async def clinic_plan(
         "trial_ends_at":         clinic.trial_ends_at.strftime("%B %d, %Y") if clinic.trial_ends_at else None,
         "subscription_ends_at":  clinic.subscription_ends_at.strftime("%B %d, %Y") if clinic.subscription_ends_at else None,
     }
+
+
+@router.get("/api/{clinic_slug}/billing-portal")
+async def billing_portal(
+    clinic_slug: str,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """
+    Return a Stripe Customer Portal URL so the clinic can manage their own billing:
+    update payment method, download invoices, cancel subscription.
+    Requires an active Stripe customer ID.
+    """
+    from backend.config import settings as cfg
+    from backend.services.stripe_svc import create_customer_portal_session, stripe_enabled
+
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    if not stripe_enabled():
+        return JSONResponse(status_code=400, content={"error": "Stripe billing not configured."})
+
+    if not clinic.stripe_customer_id:
+        return JSONResponse(status_code=400, content={
+            "error": "No Stripe account linked. Complete a Stripe checkout first."
+        })
+
+    result = create_customer_portal_session(
+        stripe_customer_id=clinic.stripe_customer_id,
+        return_url=f"{cfg.base_url}/c/{clinic_slug}",
+    )
+    if result.get("error"):
+        return JSONResponse(status_code=500, content={"error": result["error"]})
+
+    return {"portal_url": result["url"]}
 
 
 @router.get("/api/health")

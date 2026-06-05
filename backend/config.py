@@ -17,10 +17,14 @@ class Settings(BaseSettings):
     # ── PayPal ───────────────────────────────────────────────────────
     paypal_me_url: str = "https://www.paypal.com/paypalme/write2dinakar"
 
-    # ── Stripe (legacy — not required) ───────────────────────────────
+    # ── Stripe ───────────────────────────────────────────────────────
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
-    stripe_price_id: str = ""          # Monthly subscription price ID
+    # Per-plan recurring Price IDs — create these in Stripe Dashboard
+    # Products > Add product > Add price (recurring, monthly)
+    stripe_starter_price_id:      str = ""   # $297/mo
+    stripe_professional_price_id: str = ""   # $597/mo
+    stripe_enterprise_price_id:   str = ""   # $997/mo
 
     # ── Twilio ───────────────────────────────────────────────────────
     twilio_account_sid: str = ""
