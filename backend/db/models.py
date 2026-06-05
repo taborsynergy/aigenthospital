@@ -66,7 +66,8 @@ class Appointment(Base):
     patient_email        = Column(String,   default="")
     patient_dob          = Column(String,   default="")
     appointment_type     = Column(String,   nullable=False)
-    appointment_datetime = Column(String,   nullable=False)
+    appointment_datetime = Column(String,   nullable=False)   # human-readable: "Monday, June 9 at 10:00 AM"
+    appointment_ts       = Column(DateTime, nullable=True)    # structured timestamp for conflict checking
     provider             = Column(String,   default="")
     is_new_patient       = Column(Boolean,  default=False)
     chief_complaint      = Column(String,   default="")

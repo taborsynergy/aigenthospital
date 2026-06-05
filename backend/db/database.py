@@ -78,7 +78,8 @@ def migrate_db():
         ("clinics", "twilio_phone",           "VARCHAR",   "DEFAULT ''"),
         ("clinics", "is_active",              "BOOLEAN",   "DEFAULT TRUE"),
         ("clinics", "plan",                   "VARCHAR",   "DEFAULT 'professional'"),
-        ("clinics", "updated_at",             "TIMESTAMP", ""),
+        ("clinics",      "updated_at",        "TIMESTAMP", ""),
+        ("appointments", "appointment_ts",    "TIMESTAMP", ""),
     ]
 
     inspector = inspect(engine)

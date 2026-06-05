@@ -169,6 +169,57 @@ def update_appointment_status(db: Session, confirmation_number: str, status: str
     return appt
 
 
+def update_appointment(db: Session, confirmation_number: str, data: dict) -> Optional[Appointment]:
+    """Update arbitrary fields on an appointment by confirmation number."""
+    appt = db.query(Appointment).filter(Appointment.confirmation_number == confirmation_number).first()
+    if appt:
+        for k, v in data.items():
+            setattr(appt, k, v)
+        db.commit()
+        db.refresh(appt)
+    return appt
+
+
+def find_appointment_by_patient(
+    db: Session,
+    clinic_id: int,
+    patient_name: str,
+    patient_dob: Optional[str] = None,
+    date_hint: Optional[str] = None,
+    status: Optional[str] = None,
+) -> Optional[Appointment]:
+    """
+    Find the most recent appointment for a patient by name (case-insensitive partial match).
+    Optionally filters by status and narrows by date_hint or DOB.
+    """
+    q = (
+        db.query(Appointment)
+        .filter(
+            Appointment.clinic_id == clinic_id,
+            func.lower(Appointment.patient_name).contains(patient_name.lower().strip()),
+        )
+    )
+    if status:
+        q = q.filter(Appointment.status == status)
+    if patient_dob:
+        q = q.filter(Appointment.patient_dob == patient_dob)
+    if date_hint:
+        q = q.filter(Appointment.appointment_datetime.ilike(f"%{date_hint}%"))
+    return q.order_by(Appointment.created_at.desc()).first()
+
+
+def list_appointments_by_status(
+    db: Session, clinic_id: int, status: str, limit: int = 100
+) -> list[Appointment]:
+    return (
+        db.query(Appointment)
+        .filter(Appointment.clinic_id == clinic_id, Appointment.status == status)
+        .order_by(Appointment.appointment_ts.asc())
+        .limit(limit)
+        .all()
+    )
+
+
 # ── Chat sessions (persistent) ────────────────────────────────────────────────
 
 def get_chat_history(db: Session, clinic_id: int, session_id: str) -> list[dict]:

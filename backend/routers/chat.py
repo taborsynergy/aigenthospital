@@ -213,6 +213,40 @@ async def get_appointments(
     ]
 
 
+class _StatusBody(BaseModel):
+    status: str   # confirmed | no_show | completed | cancelled
+
+
+_ALLOWED_STATUSES = {"confirmed", "no_show", "completed", "cancelled", "scheduled", "rescheduled"}
+
+
+@router.patch("/api/{clinic_slug}/appointments/{confirmation_number}")
+async def update_appointment_status(
+    clinic_slug: str,
+    confirmation_number: str,
+    body: _StatusBody,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Clinic staff can update appointment status: confirmed / no_show / completed / cancelled."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    new_status = body.status.lower()
+    if new_status not in _ALLOWED_STATUSES:
+        return JSONResponse(status_code=400, content={
+            "error": f"Invalid status. Allowed: {', '.join(sorted(_ALLOWED_STATUSES))}"
+        })
+
+    from backend.db.crud import update_appointment
+    appt = update_appointment(db, confirmation_number, {"status": new_status})
+    if not appt or appt.clinic_id != clinic.id:
+        return JSONResponse(status_code=404, content={"error": "Appointment not found."})
+
+    return {"ok": True, "confirmation_number": confirmation_number, "status": new_status}
+
+
 class _UpgradeBody(BaseModel):
     plan: str
 

@@ -251,12 +251,26 @@ async def dispatch_tool(
     session_id: str = "",
     channel: str = "web",
 ) -> dict[str, Any]:
-    """Route tool calls to the appropriate mock service."""
+    """Route tool calls to the appropriate service."""
+    from backend.services.appointment_svc import (
+        generate_slots, book_appointment, reschedule_appointment,
+        cancel_appointment, add_to_waitlist,
+    )
+
     match name:
         case "check_appointment_availability":
-            return pms.check_availability(clinic=clinic, **inputs)
+            slots = generate_slots(
+                clinic=clinic,
+                date_start=inputs.get("date_range_start"),
+                date_end=inputs.get("date_range_end"),
+                duration_minutes=inputs.get("duration_minutes", 30),
+                db=db,
+                provider_filter=inputs.get("provider"),
+            )
+            return {"available_slots": slots, "appointment_type": inputs.get("appointment_type", "")}
+
         case "book_appointment":
-            return pms.book_appointment(
+            return book_appointment(
                 clinic=clinic,
                 db=db,
                 session_id=session_id,
@@ -271,20 +285,50 @@ async def dispatch_tool(
                 is_new_patient=inputs.get("is_new_patient", False),
                 chief_complaint=inputs.get("chief_complaint"),
             )
+
         case "reschedule_appointment":
-            return pms.reschedule_appointment(clinic=clinic, db=db, **inputs)
+            return reschedule_appointment(
+                clinic=clinic,
+                db=db,
+                patient_name=inputs["patient_name"],
+                new_datetime=inputs["new_datetime"],
+                patient_dob=inputs.get("patient_dob"),
+                current_appointment_date=inputs.get("current_appointment_date"),
+                reason=inputs.get("reason"),
+            )
+
         case "cancel_appointment":
-            return pms.cancel_appointment(clinic=clinic, db=db, **inputs)
+            return cancel_appointment(
+                clinic=clinic,
+                db=db,
+                patient_name=inputs["patient_name"],
+                appointment_date=inputs["appointment_date"],
+                patient_dob=inputs.get("patient_dob"),
+                reason=inputs.get("reason"),
+            )
+
         case "verify_insurance":
             return insurance.verify_insurance(**inputs)
+
         case "get_patient_balance":
             return pms.get_patient_balance(**inputs)
+
         case "send_payment_link":
             return payments.send_payment_link(**inputs)
+
         case "send_intake_form":
             return payments.send_intake_form(**inputs)
+
         case "add_to_waitlist":
-            return pms.add_to_waitlist(**inputs)
+            return add_to_waitlist(
+                clinic=clinic,
+                db=db,
+                patient_name=inputs["patient_name"],
+                patient_phone=inputs["patient_phone"],
+                appointment_type=inputs["appointment_type"],
+                preferred_provider=inputs.get("preferred_provider"),
+                earliest_available=inputs.get("earliest_available"),
+            )
         case "escalate_to_human":
             _notify_escalation(inputs, clinic)
             return {
