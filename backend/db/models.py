@@ -229,6 +229,32 @@ class WidgetConfig(Base):
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class EHRConfiguration(Base):
+    """
+    EHR system integration configuration for clinics.
+    Allows clinics to sync appointments and patient data with their EHR.
+    """
+    __tablename__ = "ehr_configurations"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id"), unique=True, index=True)
+    # EHR system type
+    ehr_system      = Column(String,   default="")              # "epic", "cerner", "athenahealth", etc.
+    # Connection details (encrypted at rest)
+    api_endpoint    = Column(String,   default="")              # API base URL
+    api_key         = Column(String,   default="")              # Encrypted API key
+    client_id       = Column(String,   default="")              # OAuth client ID
+    # Sync settings
+    auto_sync       = Column(Boolean,  default=True)            # Auto-sync appointments to EHR
+    sync_patients   = Column(Boolean,  default=False)           # Sync patient data
+    last_sync_at    = Column(DateTime, nullable=True)           # Last successful sync
+    sync_status     = Column(String,   default="inactive")      # inactive, syncing, active, error
+    error_message   = Column(Text,     default="")              # Last error if any
+    # Metadata
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class InsuranceKnowledge(Base):
     """
     Clinic-specific insurance knowledge for AI agent.

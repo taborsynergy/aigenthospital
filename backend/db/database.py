@@ -106,6 +106,16 @@ def migrate_db():
         ("locations", "zip_code_coverage",   "TEXT",   "DEFAULT ''"),
         ("locations", "service_categories",  "TEXT",   "DEFAULT ''"),
         ("locations", "is_primary",          "BOOLEAN","DEFAULT FALSE"),
+        # EHR integration
+        ("ehr_configurations", "ehr_system",    "VARCHAR", "DEFAULT ''"),
+        ("ehr_configurations", "api_endpoint",  "VARCHAR", "DEFAULT ''"),
+        ("ehr_configurations", "api_key",       "VARCHAR", "DEFAULT ''"),
+        ("ehr_configurations", "client_id",     "VARCHAR", "DEFAULT ''"),
+        ("ehr_configurations", "auto_sync",     "BOOLEAN", "DEFAULT TRUE"),
+        ("ehr_configurations", "sync_patients", "BOOLEAN", "DEFAULT FALSE"),
+        ("ehr_configurations", "last_sync_at",  "TIMESTAMP", ""),
+        ("ehr_configurations", "sync_status",   "VARCHAR", "DEFAULT 'inactive'"),
+        ("ehr_configurations", "error_message", "TEXT",   "DEFAULT ''"),
     ]
 
     inspector = inspect(engine)

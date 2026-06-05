@@ -7,6 +7,7 @@ from sqlalchemy import func
 from backend.db.models import (
     Clinic, UsageLog, SmsConversation, Appointment, ChatSession, AuditLog,
     RecallCampaign, RecallLog, Location, WidgetConfig, InsuranceKnowledge,
+    EHRConfiguration,
 )
 
 _TOKEN_TTL_DAYS = 30
@@ -706,3 +707,40 @@ def get_or_create_insurance_knowledge(db: Session, clinic_id: int) -> InsuranceK
     if knowledge:
         return knowledge
     return create_insurance_knowledge(db, clinic_id, {})
+
+
+# ── EHR Configuration ────────────────────────────────────────────────────────
+
+def get_ehr_configuration(db: Session, clinic_id: int) -> EHRConfiguration | None:
+    """Get EHR configuration for a clinic."""
+    return db.query(EHRConfiguration).filter(EHRConfiguration.clinic_id == clinic_id).first()
+
+
+def create_ehr_configuration(db: Session, clinic_id: int, data: dict) -> EHRConfiguration:
+    """Create EHR configuration for a clinic."""
+    config = EHRConfiguration(clinic_id=clinic_id, **data)
+    db.add(config)
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+def update_ehr_configuration(db: Session, clinic_id: int, data: dict) -> EHRConfiguration | None:
+    """Update EHR configuration for a clinic."""
+    config = get_ehr_configuration(db, clinic_id)
+    if not config:
+        return None
+    for k, v in data.items():
+        setattr(config, k, v)
+    config.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+def get_or_create_ehr_configuration(db: Session, clinic_id: int) -> EHRConfiguration:
+    """Get or create EHR configuration (with defaults)."""
+    config = get_ehr_configuration(db, clinic_id)
+    if config:
+        return config
+    return create_ehr_configuration(db, clinic_id, {})
