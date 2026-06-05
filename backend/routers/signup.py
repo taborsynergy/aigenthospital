@@ -66,7 +66,7 @@ def signup(body: SignupRequest, background_tasks: BackgroundTasks, db: Session =
         "email":                  str(body.contact_email),
         "phone":                  body.phone,
         "subscription_status":    "trial",
-        "plan":                   plan,
+        "plan":                   plan_key,
         "monthly_rate":           rate,
         "trial_ends_at":          trial_ends_at,
         "customer_password_hash": hash_password(body.password),

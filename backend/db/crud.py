@@ -1,9 +1,16 @@
+import json
 from datetime import datetime, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from backend.db.models import Clinic, UsageLog, SmsConversation, Appointment
+from backend.db.models import (
+    Clinic, UsageLog, SmsConversation, Appointment, ChatSession, AuditLog
+)
+
+_TOKEN_TTL_DAYS = 30
+_MAX_LOGIN_FAILURES = 10
+_LOCKOUT_MINUTES = 30
 
 
 # ── Clinics ──────────────────────────────────────────────────────────────────
@@ -34,14 +41,44 @@ def get_clinic_by_email(db: Session, email: str) -> Optional[Clinic]:
 def get_clinic_by_token(db: Session, token: str) -> Optional[Clinic]:
     if not token:
         return None
-    return db.query(Clinic).filter(Clinic.session_token == token, Clinic.is_active == True).first()
+    clinic = db.query(Clinic).filter(
+        Clinic.session_token == token,
+        Clinic.is_active == True,
+    ).first()
+    if not clinic:
+        return None
+    # Honour token expiry when set
+    if clinic.token_expires_at and datetime.utcnow() > clinic.token_expires_at:
+        clinic.session_token = ""
+        clinic.token_expires_at = None
+        db.commit()
+        return None
+    return clinic
 
 
 def set_session_token(db: Session, clinic_id: int, token: str) -> None:
     clinic = get_clinic_by_id(db, clinic_id)
     if clinic:
         clinic.session_token = token
+        clinic.token_expires_at = (
+            datetime.utcnow() + timedelta(days=_TOKEN_TTL_DAYS) if token else None
+        )
         db.commit()
+
+
+def record_failed_login(db: Session, clinic: Clinic) -> int:
+    """Increment failure counter; lock account after threshold. Returns attempt count."""
+    clinic.failed_login_attempts = (clinic.failed_login_attempts or 0) + 1
+    if clinic.failed_login_attempts >= _MAX_LOGIN_FAILURES:
+        clinic.locked_until = datetime.utcnow() + timedelta(minutes=_LOCKOUT_MINUTES)
+    db.commit()
+    return clinic.failed_login_attempts
+
+
+def reset_failed_logins(db: Session, clinic: Clinic) -> None:
+    clinic.failed_login_attempts = 0
+    clinic.locked_until = None
+    db.commit()
 
 
 def list_clinics(db: Session) -> list[Clinic]:
@@ -70,13 +107,11 @@ def update_clinic(db: Session, slug: str, data: dict) -> Optional[Clinic]:
 
 
 def activate_subscription(db: Session, slug: str) -> Optional[Clinic]:
-    """Mark a clinic as active and add 30 days — stacks on top of any remaining days."""
     clinic = get_clinic(db, slug)
     if not clinic:
         return None
     now = datetime.utcnow()
     clinic.subscription_status = "active"
-    # Extend from current end if still in the future, otherwise from now
     base = clinic.subscription_ends_at if (clinic.subscription_ends_at and clinic.subscription_ends_at > now) else now
     clinic.subscription_ends_at = base + timedelta(days=30)
     if not clinic.activated_at:
@@ -134,6 +169,59 @@ def update_appointment_status(db: Session, confirmation_number: str, status: str
     return appt
 
 
+# ── Chat sessions (persistent) ────────────────────────────────────────────────
+
+def get_chat_history(db: Session, clinic_id: int, session_id: str) -> list[dict]:
+    row = db.query(ChatSession).filter(
+        ChatSession.clinic_id == clinic_id,
+        ChatSession.session_id == session_id,
+    ).first()
+    if not row:
+        return []
+    try:
+        return json.loads(row.history)
+    except Exception:
+        return []
+
+
+def save_chat_history(db: Session, clinic_id: int, session_id: str,
+                      history: list[dict], channel: str = "web") -> None:
+    row = db.query(ChatSession).filter(
+        ChatSession.clinic_id == clinic_id,
+        ChatSession.session_id == session_id,
+    ).first()
+    serialized = json.dumps(history)
+    now = datetime.utcnow()
+    if row:
+        row.history = serialized
+        row.last_active = now
+    else:
+        db.add(ChatSession(
+            clinic_id=clinic_id,
+            session_id=session_id,
+            history=serialized,
+            channel=channel,
+            last_active=now,
+        ))
+    db.commit()
+
+
+def delete_chat_session(db: Session, clinic_id: int, session_id: str) -> None:
+    db.query(ChatSession).filter(
+        ChatSession.clinic_id == clinic_id,
+        ChatSession.session_id == session_id,
+    ).delete()
+    db.commit()
+
+
+def purge_old_chat_sessions(db: Session, older_than_hours: int = 48) -> int:
+    """Remove sessions inactive for longer than `older_than_hours`. Returns count deleted."""
+    cutoff = datetime.utcnow() - timedelta(hours=older_than_hours)
+    count = db.query(ChatSession).filter(ChatSession.last_active < cutoff).delete()
+    db.commit()
+    return count
+
+
 # ── Usage logs ────────────────────────────────────────────────────────────────
 
 def log_usage(db: Session, clinic_id: int, session_id: str,
@@ -167,7 +255,6 @@ def get_usage_summary(db: Session, clinic_id: int) -> dict:
 
 
 def get_usage_this_month(db: Session, clinic_id: int) -> int:
-    """Count distinct patient sessions this calendar month (1 session = 1 patient visit)."""
     from sqlalchemy import extract
     now = datetime.utcnow()
     count = (
@@ -183,7 +270,6 @@ def get_usage_this_month(db: Session, clinic_id: int) -> int:
 
 
 def get_all_monthly_sessions(db: Session) -> dict:
-    """Return {clinic_id: session_count} for the current calendar month — single query."""
     from sqlalchemy import extract
     now = datetime.utcnow()
     rows = (
@@ -243,3 +329,15 @@ def list_sms_conversations(db: Session, clinic_id: int) -> list[SmsConversation]
         .limit(100)
         .all()
     )
+
+
+# ── Audit log ─────────────────────────────────────────────────────────────────
+
+def write_audit_log(db: Session, actor: str, action: str,
+                    target: str = "", detail: str = "", ip: str = "") -> None:
+    entry = AuditLog(actor=actor, action=action, target=target, detail=detail, ip_address=ip)
+    db.add(entry)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()   # audit failure must never break the main request

@@ -3,8 +3,62 @@ Tool definitions (JSON schema) and dispatch for the Aria agent.
 All tools are specialty-agnostic — appointment_type is a free-form string
 so it adapts to any clinic config (dental, dermatology, family medicine, etc.).
 """
+import logging
 from typing import Any
 from backend.mocks import pms, insurance, payments
+
+logger = logging.getLogger(__name__)
+
+
+def _notify_escalation(inputs: dict, clinic) -> None:
+    """Send a real email alert when Aria escalates to a human."""
+    try:
+        from backend.services.email_svc import _build_msg, _send
+        from backend.config import settings
+
+        urgency      = inputs.get("urgency", "unknown").upper()
+        reason       = inputs.get("reason", "No reason provided")
+        patient_name = inputs.get("patient_name", "Unknown patient")
+        summary      = inputs.get("summary", "")
+        clinic_name  = getattr(clinic, "name", "Unknown clinic")
+        clinic_phone = getattr(clinic, "phone", "")
+        escalation_contact = getattr(clinic, "escalation_contact", "") or settings.notify_email
+
+        subject = f"[{urgency}] Aria escalation — {clinic_name}: {reason[:60]}"
+        plain   = "\n".join([
+            f"Aria has escalated a patient conversation at {clinic_name}.",
+            "",
+            f"Urgency:      {urgency}",
+            f"Reason:       {reason}",
+            f"Patient:      {patient_name}",
+            f"Clinic phone: {clinic_phone}",
+            "",
+            "Conversation summary:",
+            summary or "(none provided)",
+            "",
+            "Please contact the patient immediately.",
+            "— Tabor Synergy automated alert",
+        ])
+        html = f"""<html><body style="font-family:Arial,sans-serif;color:#333">
+<div style="background:#DC2626;padding:16px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">⚠️ Patient Escalation — {urgency}</h2>
+  <p style="color:#fecaca;margin:4px 0 0">{clinic_name}</p>
+</div>
+<div style="background:#FEF2F2;padding:20px;border:1px solid #FCA5A5;border-radius:0 0 8px 8px">
+  <p><strong>Reason:</strong> {reason}</p>
+  <p><strong>Patient:</strong> {patient_name}</p>
+  <p><strong>Clinic Phone:</strong> {clinic_phone}</p>
+  {f'<p><strong>Summary:</strong> {summary}</p>' if summary else ''}
+  <p style="color:#991B1B;font-weight:700">Please contact the patient immediately.</p>
+</div>
+</body></html>"""
+        msg = _build_msg(subject, plain, html)
+        # Override recipient to escalation contact if set
+        if escalation_contact and escalation_contact != settings.notify_email:
+            msg.replace_header("To", escalation_contact)
+        _send(msg)
+    except Exception:
+        logger.exception("escalate_to_human: failed to send email alert")
 
 TOOLS: list[dict] = [
     {
@@ -232,12 +286,13 @@ async def dispatch_tool(
         case "add_to_waitlist":
             return pms.add_to_waitlist(**inputs)
         case "escalate_to_human":
+            _notify_escalation(inputs, clinic)
             return {
-                "escalated": True,
-                "reason": inputs["reason"],
-                "urgency": inputs["urgency"],
+                "escalated":     True,
+                "reason":        inputs["reason"],
+                "urgency":       inputs["urgency"],
                 "staff_alerted": True,
-                "message": "Staff has been notified and will join the conversation shortly.",
+                "message":       "Staff has been notified and will join the conversation shortly.",
             }
         case _:
             return {"error": f"Unknown tool: {name}"}

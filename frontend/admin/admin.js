@@ -2,7 +2,9 @@
 "use strict";
 
 const API = "";   // same origin
-let adminPassword = localStorage.getItem("admin_password") || "";
+// Password is NEVER stored in localStorage — sessionStorage only (cleared on tab close)
+// The raw password is held only in memory and discarded on logout/reload.
+let adminPassword = sessionStorage.getItem("_adm") || "";
 let clinics = [];
 let editingSlug = null;
 let activeTab = "clinics";
@@ -10,34 +12,41 @@ let activeTab = "clinics";
 // ── Bootstrap ────────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", function () {
   if (adminPassword) {
-    attemptLogin(adminPassword);
+    attemptLogin(adminPassword, true);
   }
   document.getElementById("login-btn").addEventListener("click", function () {
     var pw = document.getElementById("login-pw").value.trim();
-    if (pw) attemptLogin(pw);
+    if (pw) attemptLogin(pw, false);
   });
   document.getElementById("login-pw").addEventListener("keydown", function (e) {
     if (e.key === "Enter") document.getElementById("login-btn").click();
   });
 });
 
-function attemptLogin(pw) {
-  headers(pw).then(function (ok) {
-    if (ok) {
-      adminPassword = pw;
-      localStorage.setItem("admin_password", pw);
-      document.getElementById("login-screen").style.display = "none";
-      initDashboard();
-    } else {
-      document.getElementById("login-error").textContent = "Incorrect password.";
-    }
-  });
-}
-
-function headers(pw) {
-  return fetch(API + "/admin/api/stats", { headers: { "X-Admin-Password": pw } })
-    .then(function (r) { return r.ok; })
-    .catch(function () { return false; });
+function attemptLogin(pw, silent) {
+  fetch(API + "/admin/api/stats", { headers: { "X-Admin-Password": pw } })
+    .then(function (r) {
+      if (r.ok) {
+        adminPassword = pw;
+        // sessionStorage: auto-cleared when the browser tab is closed
+        sessionStorage.setItem("_adm", pw);
+        document.getElementById("login-screen").style.display = "none";
+        initDashboard();
+      } else {
+        adminPassword = "";
+        sessionStorage.removeItem("_adm");
+        if (!silent) {
+          document.getElementById("login-error").textContent = "Incorrect password.";
+        }
+      }
+    })
+    .catch(function () {
+      adminPassword = "";
+      sessionStorage.removeItem("_adm");
+      if (!silent) {
+        document.getElementById("login-error").textContent = "Network error — please try again.";
+      }
+    });
 }
 
 function authHeaders() {
@@ -45,7 +54,8 @@ function authHeaders() {
 }
 
 function logout() {
-  localStorage.removeItem("admin_password");
+  adminPassword = "";
+  sessionStorage.removeItem("_adm");
   location.reload();
 }
 

@@ -8,16 +8,16 @@ import hashlib
 import logging
 import os
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from backend.limiter import limiter
-
 from backend.db.database import get_db
 from backend.db import crud
+from backend.limiter import limiter
 
 router = APIRouter(prefix="/api/clinic-auth")
 logger = logging.getLogger(__name__)
@@ -52,23 +52,48 @@ class LoginRequest(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/login")
-@limiter.limit("5/minute")
+@limiter.limit("5/hour")   # 5 attempts per hour per IP — down from 5/minute
 def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     if not body.email and not body.slug:
-        return JSONResponse(status_code=400, content={"error": "Provide email or slug to log in."})
+        return JSONResponse(status_code=400, content={"error": "Provide email or clinic ID to log in."})
 
-    clinic = crud.get_clinic_by_email(db, body.email) if body.email else crud.get_clinic(db, body.slug)
+    clinic = (
+        crud.get_clinic_by_email(db, body.email) if body.email
+        else crud.get_clinic(db, body.slug)
+    )
     if not clinic:
         identifier = body.email or body.slug
-        logger.warning("Login failed — no clinic found for: %s", identifier)
-        return JSONResponse(status_code=401, content={"error": "No account found. Check your email or clinic ID."})
-    if not clinic.customer_password_hash:
-        logger.warning("Login failed — clinic %s has no password set", clinic.slug)
-        return JSONResponse(status_code=401, content={"error": "No password set for this account. Contact admin@tabor.taborsynergy.com"})
-    if not verify_password(body.password, clinic.customer_password_hash):
-        logger.warning("Login failed — wrong password for clinic: %s", clinic.slug)
-        return JSONResponse(status_code=401, content={"error": "Incorrect password. Please try again."})
+        logger.warning("Login failed — clinic not found: %s", identifier)
+        # Same message for not-found and wrong-password to prevent enumeration
+        return JSONResponse(status_code=401, content={"error": "Invalid credentials."})
 
+    # Account lockout check
+    if clinic.locked_until and datetime.utcnow() < clinic.locked_until:
+        remaining = int((clinic.locked_until - datetime.utcnow()).total_seconds() // 60) + 1
+        return JSONResponse(status_code=429, content={
+            "error": f"Account temporarily locked. Try again in {remaining} minute(s)."
+        })
+
+    if not clinic.customer_password_hash:
+        return JSONResponse(status_code=401, content={
+            "error": "No password set for this account. Contact admin@tabor.taborsynergy.com"
+        })
+
+    if not verify_password(body.password, clinic.customer_password_hash):
+        attempts = crud.record_failed_login(db, clinic)
+        remaining_before_lock = max(0, 10 - attempts)
+        logger.warning("Login failed — wrong password: clinic=%s attempts=%d", clinic.slug, attempts)
+        if clinic.locked_until:
+            return JSONResponse(status_code=429, content={
+                "error": "Too many failed attempts. Account locked for 30 minutes."
+            })
+        return JSONResponse(status_code=401, content={
+            "error": f"Invalid credentials. {remaining_before_lock} attempt(s) remaining before lockout."
+            if remaining_before_lock > 0 else "Invalid credentials."
+        })
+
+    # Successful login — reset lockout counter
+    crud.reset_failed_logins(db, clinic)
     token = uuid.uuid4().hex
     crud.set_session_token(db, clinic.id, token)
     logger.info("Clinic login: slug=%s", clinic.slug)

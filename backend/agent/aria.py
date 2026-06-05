@@ -1,13 +1,16 @@
 """
 Aria agent — multi-tenant conversation engine.
-Sessions are keyed by (clinic_id, session_id).
-Usage is logged to the DB after every API call.
+Sessions are persisted to the database (ChatSession table) so they survive
+restarts and enable horizontal scaling. An in-memory LRU cache reduces DB
+reads for hot sessions.
 """
 import json
 import logging
 import os
 import platform
 import ssl
+from collections import OrderedDict
+from datetime import datetime, timedelta
 from typing import Optional
 
 import anthropic
@@ -19,13 +22,11 @@ from backend.agent.tools import TOOLS, dispatch_tool
 
 logger = logging.getLogger(__name__)
 
-MOCK_MODE = os.getenv("MOCK_MODE", "0") == "1"
+MOCK_MODE     = os.getenv("MOCK_MODE", "0") == "1"
 FALLBACK_MODEL = "claude-3-5-sonnet-20241022"
 
 # On Windows, use OS certificate store (handles corporate SSL inspection)
-# On Linux/Mac (production), default SSL works fine
 _timeout = httpx.Timeout(60.0, connect=10.0)
-
 if platform.system() == "Windows":
     import truststore
     _ssl_ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -38,8 +39,36 @@ _client = anthropic.AsyncAnthropic(
     http_client=_http_client,
 )
 
-# session_key -> message history
-_sessions: dict[str, list[dict]] = {}
+# ── In-memory LRU cache (hot sessions only) ───────────────────────────────────
+# Max 500 sessions in memory; overflow falls back to DB.
+_MAX_CACHE = 500
+_CACHE_TTL_MINUTES = 30
+
+class _LRUCache:
+    def __init__(self, maxsize: int):
+        self._store: OrderedDict[str, tuple[list, datetime]] = OrderedDict()
+        self._maxsize = maxsize
+
+    def get(self, key: str) -> Optional[list]:
+        if key not in self._store:
+            return None
+        history, ts = self._store[key]
+        if datetime.utcnow() - ts > timedelta(minutes=_CACHE_TTL_MINUTES):
+            del self._store[key]
+            return None
+        self._store.move_to_end(key)
+        return history
+
+    def set(self, key: str, history: list) -> None:
+        self._store[key] = (history, datetime.utcnow())
+        self._store.move_to_end(key)
+        if len(self._store) > self._maxsize:
+            self._store.popitem(last=False)
+
+    def delete(self, key: str) -> None:
+        self._store.pop(key, None)
+
+_session_cache: _LRUCache = _LRUCache(_MAX_CACHE)
 
 # clinic_id -> cached system prompt string
 _prompts: dict[int, str] = {}
@@ -56,19 +85,40 @@ def _get_prompt(clinic) -> str:
 
 
 def invalidate_prompt(clinic_id: int) -> None:
-    """Call after updating a clinic's config so the prompt is rebuilt."""
     _prompts.pop(clinic_id, None)
 
 
-def get_or_create_session(clinic_id: int, session_id: str) -> list[dict]:
+def _load_history(clinic_id: int, session_id: str, db) -> list[dict]:
+    """Load history from cache; fall back to DB."""
     key = _session_key(clinic_id, session_id)
-    if key not in _sessions:
-        _sessions[key] = []
-    return _sessions[key]
+    cached = _session_cache.get(key)
+    if cached is not None:
+        return cached
+    if db is not None:
+        from backend.db.crud import get_chat_history
+        history = get_chat_history(db, clinic_id, session_id)
+        if history:
+            _session_cache.set(key, history)
+        return history
+    return []
 
 
-def clear_session(clinic_id: int, session_id: str) -> None:
-    _sessions.pop(_session_key(clinic_id, session_id), None)
+def _save_history(clinic_id: int, session_id: str, history: list[dict],
+                  db, channel: str = "web") -> None:
+    """Write to cache and DB."""
+    key = _session_key(clinic_id, session_id)
+    _session_cache.set(key, history)
+    if db is not None:
+        from backend.db.crud import save_chat_history
+        save_chat_history(db, clinic_id, session_id, history, channel)
+
+
+def clear_session(clinic_id: int, session_id: str, db=None) -> None:
+    key = _session_key(clinic_id, session_id)
+    _session_cache.delete(key)
+    if db is not None:
+        from backend.db.crud import delete_chat_session
+        delete_chat_session(db, clinic_id, session_id)
 
 
 async def chat(
@@ -78,24 +128,22 @@ async def chat(
     channel: str = "web",
     db=None,
 ) -> tuple[str, bool]:
-    """
-    Process a message and return (response_text, is_escalated).
-    Logs token usage to DB if db session is provided.
-    """
-    history = get_or_create_session(clinic.id, session_id)
+    """Process a message and return (response_text, is_escalated)."""
+    history = _load_history(clinic.id, session_id, db)
     history.append({"role": "user", "content": user_message})
 
     if MOCK_MODE:
         from backend.agent.mock_responses import mock_chat
         text, is_escalated = mock_chat(history)
         history.append({"role": "assistant", "content": [{"type": "text", "text": text}]})
+        _save_history(clinic.id, session_id, history, db, channel)
         return text, is_escalated
 
     system_prompt = _get_prompt(clinic)
-    is_escalated = False
-    total_input = 0
-    total_output = 0
-    model = settings.model
+    is_escalated  = False
+    total_input   = 0
+    total_output  = 0
+    model         = settings.model
 
     while True:
         try:
@@ -108,27 +156,21 @@ async def chat(
             )
         except (anthropic.NotFoundError, anthropic.BadRequestError) as api_err:
             if model != FALLBACK_MODEL:
-                logger.warning(
-                    "Model %s failed [%s] — falling back to %s. Error: %s",
-                    model, type(api_err).__name__, FALLBACK_MODEL, str(api_err)[:300],
-                )
+                logger.warning("Model %s failed [%s] — falling back to %s",
+                               model, type(api_err).__name__, FALLBACK_MODEL)
                 model = FALLBACK_MODEL
                 continue
             raise
 
         total_input  += response.usage.input_tokens
         total_output += response.usage.output_tokens
-
-        logger.debug("clinic=%s stop=%s tokens=%s/%s",
-                     clinic.slug, response.stop_reason,
-                     response.usage.input_tokens, response.usage.output_tokens)
-
         assistant_content = [b.model_dump() for b in response.content]
         history.append({"role": "assistant", "content": assistant_content})
 
         if response.stop_reason == "end_turn":
             text = _extract_text(response)
             _log_usage(db, clinic.id, session_id, channel, total_input, total_output)
+            _save_history(clinic.id, session_id, history, db, channel)
             return text, is_escalated
 
         if response.stop_reason == "tool_use":
@@ -143,21 +185,21 @@ async def chat(
                         session_id=session_id, channel=channel,
                     )
                 except Exception as tool_err:
-                    logger.exception("Tool error [%s] name=%s inputs=%s",
-                                     type(tool_err).__name__, block.name, block.input)
+                    logger.exception("Tool error [%s] name=%s", type(tool_err).__name__, block.name)
                     result = {"error": f"Tool execution failed: {type(tool_err).__name__}"}
                 if block.name == "escalate_to_human":
                     is_escalated = True
                 tool_results.append({
-                    "type": "tool_result",
+                    "type":        "tool_result",
                     "tool_use_id": block.id,
-                    "content": json.dumps(result),
+                    "content":     json.dumps(result),
                 })
             history.append({"role": "user", "content": tool_results})
             continue
 
         text = _extract_text(response) or "I'm sorry, something went wrong. Please try again."
         _log_usage(db, clinic.id, session_id, channel, total_input, total_output)
+        _save_history(clinic.id, session_id, history, db, channel)
         return text, is_escalated
 
 
@@ -170,28 +212,28 @@ async def chat_stream(
 ):
     """
     Streaming version of chat(). Async generator yielding:
-      ("chunk", text_token)  — partial text as it arrives
-      ("done",  (full_text, is_escalated))  — final result
-    Falls back to non-streaming mock in MOCK_MODE.
+      ("chunk", text_token)          — partial text as it arrives
+      ("done",  (full_text, escalated)) — final result
     """
-    history = get_or_create_session(clinic.id, session_id)
+    history = _load_history(clinic.id, session_id, db)
     history.append({"role": "user", "content": user_message})
 
     if MOCK_MODE:
         from backend.agent.mock_responses import mock_chat
         text, is_escalated = mock_chat(history)
         history.append({"role": "assistant", "content": [{"type": "text", "text": text}]})
+        _save_history(clinic.id, session_id, history, db, channel)
         for word in text.split(" "):
             yield ("chunk", word + " ")
         yield ("done", (text, is_escalated))
         return
 
     system_prompt = _get_prompt(clinic)
-    is_escalated = False
-    total_input = 0
-    total_output = 0
-    full_text = ""
-    model = settings.model
+    is_escalated  = False
+    total_input   = 0
+    total_output  = 0
+    full_text     = ""
+    model         = settings.model
 
     while True:
         try:
@@ -208,20 +250,19 @@ async def chat_stream(
                 response = await stream.get_final_message()
         except (anthropic.NotFoundError, anthropic.BadRequestError) as api_err:
             if model != FALLBACK_MODEL:
-                logger.warning("Model %s failed — falling back to %s. Error: %s",
-                               model, FALLBACK_MODEL, str(api_err)[:200])
+                logger.warning("Model %s failed — falling back to %s", model, FALLBACK_MODEL)
                 model = FALLBACK_MODEL
                 continue
             raise
 
         total_input  += response.usage.input_tokens
         total_output += response.usage.output_tokens
-
         assistant_content = [b.model_dump() for b in response.content]
         history.append({"role": "assistant", "content": assistant_content})
 
         if response.stop_reason == "end_turn":
             _log_usage(db, clinic.id, session_id, channel, total_input, total_output)
+            _save_history(clinic.id, session_id, history, db, channel)
             yield ("done", (full_text, is_escalated))
             return
 
@@ -242,15 +283,16 @@ async def chat_stream(
                 if block.name == "escalate_to_human":
                     is_escalated = True
                 tool_results.append({
-                    "type": "tool_result",
+                    "type":        "tool_result",
                     "tool_use_id": block.id,
-                    "content": json.dumps(result),
+                    "content":     json.dumps(result),
                 })
             history.append({"role": "user", "content": tool_results})
             full_text = ""
             continue
 
         _log_usage(db, clinic.id, session_id, channel, total_input, total_output)
+        _save_history(clinic.id, session_id, history, db, channel)
         yield ("done", (full_text or "I'm sorry, something went wrong. Please try again.", is_escalated))
         return
 

@@ -1,9 +1,12 @@
+import json
 import logging
+import logging.config
+import re
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -16,6 +19,56 @@ from backend.config import settings
 from backend.db.database import get_db, init_db
 from backend.db.crud import get_clinic
 from backend.limiter import limiter
+
+# ── Sentry (initialize before anything else) ─────────────────────────────────
+if settings.sentry_dsn:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+        traces_sample_rate=0.1,   # 10% of requests traced for performance
+        send_default_pii=False,   # never send PII to Sentry
+        environment="production" if not settings.debug_mode else "development",
+    )
+
+# ── PHI redaction filter ──────────────────────────────────────────────────────
+_PHI_PATTERNS = [
+    (re.compile(r"\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b"), "[SSN]"),       # SSN
+    (re.compile(r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b"), "[PHONE]"),     # phone
+    (re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"), "[EMAIL]"),
+    (re.compile(r"\b(19|20)\d{2}[-/]\d{2}[-/]\d{2}\b"), "[DOB]"),      # DOB YYYY-MM-DD
+]
+
+class _PhiRedactFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        for pattern, replacement in _PHI_PATTERNS:
+            msg = pattern.sub(replacement, msg)
+        record.msg = msg
+        record.args = ()
+        return True
+
+# ── Structured JSON logging ───────────────────────────────────────────────────
+class _JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "ts":      self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "level":   record.levelname,
+            "logger":  record.name,
+            "msg":     record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exc"] = self.formatException(record.exc_info)
+        return json.dumps(payload)
+
+_phi_filter = _PhiRedactFilter()
+_handler = logging.StreamHandler()
+_handler.addFilter(_phi_filter)
+_handler.setFormatter(_JsonFormatter())
+logging.root.setLevel(logging.INFO)
+logging.root.handlers = [_handler]
 from backend.routers.chat import router as chat_router
 from backend.routers.admin import router as admin_router
 from backend.routers.sms import router as sms_router

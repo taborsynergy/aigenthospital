@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from backend.db.database import Base
 
 
@@ -34,21 +34,25 @@ class Clinic(Base):
     stripe_customer_id      = Column(String, default="")
     stripe_subscription_id  = Column(String, default="")
     subscription_status     = Column(String, default="trial")   # trial | active | past_due | cancelled
-    plan                    = Column(String, default="professional")  # starter | professional | enterprise
+    plan                    = Column(String, default="professional")
     monthly_rate            = Column(Float,  default=299.0)
     trial_ends_at           = Column(DateTime, nullable=True)
-    subscription_ends_at    = Column(DateTime, nullable=True)  # set when payment confirmed; expires after 30 days
+    subscription_ends_at    = Column(DateTime, nullable=True)
 
     # Customer portal auth
     customer_password_hash  = Column(String, default="")
     session_token           = Column(String, default="", index=True)
+    token_expires_at        = Column(DateTime, nullable=True)   # None = never expires (legacy)
+    failed_login_attempts   = Column(Integer, default=0)
+    locked_until            = Column(DateTime, nullable=True)   # account lockout
 
     # Sales tracking
-    activated_at            = Column(DateTime, nullable=True)   # when first payment confirmed
-    admin_notes             = Column(Text, default="")          # internal CRM notes
+    activated_at            = Column(DateTime, nullable=True)
+    admin_notes             = Column(Text, default="")
 
     is_active   = Column(Boolean,  default=True)
     created_at  = Column(DateTime, default=datetime.utcnow)
+    updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class Appointment(Base):
@@ -62,14 +66,17 @@ class Appointment(Base):
     patient_email        = Column(String,   default="")
     patient_dob          = Column(String,   default="")
     appointment_type     = Column(String,   nullable=False)
-    appointment_datetime = Column(String,   nullable=False)   # free-form from Aria, e.g. "Monday, May 21 at 10:00 AM"
+    appointment_datetime = Column(String,   nullable=False)
     provider             = Column(String,   default="")
     is_new_patient       = Column(Boolean,  default=False)
     chief_complaint      = Column(String,   default="")
-    status               = Column(String,   default="scheduled")  # scheduled | cancelled | rescheduled
-    channel              = Column(String,   default="web")         # web | sms
+    status               = Column(String,   default="scheduled")
+    channel              = Column(String,   default="web")
     session_id           = Column(String,   default="")
     created_at           = Column(DateTime, default=datetime.utcnow)
+
+# Composite index for fast time-range queries per clinic
+Index("ix_appointments_clinic_created", Appointment.clinic_id, Appointment.created_at)
 
 
 class UsageLog(Base):
@@ -78,7 +85,7 @@ class UsageLog(Base):
     id            = Column(Integer,  primary_key=True, index=True)
     clinic_id     = Column(Integer,  ForeignKey("clinics.id"), index=True)
     session_id    = Column(String)
-    channel       = Column(String,   default="web")   # web | sms
+    channel       = Column(String,   default="web")
     input_tokens  = Column(Integer,  default=0)
     output_tokens = Column(Integer,  default=0)
     created_at    = Column(DateTime, default=datetime.utcnow)
@@ -93,3 +100,31 @@ class SmsConversation(Base):
     session_id      = Column(String,   unique=True)
     last_message_at = Column(DateTime, default=datetime.utcnow)
     created_at      = Column(DateTime, default=datetime.utcnow)
+
+
+class ChatSession(Base):
+    """Persistent conversation history — survives restarts and enables horizontal scaling."""
+    __tablename__ = "chat_sessions"
+
+    id          = Column(Integer,  primary_key=True, index=True)
+    clinic_id   = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    session_id  = Column(String,   index=True, nullable=False)
+    history     = Column(Text,     default="[]")   # JSON array of messages
+    channel     = Column(String,   default="web")
+    last_active = Column(DateTime, default=datetime.utcnow)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+Index("ix_chat_sessions_clinic_session", ChatSession.clinic_id, ChatSession.session_id, unique=True)
+
+
+class AuditLog(Base):
+    """Immutable audit trail for all admin and clinic mutations."""
+    __tablename__ = "audit_logs"
+
+    id          = Column(Integer,  primary_key=True, index=True)
+    actor       = Column(String,   nullable=False)          # "admin" | "clinic:<slug>"
+    action      = Column(String,   nullable=False)          # "clinic.create" | "clinic.update" etc.
+    target      = Column(String,   default="")              # slug or ID of the affected resource
+    detail      = Column(Text,     default="")              # JSON diff or description
+    ip_address  = Column(String,   default="")
+    created_at  = Column(DateTime, default=datetime.utcnow, index=True)
