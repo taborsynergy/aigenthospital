@@ -82,6 +82,7 @@ from backend.routers.reminders import router as reminders_router  # noqa: E402
 from backend.routers.recall import router as recall_router  # noqa: E402
 from backend.routers.locations import router as locations_router  # noqa: E402
 from backend.routers.widget import router as widget_router  # noqa: E402
+from backend.routers.insurance import router as insurance_router  # noqa: E402
 
 _SPECIALTY_ICONS = {
     "dental": "🦷", "dentistry": "🦷", "orthodontics": "🦷",
@@ -173,6 +174,7 @@ app.include_router(reminders_router)
 app.include_router(recall_router)
 app.include_router(locations_router)
 app.include_router(widget_router)
+app.include_router(insurance_router)
 
 # ── Clinic widget pages ───────────────────────────────────────────────────────
 @app.get("/c/{clinic_slug}", response_class=HTMLResponse)

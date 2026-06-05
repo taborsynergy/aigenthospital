@@ -6,7 +6,7 @@ from sqlalchemy import func
 
 from backend.db.models import (
     Clinic, UsageLog, SmsConversation, Appointment, ChatSession, AuditLog,
-    RecallCampaign, RecallLog, Location, WidgetConfig,
+    RecallCampaign, RecallLog, Location, WidgetConfig, InsuranceKnowledge,
 )
 
 _TOKEN_TTL_DAYS = 30
@@ -652,3 +652,40 @@ def get_or_create_widget_config(db: Session, clinic_id: int) -> WidgetConfig:
     if config:
         return config
     return create_widget_config(db, clinic_id, {})
+
+
+# ── Insurance Knowledge ──────────────────────────────────────────────────────
+
+def get_insurance_knowledge(db: Session, clinic_id: int) -> InsuranceKnowledge | None:
+    """Get custom insurance knowledge for a clinic."""
+    return db.query(InsuranceKnowledge).filter(InsuranceKnowledge.clinic_id == clinic_id).first()
+
+
+def create_insurance_knowledge(db: Session, clinic_id: int, data: dict) -> InsuranceKnowledge:
+    """Create insurance knowledge for a clinic."""
+    knowledge = InsuranceKnowledge(clinic_id=clinic_id, **data)
+    db.add(knowledge)
+    db.commit()
+    db.refresh(knowledge)
+    return knowledge
+
+
+def update_insurance_knowledge(db: Session, clinic_id: int, data: dict) -> InsuranceKnowledge | None:
+    """Update insurance knowledge for a clinic."""
+    knowledge = get_insurance_knowledge(db, clinic_id)
+    if not knowledge:
+        return None
+    for k, v in data.items():
+        setattr(knowledge, k, v)
+    knowledge.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(knowledge)
+    return knowledge
+
+
+def get_or_create_insurance_knowledge(db: Session, clinic_id: int) -> InsuranceKnowledge:
+    """Get or create insurance knowledge (with defaults)."""
+    knowledge = get_insurance_knowledge(db, clinic_id)
+    if knowledge:
+        return knowledge
+    return create_insurance_knowledge(db, clinic_id, {})

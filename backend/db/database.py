@@ -96,6 +96,12 @@ def migrate_db():
         ("widget_configs", "show_logo",         "BOOLEAN",   "DEFAULT TRUE"),
         ("widget_configs", "show_ratings",      "BOOLEAN",   "DEFAULT TRUE"),
         ("widget_configs", "enable_chat",       "BOOLEAN",   "DEFAULT TRUE"),
+        # Insurance knowledge
+        ("insurance_knowledge", "accepted_plans",   "TEXT",   "DEFAULT ''"),
+        ("insurance_knowledge", "copay_info",      "TEXT",   "DEFAULT ''"),
+        ("insurance_knowledge", "deductible_info", "TEXT",   "DEFAULT ''"),
+        ("insurance_knowledge", "prior_auth_notes","TEXT",   "DEFAULT ''"),
+        ("insurance_knowledge", "custom_knowledge","TEXT",   "DEFAULT ''"),
     ]
 
     inspector = inspect(engine)

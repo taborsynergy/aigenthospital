@@ -223,3 +223,23 @@ class WidgetConfig(Base):
     # Metadata
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class InsuranceKnowledge(Base):
+    """
+    Clinic-specific insurance knowledge for AI agent.
+    Allows clinics to customize insurance information and accepted plans.
+    """
+    __tablename__ = "insurance_knowledge"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id"), unique=True, index=True)
+    # Insurance info
+    accepted_plans  = Column(Text,     default="")              # CSV: "Blue Cross, Aetna, United Healthcare"
+    copay_info      = Column(Text,     default="")              # e.g., "Office visit: $25, Lab: $50"
+    deductible_info = Column(Text,     default="")              # e.g., "Annual: $1,500"
+    prior_auth_notes= Column(Text,     default="")              # Prior authorization requirements
+    custom_knowledge= Column(Text,     default="")              # Any custom insurance info
+    # Metadata
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

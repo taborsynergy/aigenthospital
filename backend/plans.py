@@ -28,9 +28,10 @@ PLANS = {
         "white_label":         False,
         "max_locations":       3,
         "monthly_reports":     True,
+        "custom_insurance":    True,
         "support":             "Priority email support",
         "color":               "#1E40AF",
-        "coming_soon":         ["custom_insurance_knowledge"],
+        "coming_soon":         [],
     },
     "enterprise": {
         "name":                "Enterprise",
@@ -43,9 +44,10 @@ PLANS = {
         "white_label":         True,
         "max_locations":       None,      # unlimited
         "monthly_reports":     True,
+        "custom_insurance":    True,
         "support":             "Dedicated account manager + 24/7 priority",
         "color":               "#7C3AED",
-        "coming_soon":         ["custom_insurance_knowledge", "ehr_system_integration", "custom_ai_training"],
+        "coming_soon":         ["ehr_system_integration", "custom_ai_training"],
     },
 }
 
@@ -96,3 +98,8 @@ def can_use_whatsapp(clinic) -> bool:
 def can_use_monthly_reports(clinic) -> bool:
     """Check if clinic plan supports monthly performance reports."""
     return get_plan(clinic).get("monthly_reports", False)
+
+
+def can_use_custom_insurance(clinic) -> bool:
+    """Check if clinic plan supports custom insurance knowledge."""
+    return get_plan(clinic).get("custom_insurance", False)
