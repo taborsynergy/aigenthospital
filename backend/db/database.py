@@ -79,7 +79,10 @@ def migrate_db():
         ("clinics", "is_active",              "BOOLEAN",   "DEFAULT TRUE"),
         ("clinics", "plan",                   "VARCHAR",   "DEFAULT 'professional'"),
         ("clinics",      "updated_at",        "TIMESTAMP", ""),
-        ("appointments", "appointment_ts",    "TIMESTAMP", ""),
+        ("appointments", "appointment_ts",      "TIMESTAMP", ""),
+        ("appointments", "confirmation_sent",   "BOOLEAN",   "DEFAULT FALSE"),
+        ("appointments", "reminder_72h_sent",   "BOOLEAN",   "DEFAULT FALSE"),
+        ("appointments", "reminder_24h_sent",   "BOOLEAN",   "DEFAULT FALSE"),
     ]
 
     inspector = inspect(engine)

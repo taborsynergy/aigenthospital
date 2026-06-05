@@ -74,10 +74,16 @@ class Appointment(Base):
     status               = Column(String,   default="scheduled")
     channel              = Column(String,   default="web")
     session_id           = Column(String,   default="")
+    # Reminder tracking — prevents duplicate sends
+    confirmation_sent    = Column(Boolean,  default=False)  # sent immediately after booking
+    reminder_72h_sent    = Column(Boolean,  default=False)  # sent ~72h before appointment
+    reminder_24h_sent    = Column(Boolean,  default=False)  # sent ~24h before appointment
     created_at           = Column(DateTime, default=datetime.utcnow)
 
 # Composite index for fast time-range queries per clinic
 Index("ix_appointments_clinic_created", Appointment.clinic_id, Appointment.created_at)
+# Index for reminder queries — clinic + ts + statuses
+Index("ix_appointments_reminders", Appointment.clinic_id, Appointment.appointment_ts)
 
 
 class UsageLog(Base):

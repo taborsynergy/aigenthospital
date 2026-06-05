@@ -75,6 +75,7 @@ from backend.routers.sms import router as sms_router  # noqa: E402
 from backend.routers.billing import router as billing_router  # noqa: E402
 from backend.routers.signup import router as signup_router  # noqa: E402
 from backend.routers.clinic_auth import router as clinic_auth_router  # noqa: E402
+from backend.routers.reminders import router as reminders_router  # noqa: E402
 
 _SPECIALTY_ICONS = {
     "dental": "🦷", "dentistry": "🦷", "orthodontics": "🦷",
@@ -162,6 +163,7 @@ app.include_router(sms_router)
 app.include_router(billing_router)
 app.include_router(signup_router)
 app.include_router(clinic_auth_router)
+app.include_router(reminders_router)
 
 # ── Clinic widget pages ───────────────────────────────────────────────────────
 @app.get("/c/{clinic_slug}", response_class=HTMLResponse)

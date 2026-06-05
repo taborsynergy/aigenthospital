@@ -53,10 +53,28 @@ services:
       - key: NOTIFY_EMAIL
         value: admin@tabor.taborsynergy.com
 
-# Keep-alive cron: pings health endpoint every 10 min to prevent Render free-tier sleep
 cronJobs:
+  # Keep-alive: pings health endpoint every 10 min to prevent Render free-tier sleep
   - name: keep-alive
     runtime: python
     schedule: "*/10 * * * *"
-    buildCommand: "echo 'keep-alive job'"
+    buildCommand: "echo 'keep-alive'"
     startCommand: "python -c \"import urllib.request; urllib.request.urlopen('https://taborsynergy-agent.onrender.com/api/health')\""
+
+  # Appointment reminders: runs every hour, sends 72h + 24h SMS reminders
+  # Requires ADMIN_PASSWORD env var (already set) + TWILIO_* credentials
+  - name: appointment-reminders
+    runtime: python
+    schedule: "0 * * * *"
+    buildCommand: "pip install requests --quiet"
+    startCommand: >-
+      python -c "
+      import os, urllib.request, json;
+      req = urllib.request.Request(
+        'https://taborsynergy-agent.onrender.com/api/reminders/trigger',
+        method='POST',
+        headers={'X-Admin-Password': os.environ.get('ADMIN_PASSWORD',''), 'Content-Length': '0'}
+      );
+      r = urllib.request.urlopen(req);
+      print('Reminders:', json.loads(r.read()))
+      "

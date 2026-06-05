@@ -189,6 +189,18 @@ def generate_slots(
     return slots
 
 
+def _send_confirmation_sms(confirmation_number: str, clinic, db) -> None:
+    """Fire-and-forget booking confirmation SMS."""
+    try:
+        from backend.db.models import Appointment
+        from backend.services.reminders_svc import send_booking_confirmation_sms
+        appt = db.query(Appointment).filter_by(confirmation_number=confirmation_number).first()
+        if appt:
+            send_booking_confirmation_sms(clinic, appt, db)
+    except Exception:
+        logger.debug("Booking confirmation SMS skipped — %s", confirmation_number)
+
+
 def _get_booked_isos(db, clinic_id: int, date_start: date, date_end: date) -> set[str]:
     """Return set of booked ISO datetime strings for the clinic in the date range."""
     from backend.db.models import Appointment
@@ -275,6 +287,14 @@ def book_appointment(
                     clinic.slug if clinic else "?", conf_num, patient_name)
     except Exception:
         logger.exception("Failed to persist appointment for %s", patient_name)
+        return {
+            "success": False,
+            "error":   "Failed to save appointment. Please try again.",
+        }
+
+    # Send booking confirmation SMS (best-effort, non-blocking)
+    if patient_phone and clinic and db:
+        _send_confirmation_sms(conf_num, clinic, db)
 
     return {
         "success":             True,

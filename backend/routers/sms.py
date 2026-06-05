@@ -57,6 +57,15 @@ async def inbound_sms(
             media_type="application/xml",
         )
 
+    # ── YES/NO reminder replies — handle before Aria ─────────────────
+    from backend.services.reminders_svc import handle_sms_reply
+    quick_reply = handle_sms_reply(db, clinic, From, Body)
+    if quick_reply:
+        logger.info("SMS reminder reply handled: from=%s reply_type=%s",
+                    From, Body.strip().upper())
+        return Response(content=twiml_response(quick_reply), media_type="application/xml")
+
+    # ── Full Aria conversation ────────────────────────────────────────
     session_id = get_or_create_sms_session(db, clinic.id, From)
 
     try:
