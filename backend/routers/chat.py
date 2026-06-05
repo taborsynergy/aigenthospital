@@ -104,9 +104,16 @@ async def websocket_chat(websocket: WebSocket, clinic_slug: str, session_id: str
             await websocket.send_json({"type": "typing", "active": True})
 
             try:
-                response_text, is_escalated = await aria.chat(
+                response_text = ""
+                is_escalated = False
+                async for event_type, data in aria.chat_stream(
                     clinic, session_id, user_message, channel="web", db=db
-                )
+                ):
+                    if event_type == "chunk":
+                        response_text += data
+                        await websocket.send_json({"type": "chunk", "text": data})
+                    elif event_type == "done":
+                        response_text, is_escalated = data
             except Exception as agent_err:
                 err_type = type(agent_err).__name__
                 logger.exception("Agent error [%s]: clinic=%s session=%s",

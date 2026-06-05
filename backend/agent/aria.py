@@ -161,6 +161,100 @@ async def chat(
         return text, is_escalated
 
 
+async def chat_stream(
+    clinic,
+    session_id: str,
+    user_message: str,
+    channel: str = "web",
+    db=None,
+):
+    """
+    Streaming version of chat(). Async generator yielding:
+      ("chunk", text_token)  — partial text as it arrives
+      ("done",  (full_text, is_escalated))  — final result
+    Falls back to non-streaming mock in MOCK_MODE.
+    """
+    history = get_or_create_session(clinic.id, session_id)
+    history.append({"role": "user", "content": user_message})
+
+    if MOCK_MODE:
+        from backend.agent.mock_responses import mock_chat
+        text, is_escalated = mock_chat(history)
+        history.append({"role": "assistant", "content": [{"type": "text", "text": text}]})
+        for word in text.split(" "):
+            yield ("chunk", word + " ")
+        yield ("done", (text, is_escalated))
+        return
+
+    system_prompt = _get_prompt(clinic)
+    is_escalated = False
+    total_input = 0
+    total_output = 0
+    full_text = ""
+    model = settings.model
+
+    while True:
+        try:
+            async with _client.messages.stream(
+                model=model,
+                max_tokens=settings.max_tokens,
+                system=system_prompt,
+                tools=TOOLS,
+                messages=history,
+            ) as stream:
+                async for chunk in stream.text_stream:
+                    full_text += chunk
+                    yield ("chunk", chunk)
+                response = await stream.get_final_message()
+        except (anthropic.NotFoundError, anthropic.BadRequestError) as api_err:
+            if model != FALLBACK_MODEL:
+                logger.warning("Model %s failed — falling back to %s. Error: %s",
+                               model, FALLBACK_MODEL, str(api_err)[:200])
+                model = FALLBACK_MODEL
+                continue
+            raise
+
+        total_input  += response.usage.input_tokens
+        total_output += response.usage.output_tokens
+
+        assistant_content = [b.model_dump() for b in response.content]
+        history.append({"role": "assistant", "content": assistant_content})
+
+        if response.stop_reason == "end_turn":
+            _log_usage(db, clinic.id, session_id, channel, total_input, total_output)
+            yield ("done", (full_text, is_escalated))
+            return
+
+        if response.stop_reason == "tool_use":
+            tool_results = []
+            for block in response.content:
+                if block.type != "tool_use":
+                    continue
+                try:
+                    result = await dispatch_tool(
+                        block.name, block.input,
+                        clinic=clinic, db=db,
+                        session_id=session_id, channel=channel,
+                    )
+                except Exception as tool_err:
+                    logger.exception("Tool error [%s] name=%s", type(tool_err).__name__, block.name)
+                    result = {"error": f"Tool execution failed: {type(tool_err).__name__}"}
+                if block.name == "escalate_to_human":
+                    is_escalated = True
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": json.dumps(result),
+                })
+            history.append({"role": "user", "content": tool_results})
+            full_text = ""
+            continue
+
+        _log_usage(db, clinic.id, session_id, channel, total_input, total_output)
+        yield ("done", (full_text or "I'm sorry, something went wrong. Please try again.", is_escalated))
+        return
+
+
 def _extract_text(response: anthropic.types.Message) -> str:
     for block in response.content:
         if block.type == "text":

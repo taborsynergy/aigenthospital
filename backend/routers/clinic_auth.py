@@ -44,7 +44,8 @@ def verify_password(password: str, stored: str) -> bool:
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class LoginRequest(BaseModel):
-    email: str
+    email: str = ""     # login by contact email
+    slug: str = ""      # login by clinic slug (alternative)
     password: str
 
 
@@ -53,10 +54,14 @@ class LoginRequest(BaseModel):
 @router.post("/login")
 @limiter.limit("5/minute")
 def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
-    clinic = crud.get_clinic_by_email(db, body.email)
+    if not body.email and not body.slug:
+        return JSONResponse(status_code=400, content={"error": "Provide email or slug to log in."})
+
+    clinic = crud.get_clinic_by_email(db, body.email) if body.email else crud.get_clinic(db, body.slug)
     if not clinic:
-        logger.warning("Login failed — no clinic found for email: %s", body.email)
-        return JSONResponse(status_code=401, content={"error": "No account found with that email address."})
+        identifier = body.email or body.slug
+        logger.warning("Login failed — no clinic found for: %s", identifier)
+        return JSONResponse(status_code=401, content={"error": "No account found. Check your email or clinic ID."})
     if not clinic.customer_password_hash:
         logger.warning("Login failed — clinic %s has no password set", clinic.slug)
         return JSONResponse(status_code=401, content={"error": "No password set for this account. Contact admin@tabor.taborsynergy.com"})

@@ -24,7 +24,7 @@ https://aifrontdesk.taborsynergy.com
 - Emails are always sent as `BackgroundTasks` — never block the HTTP response
 
 ## Admin Panel
-- URL: `/ts-mgmt` (keep secret — do not expose)
+- URL: configured via `ADMIN_PANEL_PATH` env var (do not hardcode or expose the path)
 - Auth: `X-Admin-Password` header → must match `ADMIN_PASSWORD` env var
 - Managed via `backend/routers/admin.py`
 

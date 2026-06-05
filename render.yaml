@@ -19,7 +19,9 @@ services:
       - key: BASE_URL
         value: https://aifrontdesk.taborsynergy.com
       - key: ALLOWED_ORIGINS
-        value: "*"
+        value: "https://aifrontdesk.taborsynergy.com,https://taborsynergy-agent.onrender.com"
+      - key: DEBUG_MODE
+        value: "false"
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
@@ -32,3 +34,11 @@ services:
         sync: false
       - key: TWILIO_DEFAULT_NUMBER
         sync: false
+
+# Keep-alive cron: pings health endpoint every 10 min to prevent Render free-tier sleep
+cronJobs:
+  - name: keep-alive
+    runtime: python
+    schedule: "*/10 * * * *"
+    buildCommand: "echo 'keep-alive job'"
+    startCommand: "python -c \"import urllib.request; urllib.request.urlopen('https://taborsynergy-agent.onrender.com/api/health')\""
