@@ -55,11 +55,35 @@ class Clinic(Base):
     updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class Location(Base):
+    """
+    Physical location/office for a clinic.
+    Clinics can have 1+ locations with separate addresses, phone, office hours, providers.
+    """
+    __tablename__ = "locations"
+
+    id                  = Column(Integer,  primary_key=True, index=True)
+    clinic_id           = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    name                = Column(String,   nullable=False)          # "Main Office", "Downtown", etc.
+    address             = Column(String,   default="")
+    city_state          = Column(String,   default="")
+    phone               = Column(String,   default="")
+    office_hours        = Column(Text,     default="")              # "Mon-Fri 8am-5pm"
+    providers           = Column(Text,     default="")              # CSV: "Dr. Smith, Dr. Jones"
+    timezone            = Column(String,   default="US/Eastern")
+    is_active           = Column(Boolean,  default=True)
+    created_at          = Column(DateTime, default=datetime.utcnow)
+    updated_at          = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+Index("ix_locations_clinic", Location.clinic_id)
+
+
 class Appointment(Base):
     __tablename__ = "appointments"
 
     id                   = Column(Integer,  primary_key=True, index=True)
     clinic_id            = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    location_id          = Column(Integer,  ForeignKey("locations.id"), nullable=True, index=True)
     confirmation_number  = Column(String,   unique=True, index=True)
     patient_name         = Column(String,   nullable=False)
     patient_phone        = Column(String,   default="")
@@ -91,6 +115,7 @@ class UsageLog(Base):
 
     id            = Column(Integer,  primary_key=True, index=True)
     clinic_id     = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    location_id   = Column(Integer,  ForeignKey("locations.id"), nullable=True, index=True)
     session_id    = Column(String)
     channel       = Column(String,   default="web")
     input_tokens  = Column(Integer,  default=0)

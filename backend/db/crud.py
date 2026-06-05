@@ -6,7 +6,7 @@ from sqlalchemy import func
 
 from backend.db.models import (
     Clinic, UsageLog, SmsConversation, Appointment, ChatSession, AuditLog,
-    RecallCampaign, RecallLog,
+    RecallCampaign, RecallLog, Location,
 )
 
 _TOKEN_TTL_DAYS = 30
@@ -555,3 +555,63 @@ def find_patients_due_for_recall(db: Session, clinic_id: int,
         }
         for r in rows
     ]
+
+
+# ── Locations (multi-office support) ──────────────────────────────────────────
+
+def list_locations(db: Session, clinic_id: int) -> list[Location]:
+    """All locations for a clinic, active first."""
+    return (
+        db.query(Location)
+        .filter(Location.clinic_id == clinic_id)
+        .order_by(Location.is_active.desc(), Location.name.asc())
+        .all()
+    )
+
+
+def get_location(db: Session, location_id: int, clinic_id: int) -> Optional[Location]:
+    """Get a specific location (must belong to this clinic)."""
+    return db.query(Location).filter(
+        Location.id == location_id,
+        Location.clinic_id == clinic_id,
+    ).first()
+
+
+def create_location(db: Session, data: dict) -> Location:
+    """Create a new location for a clinic."""
+    location = Location(**data)
+    db.add(location)
+    db.commit()
+    db.refresh(location)
+    return location
+
+
+def update_location(db: Session, location_id: int, clinic_id: int, data: dict) -> Optional[Location]:
+    """Update a location."""
+    location = get_location(db, location_id, clinic_id)
+    if not location:
+        return None
+    for k, v in data.items():
+        setattr(location, k, v)
+    db.commit()
+    db.refresh(location)
+    return location
+
+
+def delete_location(db: Session, location_id: int, clinic_id: int) -> bool:
+    """Soft-delete a location (sets is_active=False)."""
+    location = get_location(db, location_id, clinic_id)
+    if not location:
+        return False
+    location.is_active = False
+    db.commit()
+    return True
+
+
+def get_location_by_name(db: Session, clinic_id: int, name: str) -> Optional[Location]:
+    """Find a location by clinic + name."""
+    return db.query(Location).filter(
+        Location.clinic_id == clinic_id,
+        Location.name == name,
+        Location.is_active.is_(True),
+    ).first()

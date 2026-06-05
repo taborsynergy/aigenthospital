@@ -83,6 +83,8 @@ def migrate_db():
         ("appointments", "confirmation_sent",   "BOOLEAN",   "DEFAULT FALSE"),
         ("appointments", "reminder_72h_sent",   "BOOLEAN",   "DEFAULT FALSE"),
         ("appointments", "reminder_24h_sent",   "BOOLEAN",   "DEFAULT FALSE"),
+        ("appointments", "location_id",         "INTEGER",   ""),
+        ("usage_logs",   "location_id",         "INTEGER",   ""),
     ]
 
     inspector = inspect(engine)
