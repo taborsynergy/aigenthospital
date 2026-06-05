@@ -16,7 +16,7 @@ _LOCKOUT_MINUTES = 30
 # ── Clinics ──────────────────────────────────────────────────────────────────
 
 def get_clinic(db: Session, slug: str) -> Optional[Clinic]:
-    return db.query(Clinic).filter(Clinic.slug == slug, Clinic.is_active == True).first()
+    return db.query(Clinic).filter(Clinic.slug == slug, Clinic.is_active.is_(True)).first()
 
 
 def get_clinic_by_id(db: Session, clinic_id: int) -> Optional[Clinic]:
@@ -24,7 +24,7 @@ def get_clinic_by_id(db: Session, clinic_id: int) -> Optional[Clinic]:
 
 
 def get_clinic_by_twilio_number(db: Session, phone: str) -> Optional[Clinic]:
-    return db.query(Clinic).filter(Clinic.twilio_phone == phone, Clinic.is_active == True).first()
+    return db.query(Clinic).filter(Clinic.twilio_phone == phone, Clinic.is_active.is_(True)).first()
 
 
 def get_clinic_by_stripe_customer(db: Session, customer_id: str) -> Optional[Clinic]:
@@ -34,7 +34,7 @@ def get_clinic_by_stripe_customer(db: Session, customer_id: str) -> Optional[Cli
 def get_clinic_by_email(db: Session, email: str) -> Optional[Clinic]:
     return db.query(Clinic).filter(
         func.lower(Clinic.email) == email.lower().strip(),
-        Clinic.is_active == True,
+        Clinic.is_active.is_(True),
     ).first()
 
 
@@ -43,7 +43,7 @@ def get_clinic_by_token(db: Session, token: str) -> Optional[Clinic]:
         return None
     clinic = db.query(Clinic).filter(
         Clinic.session_token == token,
-        Clinic.is_active == True,
+        Clinic.is_active.is_(True),
     ).first()
     if not clinic:
         return None
@@ -82,7 +82,7 @@ def reset_failed_logins(db: Session, clinic: Clinic) -> None:
 
 
 def list_clinics(db: Session) -> list[Clinic]:
-    return db.query(Clinic).filter(Clinic.is_active == True).order_by(Clinic.created_at.desc()).all()
+    return db.query(Clinic).filter(Clinic.is_active.is_(True)).order_by(Clinic.created_at.desc()).all()
 
 
 def create_clinic(db: Session, data: dict) -> Clinic:

@@ -6,7 +6,6 @@ import logging
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -14,7 +13,6 @@ from backend.config import settings
 from backend.db.database import get_db
 from backend.db import crud
 from backend.agent.aria import invalidate_prompt
-from backend.plans import PLANS, get_plan
 
 router = APIRouter(prefix="/admin/api")
 logger = logging.getLogger(__name__)

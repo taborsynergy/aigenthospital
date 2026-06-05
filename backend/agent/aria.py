@@ -248,7 +248,7 @@ async def chat_stream(
                     full_text += chunk
                     yield ("chunk", chunk)
                 response = await stream.get_final_message()
-        except (anthropic.NotFoundError, anthropic.BadRequestError) as api_err:
+        except (anthropic.NotFoundError, anthropic.BadRequestError):
             if model != FALLBACK_MODEL:
                 logger.warning("Model %s failed — falling back to %s", model, FALLBACK_MODEL)
                 model = FALLBACK_MODEL

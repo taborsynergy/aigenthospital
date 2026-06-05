@@ -69,12 +69,12 @@ _handler.addFilter(_phi_filter)
 _handler.setFormatter(_JsonFormatter())
 logging.root.setLevel(logging.INFO)
 logging.root.handlers = [_handler]
-from backend.routers.chat import router as chat_router
-from backend.routers.admin import router as admin_router
-from backend.routers.sms import router as sms_router
-from backend.routers.billing import router as billing_router
-from backend.routers.signup import router as signup_router
-from backend.routers.clinic_auth import router as clinic_auth_router
+from backend.routers.chat import router as chat_router  # noqa: E402
+from backend.routers.admin import router as admin_router  # noqa: E402
+from backend.routers.sms import router as sms_router  # noqa: E402
+from backend.routers.billing import router as billing_router  # noqa: E402
+from backend.routers.signup import router as signup_router  # noqa: E402
+from backend.routers.clinic_auth import router as clinic_auth_router  # noqa: E402
 
 _SPECIALTY_ICONS = {
     "dental": "🦷", "dentistry": "🦷", "orthodontics": "🦷",
@@ -1137,7 +1137,6 @@ _admin_panel_path = settings.admin_panel_path.rstrip("/")
 @app.get(_admin_panel_path + "/", include_in_schema=False)
 async def serve_admin_html(request: Request):
     # Block scanners probing common admin paths — only allow the configured secret path
-    referer = request.headers.get("referer", "")
     user_agent = request.headers.get("user-agent", "")
     # Reject obvious automated scanners (no User-Agent or known scanner signatures)
     if not user_agent or any(s in user_agent.lower() for s in ("sqlmap", "nikto", "nmap", "masscan", "zgrab")):

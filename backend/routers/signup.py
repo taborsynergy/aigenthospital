@@ -58,7 +58,7 @@ def signup(body: SignupRequest, background_tasks: BackgroundTasks, db: Session =
 
     trial_ends_at = datetime.utcnow() + timedelta(days=14)
 
-    clinic = crud.create_clinic(db, {
+    crud.create_clinic(db, {
         "slug":                   slug,
         "name":                   body.practice_name,
         "specialty":              body.specialty,
