@@ -240,6 +240,42 @@ TOOLS: list[dict] = [
             "required": ["reason", "urgency"],
         },
     },
+    {
+        "name": "get_clinic_analytics",
+        "description": (
+            "Get real-time analytics and reports for the clinic. "
+            "Use this whenever a clinic admin or staff member asks about appointments, "
+            "no-shows, provider workload, conversation usage, or recall campaign results. "
+            "Always use this tool instead of guessing — it returns live data from the database."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "report_type": {
+                    "type": "string",
+                    "enum": [
+                        "today_appointments",
+                        "weekly_summary",
+                        "monthly_summary",
+                        "no_shows",
+                        "provider_breakdown",
+                        "conversations",
+                        "recall_performance",
+                    ],
+                    "description": (
+                        "today_appointments — today's schedule with status breakdown; "
+                        "weekly_summary — this week's appointment counts by day; "
+                        "monthly_summary — month totals with KPIs; "
+                        "no_shows — recent no-show patients for follow-up; "
+                        "provider_breakdown — appointments per provider this month; "
+                        "conversations — AI chat session usage vs. plan limit; "
+                        "recall_performance — recall campaign send/book/opt-out stats."
+                    ),
+                },
+            },
+            "required": ["report_type"],
+        },
+    },
 ]
 
 
@@ -338,5 +374,33 @@ async def dispatch_tool(
                 "staff_alerted": True,
                 "message":       "Staff has been notified and will join the conversation shortly.",
             }
+
+        case "get_clinic_analytics":
+            from backend.services.analytics_svc import (
+                get_today_appointments, get_weekly_summary, get_monthly_summary,
+                get_no_shows, get_provider_breakdown, get_conversation_stats,
+                get_recall_performance, format_for_aria,
+            )
+            report_type = inputs.get("report_type", "today_appointments")
+            if not db or not clinic:
+                return {"error": "Analytics requires a database connection."}
+
+            dispatch_map = {
+                "today_appointments": lambda: get_today_appointments(db, clinic.id),
+                "weekly_summary":     lambda: get_weekly_summary(db, clinic.id),
+                "monthly_summary":    lambda: get_monthly_summary(db, clinic.id),
+                "no_shows":           lambda: get_no_shows(db, clinic.id),
+                "provider_breakdown": lambda: get_provider_breakdown(db, clinic.id),
+                "conversations":      lambda: get_conversation_stats(db, clinic.id, clinic),
+                "recall_performance": lambda: get_recall_performance(db, clinic.id),
+            }
+            fn = dispatch_map.get(report_type)
+            if not fn:
+                return {"error": f"Unknown report_type: {report_type}"}
+
+            data    = fn()
+            summary = format_for_aria(report_type, data)
+            return {"report_type": report_type, "summary": summary, "data": data}
+
         case _:
             return {"error": f"Unknown tool: {name}"}

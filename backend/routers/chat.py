@@ -213,6 +213,48 @@ async def get_appointments(
     ]
 
 
+@router.get("/api/{clinic_slug}/analytics")
+async def get_analytics(
+    clinic_slug: str,
+    report: str = "full",   # full | today | weekly | monthly | no_shows | providers | conversations | recall
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """
+    Real-time analytics dashboard for the clinic portal.
+    report=full returns all sections in one call (used by the Analytics tab).
+    Individual report types can be requested for lighter payloads.
+    """
+    from backend.services import analytics_svc
+
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    try:
+        if report == "full":
+            return analytics_svc.get_full_dashboard(db, clinic.id, clinic)
+        elif report == "today":
+            return analytics_svc.get_today_appointments(db, clinic.id)
+        elif report == "weekly":
+            return analytics_svc.get_weekly_summary(db, clinic.id)
+        elif report == "monthly":
+            return analytics_svc.get_monthly_summary(db, clinic.id)
+        elif report == "no_shows":
+            return analytics_svc.get_no_shows(db, clinic.id)
+        elif report == "providers":
+            return analytics_svc.get_provider_breakdown(db, clinic.id)
+        elif report == "conversations":
+            return analytics_svc.get_conversation_stats(db, clinic.id, clinic)
+        elif report == "recall":
+            return analytics_svc.get_recall_performance(db, clinic.id)
+        else:
+            return JSONResponse(status_code=400, content={"error": f"Unknown report type: {report}"})
+    except Exception:
+        logger.exception("Analytics error: clinic=%s report=%s", clinic_slug, report)
+        return JSONResponse(status_code=500, content={"error": "Failed to compute analytics."})
+
+
 class _StatusBody(BaseModel):
     status: str   # confirmed | no_show | completed | cancelled
 
