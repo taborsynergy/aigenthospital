@@ -135,3 +135,39 @@ class AuditLog(Base):
     detail      = Column(Text,     default="")              # JSON diff or description
     ip_address  = Column(String,   default="")
     created_at  = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class RecallCampaign(Base):
+    """
+    Defines an automated recall campaign for a clinic.
+    e.g. "Annual Physical" — send recall SMS to patients not seen in 12 months.
+    """
+    __tablename__ = "recall_campaigns"
+
+    id               = Column(Integer,  primary_key=True, index=True)
+    clinic_id        = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    name             = Column(String,   nullable=False)          # "Annual Physical Recall"
+    visit_type       = Column(String,   nullable=False)          # "annual physical"
+    interval_months  = Column(Integer,  default=12)              # recall after X months
+    message_template = Column(Text,     default="")              # {patient_name}, {clinic_name}, {visit_type}
+    is_active        = Column(Boolean,  default=True)
+    created_at       = Column(DateTime, default=datetime.utcnow)
+    updated_at       = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class RecallLog(Base):
+    """
+    Tracks every recall SMS sent — prevents duplicate outreach and
+    tracks opt-outs per patient/clinic.
+    """
+    __tablename__ = "recall_logs"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    campaign_id     = Column(Integer,  ForeignKey("recall_campaigns.id"), nullable=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    patient_name    = Column(String,   nullable=False)
+    patient_phone   = Column(String,   nullable=False, index=True)
+    status          = Column(String,   default="sent")   # sent | failed | opted_out | booked
+    sent_at         = Column(DateTime, default=datetime.utcnow, index=True)
+
+Index("ix_recall_logs_clinic_phone", RecallLog.clinic_id, RecallLog.patient_phone)

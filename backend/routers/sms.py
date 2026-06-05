@@ -57,6 +57,20 @@ async def inbound_sms(
             media_type="application/xml",
         )
 
+    # ── Recall opt-out (OPTOUT / UNSUBSCRIBE) ────────────────────────
+    _upper = Body.strip().upper()
+    if _upper in ("OPTOUT", "UNSUBSCRIBE", "STOP RECALLS"):
+        from backend.services.recall_svc import handle_optout
+        optout_reply = handle_optout(db, clinic.id, From)
+        return Response(content=twiml_response(optout_reply), media_type="application/xml")
+
+    # ── Recall BOOK reply ─────────────────────────────────────────────
+    if _upper == "BOOK":
+        from backend.services.recall_svc import handle_book_reply
+        book_reply = handle_book_reply(db, clinic, From)
+        if book_reply:
+            return Response(content=twiml_response(book_reply), media_type="application/xml")
+
     # ── YES/NO reminder replies — handle before Aria ─────────────────
     from backend.services.reminders_svc import handle_sms_reply
     quick_reply = handle_sms_reply(db, clinic, From, Body)

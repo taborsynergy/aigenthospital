@@ -78,3 +78,21 @@ cronJobs:
       r = urllib.request.urlopen(req);
       print('Reminders:', json.loads(r.read()))
       "
+
+  # Recall campaigns: runs daily at 9am, sends recall SMS to lapsed patients
+  # Only fires for Professional + Enterprise clinics with active campaigns
+  - name: patient-recall
+    runtime: python
+    schedule: "0 9 * * *"
+    buildCommand: "echo 'recall'"
+    startCommand: >-
+      python -c "
+      import os, urllib.request, json;
+      req = urllib.request.Request(
+        'https://taborsynergy-agent.onrender.com/api/recall/trigger',
+        method='POST',
+        headers={'X-Admin-Password': os.environ.get('ADMIN_PASSWORD',''), 'Content-Length': '0'}
+      );
+      r = urllib.request.urlopen(req);
+      print('Recall:', json.loads(r.read()))
+      "

@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from backend.db.models import (
-    Clinic, UsageLog, SmsConversation, Appointment, ChatSession, AuditLog
+    Clinic, UsageLog, SmsConversation, Appointment, ChatSession, AuditLog,
+    RecallCampaign, RecallLog,
 )
 
 _TOKEN_TTL_DAYS = 30
@@ -392,3 +393,165 @@ def write_audit_log(db: Session, actor: str, action: str,
         db.commit()
     except Exception:
         db.rollback()   # audit failure must never break the main request
+
+
+# ── Recall campaigns ──────────────────────────────────────────────────────────
+
+def list_recall_campaigns(db: Session, clinic_id: int) -> list[RecallCampaign]:
+    return (
+        db.query(RecallCampaign)
+        .filter(RecallCampaign.clinic_id == clinic_id)
+        .order_by(RecallCampaign.created_at.desc())
+        .all()
+    )
+
+
+def get_recall_campaign(db: Session, campaign_id: int, clinic_id: int) -> Optional[RecallCampaign]:
+    return db.query(RecallCampaign).filter(
+        RecallCampaign.id == campaign_id,
+        RecallCampaign.clinic_id == clinic_id,
+    ).first()
+
+
+def create_recall_campaign(db: Session, data: dict) -> RecallCampaign:
+    campaign = RecallCampaign(**data)
+    db.add(campaign)
+    db.commit()
+    db.refresh(campaign)
+    return campaign
+
+
+def update_recall_campaign(db: Session, campaign_id: int, clinic_id: int, data: dict) -> Optional[RecallCampaign]:
+    campaign = get_recall_campaign(db, campaign_id, clinic_id)
+    if not campaign:
+        return None
+    for k, v in data.items():
+        setattr(campaign, k, v)
+    db.commit()
+    db.refresh(campaign)
+    return campaign
+
+
+def delete_recall_campaign(db: Session, campaign_id: int, clinic_id: int) -> bool:
+    campaign = get_recall_campaign(db, campaign_id, clinic_id)
+    if not campaign:
+        return False
+    db.delete(campaign)
+    db.commit()
+    return True
+
+
+# ── Recall logs ───────────────────────────────────────────────────────────────
+
+def log_recall_sent(db: Session, campaign_id: int, clinic_id: int,
+                    patient_name: str, patient_phone: str, status: str = "sent") -> RecallLog:
+    entry = RecallLog(
+        campaign_id=campaign_id, clinic_id=clinic_id,
+        patient_name=patient_name, patient_phone=patient_phone,
+        status=status,
+    )
+    db.add(entry)
+    db.commit()
+    return entry
+
+
+def get_recall_log(db: Session, clinic_id: int, patient_phone: str,
+                   since: datetime) -> list[RecallLog]:
+    """Return recall logs for a patient since a given datetime."""
+    return (
+        db.query(RecallLog)
+        .filter(
+            RecallLog.clinic_id == clinic_id,
+            RecallLog.patient_phone == patient_phone,
+            RecallLog.sent_at >= since,
+        )
+        .all()
+    )
+
+
+def mark_recall_opted_out(db: Session, clinic_id: int, patient_phone: str) -> int:
+    """
+    Mark all recall logs for a patient as opted_out.
+    If no prior recall logs exist, creates an opt-out marker so future
+    campaigns also respect the opt-out.
+    Returns count of records affected.
+    """
+    count = (
+        db.query(RecallLog)
+        .filter(RecallLog.clinic_id == clinic_id, RecallLog.patient_phone == patient_phone)
+        .update({"status": "opted_out"})
+    )
+    if count == 0:
+        # Create a standalone opt-out marker (no campaign)
+        db.add(RecallLog(
+            campaign_id=None,
+            clinic_id=clinic_id,
+            patient_name="",
+            patient_phone=patient_phone,
+            status="opted_out",
+        ))
+        count = 1
+    db.commit()
+    return count
+
+
+def is_opted_out(db: Session, clinic_id: int, patient_phone: str) -> bool:
+    """Check if a patient has opted out of recall messages for this clinic."""
+    return db.query(RecallLog).filter(
+        RecallLog.clinic_id == clinic_id,
+        RecallLog.patient_phone == patient_phone,
+        RecallLog.status == "opted_out",
+    ).first() is not None
+
+
+def get_recall_stats(db: Session, campaign_id: int) -> dict:
+    rows = (
+        db.query(RecallLog.status, func.count(RecallLog.id).label("count"))
+        .filter(RecallLog.campaign_id == campaign_id)
+        .group_by(RecallLog.status)
+        .all()
+    )
+    stats = {r.status: r.count for r in rows}
+    return {
+        "sent":      stats.get("sent", 0),
+        "failed":    stats.get("failed", 0),
+        "opted_out": stats.get("opted_out", 0),
+        "booked":    stats.get("booked", 0),
+        "total":     sum(stats.values()),
+    }
+
+
+def find_patients_due_for_recall(db: Session, clinic_id: int,
+                                  interval_months: int) -> list[dict]:
+    """
+    Return patients whose last completed/scheduled appointment was more than
+    interval_months ago and who have a phone number on file.
+    Returns list of dicts with patient_name, patient_phone, last_visit_ts.
+    """
+    cutoff = datetime.utcnow() - timedelta(days=interval_months * 30)
+
+    rows = (
+        db.query(
+            Appointment.patient_name,
+            Appointment.patient_phone,
+            func.max(Appointment.appointment_ts).label("last_visit"),
+        )
+        .filter(
+            Appointment.clinic_id == clinic_id,
+            Appointment.status.in_(["scheduled", "confirmed", "completed", "rescheduled"]),
+            Appointment.patient_phone != "",
+            Appointment.patient_phone.isnot(None),
+            Appointment.appointment_ts.isnot(None),
+        )
+        .group_by(Appointment.patient_name, Appointment.patient_phone)
+        .having(func.max(Appointment.appointment_ts) < cutoff)
+        .all()
+    )
+    return [
+        {
+            "patient_name":  r.patient_name,
+            "patient_phone": r.patient_phone,
+            "last_visit_ts": r.last_visit,
+        }
+        for r in rows
+    ]
