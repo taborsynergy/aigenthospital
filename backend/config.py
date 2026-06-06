@@ -17,15 +17,6 @@ class Settings(BaseSettings):
     # ── PayPal ───────────────────────────────────────────────────────
     paypal_me_url: str = "https://www.paypal.com/paypalme/write2dinakar"
 
-    # ── Stripe ───────────────────────────────────────────────────────
-    stripe_secret_key: str = ""
-    stripe_webhook_secret: str = ""
-    # Per-plan recurring Price IDs — create these in Stripe Dashboard
-    # Products > Add product > Add price (recurring, monthly)
-    stripe_starter_price_id:      str = ""   # $297/mo
-    stripe_professional_price_id: str = ""   # $597/mo
-    stripe_enterprise_price_id:   str = ""   # $997/mo
-
     # ── Twilio ───────────────────────────────────────────────────────
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
@@ -46,7 +37,7 @@ class Settings(BaseSettings):
 
     # ── Server ───────────────────────────────────────────────────────
     allowed_origins: str = "https://aifrontdesk.taborsynergy.com,https://taborsynergy-agent.onrender.com"
-    base_url: str = "https://aifrontdesk.taborsynergy.com"   # Used for Stripe redirect URLs
+    base_url: str = "https://aifrontdesk.taborsynergy.com"
     debug_mode: bool = False   # Set DEBUG_MODE=true locally to enable /docs and /openapi.json
     sentry_dsn: str = ""       # Set SENTRY_DSN in Render env vars to enable error tracking
 

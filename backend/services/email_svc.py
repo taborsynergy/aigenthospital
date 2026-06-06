@@ -214,16 +214,16 @@ def send_upgrade_request_email(data: dict) -> bool:
 
 
 def send_subscription_activated_email(data: dict) -> bool:
-    """Notify clinic when their subscription is activated via Stripe."""
+    """Notify clinic when their PayPal subscription is manually activated by admin."""
     if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
         return False
 
-    clinic   = data.get("clinic_name", "Your clinic")
-    plan     = data.get("plan", "professional").title()
-    rate     = data.get("rate", "—")
-    ends_at  = data.get("ends_at", "—")
-    portal   = data.get("portal_url", settings.base_url)
-    subject  = f"[Tabor Synergy] Subscription Activated — {clinic} ({plan})"
+    clinic  = data.get("clinic_name", "Your clinic")
+    plan    = data.get("plan", "professional").title()
+    rate    = data.get("rate", "—")
+    ends_at = data.get("ends_at", "—")
+    portal  = data.get("portal_url", settings.base_url)
+    subject = f"[Tabor Synergy] Subscription Activated — {clinic} ({plan})"
 
     plain = "\n".join([
         f"Great news! Your {plan} subscription for {clinic} is now active.",
@@ -259,53 +259,6 @@ def send_subscription_activated_email(data: dict) -> bool:
   <p style="margin-top:20px;font-size:12px;color:#999">Tabor Synergy — automated notification</p>
 </div></body></html>"""
     msg = _build_msg(subject, plain, html, reply_to=settings.notify_email)
-    return _send(msg)
-
-
-def send_payment_failed_email(data: dict) -> bool:
-    """Notify clinic when a Stripe payment fails (dunning)."""
-    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
-        return False
-
-    clinic   = data.get("clinic_name", "Your clinic")
-    email    = data.get("clinic_email", "")
-    amount   = data.get("amount_due", 0)
-    attempt  = data.get("attempt_count", 1)
-    portal   = data.get("portal_url", settings.base_url)
-    subject  = f"[Action Required] Payment Failed — {clinic}"
-
-    plain = "\n".join([
-        f"A payment of ${amount:.2f} for {clinic} has failed (attempt {attempt}).",
-        "",
-        "To keep your AI front desk running, please update your payment method:",
-        portal,
-        "",
-        "If payment continues to fail, your subscription will be suspended.",
-        "— The Tabor Synergy Team",
-    ])
-    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
-<div style="background:#DC2626;padding:20px;border-radius:8px 8px 0 0">
-  <h2 style="color:#fff;margin:0">Payment Failed — Action Required</h2>
-  <p style="color:#fecaca;margin:4px 0 0">Tabor Synergy — AI Medical Front Desk</p>
-</div>
-<div style="background:#FEF2F2;padding:24px;border-radius:0 0 8px 8px;border:1px solid #FCA5A5">
-  <p style="margin-top:0">A payment of <strong>${amount:.2f}</strong> for <strong>{clinic}</strong> has failed (attempt {attempt} of 4).</p>
-  <p>Please update your payment method to keep your AI front desk running:</p>
-  <div style="margin:20px 0;text-align:center">
-    <a href="{portal}" style="background:#DC2626;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700">
-      Update Payment Method →
-    </a>
-  </div>
-  <p style="font-size:13px;color:#991B1B">
-    If payment continues to fail, your subscription will be suspended and patients will not
-    be able to chat with your AI front desk.
-  </p>
-  <p style="font-size:12px;color:#999;margin-top:20px">Tabor Synergy — automated billing notification</p>
-</div></body></html>"""
-    msg = _build_msg(subject, plain, html, reply_to=settings.notify_email)
-    # Send both to admin and to the clinic
-    if email:
-        msg.replace_header("To", email)
     return _send(msg)
 
 

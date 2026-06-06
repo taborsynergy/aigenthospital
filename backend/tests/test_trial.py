@@ -232,20 +232,17 @@ class TestTrialConversion:
         assert clinic.subscription_status == "trial"
         assert clinic.trial_ends_at is not None
 
-        # Convert to paid
+        # Convert to paid (PayPal-confirmed by admin)
         converted = crud.convert_trial_to_paid(
             db,
             clinic.id,
             plan="starter",
-            stripe_subscription_id="sub_123",
-            stripe_customer_id="cus_123"
         )
 
         assert converted.subscription_status == "active"
         assert converted.plan == "starter"
         assert converted.trial_ends_at is None
         assert converted.subscription_ends_at is not None
-        assert converted.stripe_subscription_id == "sub_123"
 
     def test_convert_trial_to_professional(self, db):
         """Convert trial to Professional plan."""

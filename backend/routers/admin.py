@@ -216,65 +216,32 @@ def create_checkout(slug: str, db: Session = Depends(get_db)):
 
 @router.get("/clinics/{slug}/billing", dependencies=[Depends(require_admin)])
 def get_billing_status(slug: str, db: Session = Depends(get_db)):
-    """View Stripe subscription status for a clinic."""
-    from backend.services.stripe_svc import get_subscription, stripe_enabled
-
+    """View subscription billing status for a clinic (PayPal-managed)."""
     clinic = crud.get_clinic(db, slug)
     if not clinic:
         raise HTTPException(404, "Clinic not found.")
-
-    stripe_sub = None
-    if stripe_enabled() and clinic.stripe_subscription_id:
-        stripe_sub = get_subscription(clinic.stripe_subscription_id)
 
     return {
-        "slug":                  clinic.slug,
-        "plan":                  clinic.plan,
-        "subscription_status":   clinic.subscription_status,
-        "monthly_rate":          clinic.monthly_rate,
-        "subscription_ends_at":  clinic.subscription_ends_at.isoformat() if clinic.subscription_ends_at else None,
-        "stripe_customer_id":    clinic.stripe_customer_id or None,
-        "stripe_subscription_id": clinic.stripe_subscription_id or None,
-        "stripe_live":           stripe_sub,
+        "slug":                 clinic.slug,
+        "plan":                 clinic.plan,
+        "subscription_status":  clinic.subscription_status,
+        "monthly_rate":         clinic.monthly_rate,
+        "subscription_ends_at": clinic.subscription_ends_at.isoformat() if clinic.subscription_ends_at else None,
+        "payment_processor":    "paypal",
     }
-
-
-@router.post("/clinics/{slug}/billing-portal", dependencies=[Depends(require_admin)])
-def admin_billing_portal(slug: str, db: Session = Depends(get_db)):
-    """Generate a Stripe Customer Portal link so the clinic can manage their own billing."""
-    from backend.services.stripe_svc import create_customer_portal_session
-
-    clinic = crud.get_clinic(db, slug)
-    if not clinic:
-        raise HTTPException(404, "Clinic not found.")
-    if not clinic.stripe_customer_id:
-        raise HTTPException(400, "Clinic has no Stripe customer — they must complete checkout first.")
-
-    result = create_customer_portal_session(
-        stripe_customer_id=clinic.stripe_customer_id,
-        return_url=f"{settings.base_url}/c/{clinic.slug}",
-    )
-    if result.get("error"):
-        raise HTTPException(500, f"Stripe error: {result['error']}")
-    return {"portal_url": result["url"]}
 
 
 @router.post("/clinics/{slug}/cancel-subscription", dependencies=[Depends(require_admin)])
 def cancel_clinic_subscription(slug: str, db: Session = Depends(get_db)):
-    """Cancel a clinic's Stripe subscription at end of current billing period."""
-    from backend.services.stripe_svc import cancel_subscription
-
+    """Cancel a clinic's subscription (manual PayPal flow)."""
     clinic = crud.get_clinic(db, slug)
     if not clinic:
         raise HTTPException(404, "Clinic not found.")
-    if not clinic.stripe_subscription_id:
-        raise HTTPException(400, "No active Stripe subscription to cancel.")
+    if clinic.subscription_status == "cancelled":
+        raise HTTPException(400, "Subscription is already cancelled.")
 
-    ok = cancel_subscription(clinic.stripe_subscription_id, immediately=False)
-    if not ok:
-        raise HTTPException(500, "Failed to cancel subscription. Check Stripe credentials.")
-
-    return {"ok": True, "message": "Subscription will cancel at end of current billing period."}
+    crud.update_clinic(db, slug, {"subscription_status": "cancelled"})
+    return {"ok": True, "message": "Subscription marked as cancelled."}
 
 
 # ── SMS ───────────────────────────────────────────────────────────────────────
@@ -330,7 +297,6 @@ def _serialize(clinic) -> dict:
         "escalation_contact":  clinic.escalation_contact,
         "hipaa_verify_method": clinic.hipaa_verify_method,
         "twilio_phone":        clinic.twilio_phone,
-        "stripe_customer_id":  clinic.stripe_customer_id,
         "plan":                clinic.plan or "professional",
         "subscription_status": clinic.subscription_status,
         "monthly_rate":        clinic.monthly_rate,

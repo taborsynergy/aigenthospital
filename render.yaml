@@ -24,18 +24,6 @@ services:
         value: "false"
       - key: SENTRY_DSN
         sync: false           # set in Render dashboard after creating Sentry project
-      # ── Stripe (set when ready — PayPal works without these) ────────
-      - key: STRIPE_SECRET_KEY
-        sync: false
-      - key: STRIPE_WEBHOOK_SECRET
-        sync: false
-      # Per-plan price IDs from Stripe Dashboard > Products > Prices
-      - key: STRIPE_STARTER_PRICE_ID
-        sync: false
-      - key: STRIPE_PROFESSIONAL_PRICE_ID
-        sync: false
-      - key: STRIPE_ENTERPRISE_PRICE_ID
-        sync: false
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN

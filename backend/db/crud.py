@@ -30,9 +30,6 @@ def get_clinic_by_twilio_number(db: Session, phone: str) -> Optional[Clinic]:
     return db.query(Clinic).filter(Clinic.twilio_phone == phone, Clinic.is_active.is_(True)).first()
 
 
-def get_clinic_by_stripe_customer(db: Session, customer_id: str) -> Optional[Clinic]:
-    return db.query(Clinic).filter(Clinic.stripe_customer_id == customer_id).first()
-
 
 def get_clinic_by_email(db: Session, email: str) -> Optional[Clinic]:
     return db.query(Clinic).filter(
@@ -904,23 +901,16 @@ def expire_trial(db: Session, clinic_id: int) -> Optional[Clinic]:
     return clinic
 
 
-def convert_trial_to_paid(db: Session, clinic_id: int, plan: str = "starter",
-                          stripe_subscription_id: str = "",
-                          stripe_customer_id: str = "") -> Optional[Clinic]:
-    """Convert a trial clinic to paid subscription."""
+def convert_trial_to_paid(db: Session, clinic_id: int, plan: str = "starter") -> Optional[Clinic]:
+    """Convert a trial clinic to paid subscription (PayPal-confirmed by admin)."""
     clinic = get_clinic_by_id(db, clinic_id)
     if not clinic:
         return None
 
-    # Set subscription details
     clinic.subscription_status = "active"
     clinic.plan = plan
     clinic.subscription_ends_at = datetime.utcnow() + timedelta(days=30)
     clinic.trial_ends_at = None  # Clear trial
-    if stripe_subscription_id:
-        clinic.stripe_subscription_id = stripe_subscription_id
-    if stripe_customer_id:
-        clinic.stripe_customer_id = stripe_customer_id
 
     db.commit()
     db.refresh(clinic)
