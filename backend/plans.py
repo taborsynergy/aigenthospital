@@ -15,6 +15,7 @@ PLANS = {
         "custom_agent_name":   False,
         "white_label":         False,
         "max_locations":       1,
+        "max_providers":       1,         # Solo practice only
         "support":             "Email support",
         "color":               "#6B7280",
         "coming_soon":         [],
@@ -29,6 +30,7 @@ PLANS = {
         "custom_agent_name":   True,
         "white_label":         False,
         "max_locations":       3,
+        "max_providers":       5,         # Growth: 2-5 doctors
         "monthly_reports":     True,
         "custom_insurance":    True,
         "support":             "Priority email support",
@@ -45,6 +47,7 @@ PLANS = {
         "custom_agent_name":   True,
         "white_label":         True,
         "max_locations":       None,      # unlimited
+        "max_providers":       None,      # unlimited
         "monthly_reports":     True,
         "custom_insurance":    True,
         "location_routing":    True,
@@ -123,6 +126,19 @@ def can_use_ehr_integration(clinic) -> bool:
 def can_use_custom_ai_training(clinic) -> bool:
     """Check if clinic plan supports custom AI training."""
     return get_plan(clinic).get("custom_ai_training", False)
+
+
+def max_providers(clinic) -> int | None:
+    """Get max number of providers allowed on clinic's plan. None = unlimited."""
+    return get_plan(clinic).get("max_providers", 1)
+
+
+def can_add_provider(clinic, current_provider_count: int) -> bool:
+    """Check if clinic can add another provider based on plan limit."""
+    limit = max_providers(clinic)
+    if limit is None:
+        return True  # Unlimited
+    return current_provider_count < limit
 
 
 def is_clinic_active(clinic) -> bool:

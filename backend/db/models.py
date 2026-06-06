@@ -82,6 +82,32 @@ class Location(Base):
 Index("ix_locations_clinic", Location.clinic_id)
 
 
+class Provider(Base):
+    """
+    Doctor/Provider for a clinic (Growth+ feature: 2-5 doctors per clinic).
+    Growth plan: max 5 providers
+    Professional plan: max 5 providers
+    Enterprise plan: unlimited providers
+    """
+    __tablename__ = "providers"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    name            = Column(String,   nullable=False)          # "Dr. Jane Smith"
+    email           = Column(String,   default="")              # jane@clinic.com
+    phone           = Column(String,   default="")              # (555) 555-5555
+    specialty       = Column(String,   default="")              # "Pediatrics", "General", etc.
+    license_number  = Column(String,   default="")              # Medical license number
+    npi_number      = Column(String,   default="")              # National Provider Identifier
+    bio             = Column(Text,     default="")              # Provider biography/credentials
+    photo_url       = Column(String,   default="")              # URL to provider photo
+    is_active       = Column(Boolean,  default=True)
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+Index("ix_providers_clinic", Provider.clinic_id)
+
+
 class Appointment(Base):
     __tablename__ = "appointments"
 

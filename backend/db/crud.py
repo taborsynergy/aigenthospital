@@ -7,7 +7,7 @@ from sqlalchemy import func
 from backend.db.models import (
     Clinic, UsageLog, SmsConversation, Appointment, ChatSession, AuditLog,
     RecallCampaign, RecallLog, Location, WidgetConfig, InsuranceKnowledge,
-    EHRConfiguration, CustomAITraining,
+    EHRConfiguration, CustomAITraining, Provider,
 )
 
 _TOKEN_TTL_DAYS = 30
@@ -924,3 +924,91 @@ def convert_trial_to_paid(db: Session, clinic_id: int, plan: str = "starter",
     db.commit()
     db.refresh(clinic)
     return clinic
+
+
+# ── Provider Management (Multi-Doctor) ────────────────────────────────────────
+
+def list_providers(db: Session, clinic_id: int) -> list[Provider]:
+    """List all active providers for a clinic."""
+    return db.query(Provider).filter(
+        Provider.clinic_id == clinic_id,
+        Provider.is_active.is_(True),
+    ).order_by(Provider.created_at.asc()).all()
+
+
+def get_provider(db: Session, provider_id: int, clinic_id: int) -> Optional[Provider]:
+    """Get a specific provider (with clinic isolation)."""
+    return db.query(Provider).filter(
+        Provider.id == provider_id,
+        Provider.clinic_id == clinic_id,
+    ).first()
+
+
+def create_provider(db: Session, clinic_id: int, data: dict) -> Optional[Provider]:
+    """Create a new provider for a clinic."""
+    provider = Provider(
+        clinic_id=clinic_id,
+        name=data.get("name", "").strip(),
+        email=(data.get("email") or "").lower().strip(),
+        phone=data.get("phone", "").strip(),
+        specialty=data.get("specialty", "").strip(),
+        license_number=data.get("license_number", "").strip(),
+        npi_number=data.get("npi_number", "").strip(),
+        bio=data.get("bio", "").strip(),
+        photo_url=data.get("photo_url", "").strip(),
+        is_active=True,
+    )
+    db.add(provider)
+    db.commit()
+    db.refresh(provider)
+    return provider
+
+
+def update_provider(db: Session, provider_id: int, clinic_id: int,
+                   data: dict) -> Optional[Provider]:
+    """Update a provider (with clinic isolation)."""
+    provider = get_provider(db, provider_id, clinic_id)
+    if not provider:
+        return None
+
+    if "name" in data:
+        provider.name = data["name"].strip()
+    if "email" in data:
+        provider.email = (data["email"] or "").lower().strip()
+    if "phone" in data:
+        provider.phone = data["phone"].strip()
+    if "specialty" in data:
+        provider.specialty = data["specialty"].strip()
+    if "license_number" in data:
+        provider.license_number = data["license_number"].strip()
+    if "npi_number" in data:
+        provider.npi_number = data["npi_number"].strip()
+    if "bio" in data:
+        provider.bio = data["bio"].strip()
+    if "photo_url" in data:
+        provider.photo_url = data["photo_url"].strip()
+    if "is_active" in data:
+        provider.is_active = bool(data["is_active"])
+
+    db.commit()
+    db.refresh(provider)
+    return provider
+
+
+def deactivate_provider(db: Session, provider_id: int, clinic_id: int) -> bool:
+    """Deactivate a provider (soft delete)."""
+    provider = get_provider(db, provider_id, clinic_id)
+    if not provider:
+        return False
+
+    provider.is_active = False
+    db.commit()
+    return True
+
+
+def count_active_providers(db: Session, clinic_id: int) -> int:
+    """Count active providers for a clinic."""
+    return db.query(Provider).filter(
+        Provider.clinic_id == clinic_id,
+        Provider.is_active.is_(True),
+    ).count()

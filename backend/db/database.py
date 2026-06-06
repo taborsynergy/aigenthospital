@@ -122,6 +122,19 @@ def migrate_db():
         ("custom_ai_training", "content",       "TEXT",    "DEFAULT ''"),
         ("custom_ai_training", "is_active",     "BOOLEAN", "DEFAULT TRUE"),
         ("custom_ai_training", "priority",      "INTEGER", "DEFAULT 0"),
+        # Provider management (multi-doctor)
+        ("providers", "name",            "VARCHAR", ""),
+        ("providers", "email",           "VARCHAR", "DEFAULT ''"),
+        ("providers", "phone",           "VARCHAR", "DEFAULT ''"),
+        ("providers", "specialty",       "VARCHAR", "DEFAULT ''"),
+        ("providers", "license_number",  "VARCHAR", "DEFAULT ''"),
+        ("providers", "npi_number",      "VARCHAR", "DEFAULT ''"),
+        ("providers", "bio",             "TEXT",    "DEFAULT ''"),
+        ("providers", "photo_url",       "VARCHAR", "DEFAULT ''"),
+        ("providers", "is_active",       "BOOLEAN", "DEFAULT TRUE"),
+        ("providers", "clinic_id",       "INTEGER", ""),
+        ("providers", "created_at",      "TIMESTAMP", ""),
+        ("providers", "updated_at",      "TIMESTAMP", ""),
     ]
 
     inspector = inspect(engine)
