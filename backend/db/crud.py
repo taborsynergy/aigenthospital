@@ -8,6 +8,7 @@ from backend.db.models import (
     Clinic, UsageLog, SmsConversation, Appointment, ChatSession, AuditLog,
     RecallCampaign, RecallLog, Location, WidgetConfig, InsuranceKnowledge,
     EHRConfiguration, CustomAITraining, Provider, OnboardingSession,
+    WhitelabelConfig,
 )
 
 _TOKEN_TTL_DAYS = 30
@@ -1104,3 +1105,51 @@ def cancel_onboarding_session(db: Session, session_id: int, clinic_id: int) -> O
     db.commit()
     db.refresh(session)
     return session
+
+
+# ── White Label Config (Enterprise feature) ──────────────────────────────────
+
+def get_whitelabel_config(db: Session, clinic_id: int) -> Optional[WhitelabelConfig]:
+    """Get white label config for a clinic (with clinic isolation)."""
+    return db.query(WhitelabelConfig).filter(WhitelabelConfig.clinic_id == clinic_id).first()
+
+
+def create_whitelabel_config(db: Session, clinic_id: int, data: dict) -> WhitelabelConfig:
+    """Create white label config for a clinic."""
+    config = WhitelabelConfig(clinic_id=clinic_id)
+    for key, val in data.items():
+        if hasattr(config, key):
+            setattr(config, key, val)
+    db.add(config)
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+def update_whitelabel_config(db: Session, clinic_id: int, data: dict) -> Optional[WhitelabelConfig]:
+    """Update white label config (with clinic isolation)."""
+    config = get_whitelabel_config(db, clinic_id)
+    if not config:
+        return None
+
+    for key, val in data.items():
+        if hasattr(config, key) and key not in ("id", "clinic_id", "created_at"):
+            setattr(config, key, val)
+
+    config.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+def get_resellers(db: Session, limit: int = 100) -> list[WhitelabelConfig]:
+    """Get all active resellers (is_reseller=True)."""
+    return db.query(WhitelabelConfig).filter(WhitelabelConfig.is_reseller.is_(True)).limit(limit).all()
+
+
+def get_by_custom_domain(db: Session, domain: str) -> Optional[WhitelabelConfig]:
+    """Get white label config by custom domain."""
+    return db.query(WhitelabelConfig).filter(
+        WhitelabelConfig.custom_domain == domain.lower(),
+        WhitelabelConfig.domain_verified.is_(True)
+    ).first()

@@ -148,6 +148,31 @@ def can_use_dedicated_onboarding(clinic) -> bool:
     return plan.get("name") in ["Enterprise"]  # For now, Enterprise only
 
 
+def can_use_custom_branding(clinic) -> bool:
+    """Check if clinic can customize branding (colors, logo, etc)."""
+    return is_white_label(clinic)
+
+
+def can_use_custom_domain(clinic) -> bool:
+    """Check if clinic can map custom domain."""
+    return is_white_label(clinic)
+
+
+def can_access_source_code(clinic) -> bool:
+    """Check if clinic can access source code for self-hosting."""
+    return is_white_label(clinic)
+
+
+def can_enable_reselling(clinic) -> bool:
+    """Check if clinic can create and manage sub-clinics (reseller)."""
+    return is_white_label(clinic)
+
+
+def can_self_host(clinic) -> bool:
+    """Check if clinic can self-host on own infrastructure."""
+    return is_white_label(clinic)
+
+
 def is_clinic_active(clinic) -> bool:
     """
     Check if a clinic can access the platform.

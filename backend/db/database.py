@@ -151,6 +151,28 @@ def migrate_db():
         ("onboarding_sessions", "completed_at",     "TIMESTAMP", ""),
         ("onboarding_sessions", "created_at",       "TIMESTAMP", ""),
         ("onboarding_sessions", "updated_at",       "TIMESTAMP", ""),
+        # White label configuration (Enterprise feature)
+        ("whitelabel_configs", "clinic_id",             "INTEGER",   ""),
+        ("whitelabel_configs", "logo_url",              "VARCHAR",   "DEFAULT ''"),
+        ("whitelabel_configs", "primary_color",         "VARCHAR",   "DEFAULT '#007ACC'"),
+        ("whitelabel_configs", "secondary_color",       "VARCHAR",   "DEFAULT '#F0F0F0'"),
+        ("whitelabel_configs", "accent_color",          "VARCHAR",   "DEFAULT '#FF6B6B'"),
+        ("whitelabel_configs", "font_family",           "VARCHAR",   "DEFAULT 'Segoe UI, sans-serif'"),
+        ("whitelabel_configs", "company_name",          "VARCHAR",   "DEFAULT ''"),
+        ("whitelabel_configs", "remove_tabor_branding", "BOOLEAN",   "DEFAULT FALSE"),
+        ("whitelabel_configs", "remove_powered_by",     "BOOLEAN",   "DEFAULT FALSE"),
+        ("whitelabel_configs", "custom_footer_text",    "VARCHAR",   "DEFAULT ''"),
+        ("whitelabel_configs", "custom_domain",         "VARCHAR",   "DEFAULT ''"),
+        ("whitelabel_configs", "domain_verified",       "BOOLEAN",   "DEFAULT FALSE"),
+        ("whitelabel_configs", "ssl_certificate_url",   "VARCHAR",   "DEFAULT ''"),
+        ("whitelabel_configs", "is_reseller",           "BOOLEAN",   "DEFAULT FALSE"),
+        ("whitelabel_configs", "reseller_commission",   "FLOAT",     "DEFAULT 0.0"),
+        ("whitelabel_configs", "max_sub_clinics",       "INTEGER",   "DEFAULT 0"),
+        ("whitelabel_configs", "can_access_source",     "BOOLEAN",   "DEFAULT FALSE"),
+        ("whitelabel_configs", "source_access_granted_at", "TIMESTAMP", ""),
+        ("whitelabel_configs", "self_host_enabled",     "BOOLEAN",   "DEFAULT FALSE"),
+        ("whitelabel_configs", "created_at",            "TIMESTAMP", ""),
+        ("whitelabel_configs", "updated_at",            "TIMESTAMP", ""),
     ]
 
     inspector = inspect(engine)

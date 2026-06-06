@@ -349,3 +349,50 @@ class InsuranceKnowledge(Base):
     # Metadata
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class WhitelabelConfig(Base):
+    """
+    White label configuration for Enterprise plan clinics.
+    Enables custom branding, domain mapping, and multi-tenant reselling.
+    """
+    __tablename__ = "whitelabel_configs"
+
+    id                      = Column(Integer,  primary_key=True, index=True)
+    clinic_id               = Column(Integer,  ForeignKey("clinics.id"), unique=True, index=True)
+
+    # Branding
+    logo_url                = Column(String,   default="")              # Custom logo URL
+    primary_color           = Column(String,   default="#007ACC")       # Brand primary color
+    secondary_color         = Column(String,   default="#F0F0F0")       # Brand secondary color
+    accent_color            = Column(String,   default="#FF6B6B")       # Accent color
+    font_family             = Column(String,   default="Segoe UI, sans-serif")
+    company_name            = Column(String,   default="")              # Custom company name in UI
+
+    # Branding removal
+    remove_tabor_branding   = Column(Boolean,  default=False)           # Hide "Tabor" logo/footer
+    remove_powered_by       = Column(Boolean,  default=False)           # Hide "Powered by Tabor"
+    custom_footer_text      = Column(String,   default="")              # Custom footer text
+
+    # Domain
+    custom_domain           = Column(String,   default="")              # e.g., "clinic.yourdomain.com"
+    domain_verified         = Column(Boolean,  default=False)           # DNS verification status
+    ssl_certificate_url     = Column(String,   default="")              # SSL cert path for custom domain
+
+    # Reseller capabilities
+    is_reseller             = Column(Boolean,  default=False)           # Can create sub-tenants
+    reseller_commission     = Column(Float,    default=0.0)             # Commission % (20.0 = 20%)
+    max_sub_clinics         = Column(Integer,  default=0)               # 0 = unlimited
+
+    # Source code access
+    can_access_source       = Column(Boolean,  default=False)           # Source code transfer granted
+    source_access_granted_at= Column(DateTime, nullable=True)
+    self_host_enabled       = Column(Boolean,  default=False)           # Self-hosting permitted
+
+    # Metadata
+    created_at              = Column(DateTime, default=datetime.utcnow)
+    updated_at              = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+Index("ix_whitelabel_clinic", WhitelabelConfig.clinic_id)
+Index("ix_whitelabel_reseller", WhitelabelConfig.is_reseller)
+Index("ix_whitelabel_domain", WhitelabelConfig.custom_domain)
