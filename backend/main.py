@@ -428,6 +428,7 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
       <button class="tab-btn" onclick="switchTab('plan', this)" id="tab-btn-plan">💳 Plan & Billing</button>
       <button class="tab-btn" onclick="switchTab('try', this)">💬 Try Aria</button>
       <button class="tab-btn" onclick="switchTab('embed', this)">🔧 Embed on Website</button>
+      <button class="tab-btn" id="tab-btn-whitelabel" onclick="switchTab('whitelabel', this)" style="display:none;">🏷️ White Label</button>
     </div>
 
     <!-- ── TAB 1: Share with Patients ── -->
@@ -637,6 +638,141 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
       </div>
     </div>
 
+    <!-- ── TAB 6: White Label ── -->
+    <div id="tab-whitelabel" class="tab-panel">
+      <div id="wl-loading" class="share-card" style="text-align:center;padding:40px;">Loading white label settings…</div>
+      <div id="wl-content" style="display:none;">
+
+        <!-- Branding Card -->
+        <div class="share-card">
+          <h2>🎨 Custom Branding</h2>
+          <p style="font-size:13px;color:#6B7280;margin-bottom:20px;">Customize your platform's look and feel with your own brand colors, logo, and company name.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Company Name</label>
+              <input id="wl-company-name" type="text" placeholder="Your Company Name"
+                style="width:100%;padding:9px 12px;border:1px solid #E5E7EB;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;"
+                onfocus="this.style.borderColor='#1E40AF'" onblur="this.style.borderColor='#E5E7EB'"/>
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Logo URL</label>
+              <input id="wl-logo-url" type="url" placeholder="https://yoursite.com/logo.png"
+                style="width:100%;padding:9px 12px;border:1px solid #E5E7EB;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;"
+                onfocus="this.style.borderColor='#1E40AF'" onblur="this.style.borderColor='#E5E7EB'"/>
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Primary Color</label>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input id="wl-primary-color-picker" type="color" value="#007ACC"
+                  style="width:40px;height:36px;border:1px solid #E5E7EB;border-radius:6px;cursor:pointer;padding:2px;"
+                  oninput="document.getElementById('wl-primary-color').value=this.value"/>
+                <input id="wl-primary-color" type="text" placeholder="#007ACC" maxlength="7"
+                  style="flex:1;padding:9px 12px;border:1px solid #E5E7EB;border-radius:8px;font-size:14px;outline:none;font-family:monospace;"
+                  onfocus="this.style.borderColor='#1E40AF'" onblur="this.style.borderColor='#E5E7EB'"
+                  oninput="if(this.value.startsWith('#')&&this.value.length===7)document.getElementById('wl-primary-color-picker').value=this.value"/>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Accent Color</label>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input id="wl-accent-color-picker" type="color" value="#FF6B6B"
+                  style="width:40px;height:36px;border:1px solid #E5E7EB;border-radius:6px;cursor:pointer;padding:2px;"
+                  oninput="document.getElementById('wl-accent-color').value=this.value"/>
+                <input id="wl-accent-color" type="text" placeholder="#FF6B6B" maxlength="7"
+                  style="flex:1;padding:9px 12px;border:1px solid #E5E7EB;border-radius:8px;font-size:14px;outline:none;font-family:monospace;"
+                  onfocus="this.style.borderColor='#1E40AF'" onblur="this.style.borderColor='#E5E7EB'"
+                  oninput="if(this.value.startsWith('#')&&this.value.length===7)document.getElementById('wl-accent-color-picker').value=this.value"/>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+              <input id="wl-remove-tabor" type="checkbox"
+                style="width:16px;height:16px;cursor:pointer;accent-color:#7C3AED;"/>
+              Remove Tabor branding from UI
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+              <input id="wl-remove-powered-by" type="checkbox"
+                style="width:16px;height:16px;cursor:pointer;accent-color:#7C3AED;"/>
+              Remove "Powered by Tabor" footer
+            </label>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Custom Footer Text</label>
+            <input id="wl-footer-text" type="text" placeholder="© 2026 Your Company. All rights reserved."
+              style="width:100%;padding:9px 12px;border:1px solid #E5E7EB;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;"
+              onfocus="this.style.borderColor='#1E40AF'" onblur="this.style.borderColor='#E5E7EB'"/>
+          </div>
+          <button id="wl-save-branding-btn" onclick="saveWlBranding()"
+            style="background:#1E40AF;color:#fff;padding:10px 24px;border-radius:8px;font-weight:700;border:none;cursor:pointer;font-size:14px;">
+            Save Branding →
+          </button>
+          <span id="wl-branding-msg" style="margin-left:12px;font-size:13px;display:none;"></span>
+        </div>
+
+        <!-- Custom Domain Card -->
+        <div class="share-card">
+          <h2>🌐 Custom Domain</h2>
+          <p style="font-size:13px;color:#6B7280;margin-bottom:16px;">Map your own domain (e.g. <code>clinic.yourcompany.com</code>) to this platform. DNS verification required.</p>
+          <div id="wl-domain-current" style="font-size:13px;color:#374151;margin-bottom:12px;display:none;">
+            Current: <strong id="wl-current-domain"></strong>
+            <span id="wl-domain-verified-badge" style="margin-left:8px;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;"></span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <input id="wl-custom-domain" type="text" placeholder="clinic.yourcompany.com"
+              style="flex:1;padding:9px 12px;border:1px solid #E5E7EB;border-radius:8px;font-size:14px;outline:none;"
+              onfocus="this.style.borderColor='#1E40AF'" onblur="this.style.borderColor='#E5E7EB'"/>
+            <button onclick="setWlDomain()"
+              style="background:#059669;color:#fff;padding:10px 20px;border-radius:8px;font-weight:700;border:none;cursor:pointer;font-size:14px;white-space:nowrap;">
+              Set Domain →
+            </button>
+          </div>
+          <div id="wl-domain-instructions" style="display:none;margin-top:14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:12px;font-size:13px;line-height:1.6;"></div>
+          <span id="wl-domain-msg" style="display:block;margin-top:8px;font-size:13px;"></span>
+        </div>
+
+        <!-- Reseller Card -->
+        <div class="share-card">
+          <h2>🤝 Reseller Mode</h2>
+          <p style="font-size:13px;color:#6B7280;margin-bottom:16px;">Enable reseller mode to create and manage your own clinic sub-tenants. Set a commission rate and billing rules.</p>
+          <div id="wl-reseller-status" style="margin-bottom:16px;padding:10px 14px;border-radius:8px;font-size:13px;background:#F9FAFB;border:1px solid #E5E7EB;"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;" id="wl-reseller-form">
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Commission Rate (%)</label>
+              <input id="wl-commission" type="number" placeholder="20" min="0" max="30" step="0.5"
+                style="width:100%;padding:9px 12px;border:1px solid #E5E7EB;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;"
+                onfocus="this.style.borderColor='#1E40AF'" onblur="this.style.borderColor='#E5E7EB'"/>
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Max Sub-Clinics (0 = unlimited)</label>
+              <input id="wl-max-subs" type="number" placeholder="0" min="0"
+                style="width:100%;padding:9px 12px;border:1px solid #E5E7EB;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;"
+                onfocus="this.style.borderColor='#1E40AF'" onblur="this.style.borderColor='#E5E7EB'"/>
+            </div>
+          </div>
+          <button onclick="enableReseller()"
+            style="background:#7C3AED;color:#fff;padding:10px 24px;border-radius:8px;font-weight:700;border:none;cursor:pointer;font-size:14px;">
+            Enable Reseller Mode →
+          </button>
+          <span id="wl-reseller-msg" style="margin-left:12px;font-size:13px;display:none;"></span>
+        </div>
+
+        <!-- Source Code / Self-hosting Card -->
+        <div class="share-card">
+          <h2>💻 Source Code &amp; Self-Hosting</h2>
+          <p style="font-size:13px;color:#6B7280;margin-bottom:16px;">Request access to the full source code to deploy on your own infrastructure. Includes Docker setup and support documentation.</p>
+          <div id="wl-source-status" style="margin-bottom:16px;font-size:13px;color:#374151;"></div>
+          <button id="wl-source-btn" onclick="requestSourceAccess()"
+            style="background:#0F172A;color:#fff;padding:10px 24px;border-radius:8px;font-weight:700;border:none;cursor:pointer;font-size:14px;">
+            Grant Source Code Access →
+          </button>
+          <div id="wl-source-instructions" style="display:none;margin-top:16px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:8px;padding:14px;font-size:13px;line-height:1.8;white-space:pre-line;font-family:monospace;"></div>
+          <span id="wl-source-msg" style="display:block;margin-top:8px;font-size:13px;"></span>
+        </div>
+
+      </div><!-- /wl-content -->
+    </div><!-- /tab-whitelabel -->
+
   </div><!-- /dash-body -->
 </div><!-- /dash-screen -->
 
@@ -651,8 +787,9 @@ function switchTab(name, btn) {{
   document.querySelectorAll(".tab-btn").forEach(function(b) {{ b.classList.remove("active"); }});
   document.getElementById("tab-" + name).classList.add("active");
   btn.classList.add("active");
-  if (name === "appts") loadAppts();
-  if (name === "plan")  loadPlan();
+  if (name === "appts")      loadAppts();
+  if (name === "plan")       loadPlan();
+  if (name === "whitelabel") loadWhitelabel();
 }}
 
 var _allAppts = [];
@@ -720,6 +857,7 @@ function loadPlan() {{
 
       // Track current plan for upgrade modal
       _currentPlanKey = p.plan_key || "professional";
+      maybeShowWlTab(_currentPlanKey);
       var upgradeBtn = document.getElementById("upgrade-btn");
       if (upgradeBtn) {{
         if (_currentPlanKey === "enterprise") {{
@@ -915,6 +1053,192 @@ function showUpgradeMsg(html, color) {{
   el.innerHTML = html;
   el.style.color = color || "#374151";
   el.style.display = "block";
+}}
+
+// ── White Label ──────────────────────────────────────────────────────────────
+var _wlLoaded = false;
+
+function loadWhitelabel() {{
+  if (_wlLoaded) return;
+  var token = localStorage.getItem(TKEY);
+  fetch("/api/" + SLUG + "/whitelabel", {{
+    headers: {{ "X-Clinic-Token": token || "" }}
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    document.getElementById("wl-loading").style.display = "none";
+    if (!res.ok) {{
+      document.getElementById("wl-loading").textContent = "⚠️ " + (res.data.error || "White label not available on your plan.");
+      document.getElementById("wl-loading").style.display = "block";
+      return;
+    }}
+    _wlLoaded = true;
+    var d = res.data;
+    document.getElementById("wl-content").style.display = "block";
+    // Populate branding fields
+    document.getElementById("wl-company-name").value      = d.company_name || "";
+    document.getElementById("wl-logo-url").value          = d.logo_url || "";
+    document.getElementById("wl-primary-color").value     = d.primary_color || "#007ACC";
+    document.getElementById("wl-primary-color-picker").value = d.primary_color || "#007ACC";
+    document.getElementById("wl-accent-color").value      = d.accent_color || "#FF6B6B";
+    document.getElementById("wl-accent-color-picker").value  = d.accent_color || "#FF6B6B";
+    document.getElementById("wl-remove-tabor").checked    = !!d.remove_tabor_branding;
+    document.getElementById("wl-remove-powered-by").checked = !!d.remove_powered_by;
+    document.getElementById("wl-footer-text").value       = d.custom_footer_text || "";
+    // Domain
+    if (d.custom_domain) {{
+      document.getElementById("wl-domain-current").style.display = "block";
+      document.getElementById("wl-current-domain").textContent   = d.custom_domain;
+      var badge = document.getElementById("wl-domain-verified-badge");
+      if (d.domain_verified) {{
+        badge.textContent = "✅ Verified";
+        badge.style.background = "#D1FAE5"; badge.style.color = "#065F46";
+      }} else {{
+        badge.textContent = "⏳ Pending DNS";
+        badge.style.background = "#FEF3C7"; badge.style.color = "#92400E";
+      }}
+    }}
+    // Reseller
+    var rStatus = document.getElementById("wl-reseller-status");
+    if (d.is_reseller) {{
+      rStatus.style.background = "#EDE9FE"; rStatus.style.borderColor = "#DDD6FE";
+      rStatus.innerHTML = '<strong style="color:#7C3AED;">✅ Reseller Mode Active</strong>';
+    }} else {{
+      rStatus.textContent = "Reseller mode is currently disabled. Enable it below to start creating sub-clinics.";
+    }}
+    // Source code
+    var srcEl = document.getElementById("wl-source-status");
+    if (d.can_access_source) {{
+      srcEl.innerHTML = '<strong style="color:#059669;">✅ Source code access granted.</strong> Clone the private repo and follow the self-hosting guide.';
+      document.getElementById("wl-source-btn").textContent = "View Setup Instructions →";
+    }} else {{
+      srcEl.textContent = "Source code access not yet activated. Click below to grant access.";
+    }}
+  }})
+  .catch(function() {{
+    document.getElementById("wl-loading").textContent = "⚠️ Network error loading white label settings.";
+  }});
+}}
+
+function saveWlBranding() {{
+  var token = localStorage.getItem(TKEY);
+  var btn = document.getElementById("wl-save-branding-btn");
+  var msg = document.getElementById("wl-branding-msg");
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+  fetch("/api/" + SLUG + "/whitelabel", {{
+    method: "PATCH",
+    headers: {{ "X-Clinic-Token": token || "", "Content-Type": "application/json" }},
+    body: JSON.stringify({{
+      company_name:         document.getElementById("wl-company-name").value.trim(),
+      logo_url:             document.getElementById("wl-logo-url").value.trim(),
+      primary_color:        document.getElementById("wl-primary-color").value.trim(),
+      accent_color:         document.getElementById("wl-accent-color").value.trim(),
+      remove_tabor_branding: document.getElementById("wl-remove-tabor").checked,
+      remove_powered_by:    document.getElementById("wl-remove-powered-by").checked,
+      custom_footer_text:   document.getElementById("wl-footer-text").value.trim(),
+    }})
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    btn.disabled = false; btn.textContent = "Save Branding →";
+    msg.style.display = "inline";
+    if (res.ok) {{
+      msg.textContent = "✅ Branding saved!"; msg.style.color = "#059669";
+    }} else {{
+      msg.textContent = "⚠️ " + (res.data.error || "Save failed."); msg.style.color = "#DC2626";
+    }}
+    setTimeout(function() {{ msg.style.display = "none"; }}, 4000);
+  }})
+  .catch(function() {{
+    btn.disabled = false; btn.textContent = "Save Branding →";
+    msg.textContent = "⚠️ Network error."; msg.style.color = "#DC2626"; msg.style.display = "inline";
+  }});
+}}
+
+function setWlDomain() {{
+  var token = localStorage.getItem(TKEY);
+  var domain = document.getElementById("wl-custom-domain").value.trim();
+  var msg = document.getElementById("wl-domain-msg");
+  if (!domain) {{ msg.textContent = "⚠️ Enter a domain."; msg.style.color = "#DC2626"; return; }}
+  fetch("/api/" + SLUG + "/whitelabel/domain", {{
+    method: "POST",
+    headers: {{ "X-Clinic-Token": token || "", "Content-Type": "application/json" }},
+    body: JSON.stringify({{ custom_domain: domain }})
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    if (res.ok) {{
+      msg.textContent = "✅ Domain saved. DNS verification pending."; msg.style.color = "#059669";
+      var instrEl = document.getElementById("wl-domain-instructions");
+      instrEl.style.display = "block";
+      instrEl.innerHTML = "<strong>DNS Setup Required:</strong><br>" + res.data.verification_instructions;
+      document.getElementById("wl-domain-current").style.display = "block";
+      document.getElementById("wl-current-domain").textContent = res.data.custom_domain;
+      _wlLoaded = false; // Force refresh next time
+    }} else {{
+      msg.textContent = "⚠️ " + (res.data.error || "Failed."); msg.style.color = "#DC2626";
+    }}
+  }})
+  .catch(function() {{ msg.textContent = "⚠️ Network error."; msg.style.color = "#DC2626"; }});
+}}
+
+function enableReseller() {{
+  var token = localStorage.getItem(TKEY);
+  var msg = document.getElementById("wl-reseller-msg");
+  var commission = parseFloat(document.getElementById("wl-commission").value) || 20;
+  var maxSubs = parseInt(document.getElementById("wl-max-subs").value) || 0;
+  fetch("/api/" + SLUG + "/whitelabel/reseller/enable", {{
+    method: "POST",
+    headers: {{ "X-Clinic-Token": token || "", "Content-Type": "application/json" }},
+    body: JSON.stringify({{ reseller_commission: commission, max_sub_clinics: maxSubs }})
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    msg.style.display = "inline";
+    if (res.ok) {{
+      msg.textContent = "✅ Reseller mode enabled!"; msg.style.color = "#7C3AED";
+      var rStatus = document.getElementById("wl-reseller-status");
+      rStatus.style.background = "#EDE9FE"; rStatus.style.borderColor = "#DDD6FE";
+      rStatus.innerHTML = '<strong style="color:#7C3AED;">✅ Reseller Mode Active</strong> · Commission: ' +
+                           res.data.reseller_commission + '% · Sub-clinics: ' + res.data.max_sub_clinics;
+    }} else {{
+      msg.textContent = "⚠️ " + (res.data.error || "Failed."); msg.style.color = "#DC2626";
+    }}
+    setTimeout(function() {{ msg.style.display = "none"; }}, 5000);
+  }})
+  .catch(function() {{ msg.textContent = "⚠️ Network error."; msg.style.color = "#DC2626"; msg.style.display = "inline"; }});
+}}
+
+function requestSourceAccess() {{
+  var token = localStorage.getItem(TKEY);
+  var msg = document.getElementById("wl-source-msg");
+  fetch("/api/" + SLUG + "/whitelabel/source-code", {{
+    method: "POST",
+    headers: {{ "X-Clinic-Token": token || "" }}
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    if (res.ok) {{
+      msg.textContent = "✅ Source code access granted!"; msg.style.color = "#059669";
+      document.getElementById("wl-source-status").innerHTML =
+        '<strong style="color:#059669;">✅ Source code access granted.</strong>';
+      var instrEl = document.getElementById("wl-source-instructions");
+      instrEl.style.display = "block";
+      instrEl.textContent = res.data.setup_instructions || "";
+      document.getElementById("wl-source-btn").style.display = "none";
+    }} else {{
+      msg.textContent = "⚠️ " + (res.data.error || "Failed."); msg.style.color = "#DC2626";
+    }}
+  }})
+  .catch(function() {{ msg.textContent = "⚠️ Network error."; msg.style.color = "#DC2626"; }});
+}}
+
+// Show/hide white label tab based on plan
+function maybeShowWlTab(plan) {{
+  if (plan === "enterprise") {{
+    document.getElementById("tab-btn-whitelabel").style.display = "";
+  }}
 }}
 
 function filterAppts() {{
