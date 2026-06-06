@@ -6,7 +6,6 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -164,23 +163,48 @@ app = FastAPI(
 )
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https://api.qrserver.com; "
-            "connect-src 'self' wss: ws:; "
-            "frame-ancestors 'none';"
-        )
-        return response
+class SecurityHeadersMiddleware:
+    """
+    Pure ASGI middleware — injects security headers without wrapping the
+    response body. BaseHTTPMiddleware has a known bug where it overwrites
+    the Content-Type of FileResponse (streaming) to application/json.
+    """
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                security_headers = [
+                    (b"x-content-type-options",  b"nosniff"),
+                    (b"x-frame-options",          b"DENY"),
+                    (b"x-xss-protection",         b"1; mode=block"),
+                    (b"strict-transport-security",b"max-age=63072000; includeSubDomains"),
+                    (b"referrer-policy",          b"strict-origin-when-cross-origin"),
+                    (b"content-security-policy",  (
+                        b"default-src 'self'; "
+                        b"script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
+                        b"style-src 'self' 'unsafe-inline' fonts.googleapis.com; "
+                        b"font-src 'self' fonts.gstatic.com; "
+                        b"img-src 'self' data: https://api.qrserver.com https:; "
+                        b"connect-src 'self' wss: ws: https:; "
+                        b"frame-ancestors 'none';"
+                    )),
+                ]
+                # Only add if not already present (preserves FileResponse Content-Type)
+                existing_keys = {h[0].lower() for h in headers}
+                for key, val in security_headers:
+                    if key not in existing_keys:
+                        headers.append((key, val))
+                message = dict(message, headers=headers)
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
 
 
 app.state.limiter = limiter
