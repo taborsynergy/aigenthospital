@@ -7,7 +7,7 @@ from sqlalchemy import func
 from backend.db.models import (
     Clinic, UsageLog, SmsConversation, Appointment, ChatSession, AuditLog,
     RecallCampaign, RecallLog, Location, WidgetConfig, InsuranceKnowledge,
-    EHRConfiguration, CustomAITraining, Provider,
+    EHRConfiguration, CustomAITraining, Provider, OnboardingSession,
 )
 
 _TOKEN_TTL_DAYS = 30
@@ -1012,3 +1012,95 @@ def count_active_providers(db: Session, clinic_id: int) -> int:
         Provider.clinic_id == clinic_id,
         Provider.is_active.is_(True),
     ).count()
+
+
+# ── Onboarding Sessions (Pro+ Feature) ──────────────────────────────────────
+
+def get_onboarding_session(db: Session, session_id: int, clinic_id: int) -> Optional[OnboardingSession]:
+    """Get a specific onboarding session (with clinic isolation)."""
+    return db.query(OnboardingSession).filter(
+        OnboardingSession.id == session_id,
+        OnboardingSession.clinic_id == clinic_id,
+    ).first()
+
+
+def get_clinic_onboarding_session(db: Session, clinic_id: int) -> Optional[OnboardingSession]:
+    """Get current/latest onboarding session for a clinic."""
+    return db.query(OnboardingSession).filter(
+        OnboardingSession.clinic_id == clinic_id,
+    ).order_by(OnboardingSession.created_at.desc()).first()
+
+
+def create_onboarding_session(db: Session, clinic_id: int, data: dict) -> Optional[OnboardingSession]:
+    """Create a new onboarding session for a clinic."""
+    session = OnboardingSession(
+        clinic_id=clinic_id,
+        contact_name=data.get("contact_name", "").strip(),
+        contact_email=(data.get("contact_email") or "").lower().strip(),
+        contact_phone=data.get("contact_phone", "").strip(),
+        status="pending",
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+def update_onboarding_session(db: Session, session_id: int, clinic_id: int,
+                            data: dict) -> Optional[OnboardingSession]:
+    """Update an onboarding session (with clinic isolation)."""
+    session = get_onboarding_session(db, session_id, clinic_id)
+    if not session:
+        return None
+
+    if "contact_name" in data:
+        session.contact_name = data["contact_name"].strip()
+    if "contact_email" in data:
+        session.contact_email = (data["contact_email"] or "").lower().strip()
+    if "contact_phone" in data:
+        session.contact_phone = data["contact_phone"].strip()
+    if "status" in data:
+        session.status = data["status"]
+    if "scheduled_at" in data and data["scheduled_at"]:
+        session.scheduled_at = data["scheduled_at"]
+    if "completed_at" in data and data["completed_at"]:
+        session.completed_at = data["completed_at"]
+    if "meeting_link" in data:
+        session.meeting_link = data["meeting_link"].strip()
+    if "meeting_platform" in data:
+        session.meeting_platform = data["meeting_platform"].strip()
+    if "duration_minutes" in data:
+        session.duration_minutes = int(data["duration_minutes"]) if data["duration_minutes"] else 60
+    if "notes" in data:
+        session.notes = data["notes"].strip()
+    if "topics_covered" in data:
+        session.topics_covered = data["topics_covered"]
+
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+def mark_onboarding_completed(db: Session, session_id: int, clinic_id: int) -> Optional[OnboardingSession]:
+    """Mark onboarding session as completed."""
+    session = get_onboarding_session(db, session_id, clinic_id)
+    if not session:
+        return None
+
+    session.status = "completed"
+    session.completed_at = datetime.utcnow()
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+def cancel_onboarding_session(db: Session, session_id: int, clinic_id: int) -> Optional[OnboardingSession]:
+    """Cancel an onboarding session."""
+    session = get_onboarding_session(db, session_id, clinic_id)
+    if not session:
+        return None
+
+    session.status = "cancelled"
+    db.commit()
+    db.refresh(session)
+    return session

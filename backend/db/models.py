@@ -108,6 +108,33 @@ class Provider(Base):
 Index("ix_providers_clinic", Provider.clinic_id)
 
 
+class OnboardingSession(Base):
+    """
+    Dedicated onboarding sessions for Pro+ clinics.
+    Tracks onboarding request, scheduling, and completion.
+    """
+    __tablename__ = "onboarding_sessions"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    status          = Column(String,   default="pending")        # pending, scheduled, completed, cancelled
+    requested_at    = Column(DateTime, default=datetime.utcnow)
+    scheduled_at    = Column(DateTime, nullable=True)            # When onboarding is scheduled
+    completed_at    = Column(DateTime, nullable=True)            # When onboarding completed
+    contact_name    = Column(String,   default="")               # Primary contact name
+    contact_email   = Column(String,   default="")               # Primary contact email
+    contact_phone   = Column(String,   default="")               # Primary contact phone
+    meeting_link    = Column(String,   default="")               # Zoom/Meet link for session
+    meeting_platform= Column(String,   default="zoom")           # zoom, meet, teams, etc.
+    duration_minutes= Column(Integer,  default=60)               # Session duration
+    notes           = Column(Text,     default="")               # Onboarding notes/topics covered
+    topics_covered  = Column(Text,     default="")               # CSV: "dashboard,chat,reports,integration"
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+Index("ix_onboarding_clinic", OnboardingSession.clinic_id)
+
+
 class Appointment(Base):
     __tablename__ = "appointments"
 

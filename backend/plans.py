@@ -141,6 +141,13 @@ def can_add_provider(clinic, current_provider_count: int) -> bool:
     return current_provider_count < limit
 
 
+def can_use_dedicated_onboarding(clinic) -> bool:
+    """Check if clinic plan supports dedicated onboarding (Pro+ only)."""
+    plan = get_plan(clinic)
+    # Pro/Enterprise have dedicated onboarding, Starter/Growth do not
+    return plan.get("name") in ["Enterprise"]  # For now, Enterprise only
+
+
 def is_clinic_active(clinic) -> bool:
     """
     Check if a clinic can access the platform.

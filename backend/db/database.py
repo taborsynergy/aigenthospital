@@ -135,6 +135,22 @@ def migrate_db():
         ("providers", "clinic_id",       "INTEGER", ""),
         ("providers", "created_at",      "TIMESTAMP", ""),
         ("providers", "updated_at",      "TIMESTAMP", ""),
+        # Onboarding sessions (Pro+ feature)
+        ("onboarding_sessions", "clinic_id",        "INTEGER",   ""),
+        ("onboarding_sessions", "status",           "VARCHAR",   "DEFAULT 'pending'"),
+        ("onboarding_sessions", "contact_name",     "VARCHAR",   "DEFAULT ''"),
+        ("onboarding_sessions", "contact_email",    "VARCHAR",   "DEFAULT ''"),
+        ("onboarding_sessions", "contact_phone",    "VARCHAR",   "DEFAULT ''"),
+        ("onboarding_sessions", "meeting_link",     "VARCHAR",   "DEFAULT ''"),
+        ("onboarding_sessions", "meeting_platform", "VARCHAR",   "DEFAULT 'zoom'"),
+        ("onboarding_sessions", "duration_minutes", "INTEGER",   "DEFAULT 60"),
+        ("onboarding_sessions", "notes",            "TEXT",      "DEFAULT ''"),
+        ("onboarding_sessions", "topics_covered",   "TEXT",      "DEFAULT ''"),
+        ("onboarding_sessions", "requested_at",     "TIMESTAMP", ""),
+        ("onboarding_sessions", "scheduled_at",     "TIMESTAMP", ""),
+        ("onboarding_sessions", "completed_at",     "TIMESTAMP", ""),
+        ("onboarding_sessions", "created_at",       "TIMESTAMP", ""),
+        ("onboarding_sessions", "updated_at",       "TIMESTAMP", ""),
     ]
 
     inspector = inspect(engine)

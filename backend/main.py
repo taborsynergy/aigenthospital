@@ -86,6 +86,7 @@ from backend.routers.insurance import router as insurance_router  # noqa: E402
 from backend.routers.ehr import router as ehr_router  # noqa: E402
 from backend.routers.custom_ai_training import router as custom_ai_training_router  # noqa: E402
 from backend.routers.providers import router as providers_router  # noqa: E402
+from backend.routers.onboarding import router as onboarding_router  # noqa: E402
 
 _SPECIALTY_ICONS = {
     "dental": "🦷", "dentistry": "🦷", "orthodontics": "🦷",
@@ -181,6 +182,7 @@ app.include_router(insurance_router)
 app.include_router(ehr_router)
 app.include_router(custom_ai_training_router)
 app.include_router(providers_router)
+app.include_router(onboarding_router)
 
 # ── Clinic widget pages ───────────────────────────────────────────────────────
 @app.get("/c/{clinic_slug}", response_class=HTMLResponse)
