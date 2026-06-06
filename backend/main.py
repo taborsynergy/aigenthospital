@@ -1684,12 +1684,24 @@ async def serve_admin_html(request: Request):
 
 @app.get(_admin_panel_path + "/admin.css", include_in_schema=False)
 async def serve_admin_css():
-    return FileResponse(str(admin_dir / "admin.css"), media_type="text/css")
+    css_path = admin_dir / "admin.css"
+    if css_path.exists():
+        content = css_path.read_text(encoding="utf-8")
+    else:
+        content = "/* admin.css not found */"
+    from fastapi.responses import Response as _R
+    return _R(content=content, media_type="text/css")
 
 
 @app.get(_admin_panel_path + "/admin.js", include_in_schema=False)
 async def serve_admin_js():
-    return FileResponse(str(admin_dir / "admin.js"), media_type="application/javascript")
+    js_path = admin_dir / "admin.js"
+    if js_path.exists():
+        content = js_path.read_text(encoding="utf-8")
+    else:
+        content = "/* admin.js not found */"
+    from fastapi.responses import Response as _R
+    return _R(content=content, media_type="application/javascript")
 
 
 # Block the default /admin path — returns blank 404 so it looks non-existent
