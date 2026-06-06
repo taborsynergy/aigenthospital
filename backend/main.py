@@ -1282,10 +1282,7 @@ function showDash() {{
 
   var ecEl = document.getElementById("embed-code");
   if (ecEl) ecEl.textContent = `<!-- Tabor Synergy — ${{NAME}} AI Chat -->
-<script>
-  window.ARIA_CLINIC_SLUG = "${{SLUG}}";
-<\\/script>
-<script src="${{window.location.origin}}/widget.js" async><\\/script>`;
+<script src="${{window.location.origin}}/widget.js?clinic=${{SLUG}}" data-clinic="${{SLUG}}" async><\\/script>`;
 
   var imEl = document.getElementById("invite-msg");
   if (imEl) imEl.textContent = `Hi! 👋
@@ -1301,7 +1298,8 @@ Reply STOP to opt out.`;
   if (!window._widgetLoaded) {{
     window.ARIA_CLINIC_SLUG = SLUG;
     var s = document.createElement("script");
-    s.src = "/widget.js";
+    s.src = "/widget.js?clinic=" + SLUG;
+    s.setAttribute("data-clinic", SLUG);
     document.body.appendChild(s);
     window._widgetLoaded = true;
   }}
@@ -1449,7 +1447,7 @@ async def patient_chat_page(clinic_slug: str, db: Session = Depends(get_db)):
 <script>
   window.ARIA_CLINIC_SLUG = "{clinic_slug}";
 </script>
-<script src="/widget.js" async></script>
+<script src="/widget.js?clinic={clinic_slug}" data-clinic="{clinic_slug}" async></script>
 </body>
 </html>""")
 
@@ -1541,6 +1539,88 @@ async def serve_admin_js():
 @app.get("/admin/", include_in_schema=False)
 async def block_admin_path():
     return HTMLResponse("", status_code=404)
+
+
+# ── Dynamic branded widget.js ─────────────────────────────────────────────────
+@app.get("/widget.js", include_in_schema=False)
+async def serve_widget_js(clinic: str = "", db=Depends(get_db)):
+    """
+    Serve widget.js with optional clinic branding injected as CSS variables.
+    Usage:
+      <script src="/widget.js?clinic=your-slug" data-clinic="your-slug" async></script>
+    Falls back to default colors when no clinic slug is provided or config not found.
+    """
+    from fastapi.responses import Response as FastAPIResponse
+    from backend.db.crud import get_clinic, get_or_create_widget_config
+
+    # Default branding
+    primary_color = "#007ACC"
+    button_color  = "#007ACC"
+    font_family   = "'Segoe UI', sans-serif"
+    widget_title  = "Book an Appointment"
+    widget_subtitle = "Quick and easy scheduling"
+    cta_button_text = "Schedule Now"
+    logo_url      = ""
+    show_logo     = True
+
+    if clinic:
+        clinic_obj = get_clinic(db, clinic)
+        if clinic_obj:
+            cfg = get_or_create_widget_config(db, clinic_obj.id)
+            if cfg:
+                primary_color   = cfg.primary_color   or primary_color
+                button_color    = cfg.button_color    or button_color
+                font_family     = cfg.font_family     or font_family
+                widget_title    = cfg.widget_title    or widget_title
+                widget_subtitle = cfg.widget_subtitle or widget_subtitle
+                cta_button_text = cfg.cta_button_text or cta_button_text
+                logo_url        = cfg.logo_url        or ""
+                show_logo       = cfg.show_logo if cfg.show_logo is not None else True
+
+    # Read base widget.js
+    widget_js_path = frontend_dir / "widget.js"
+    if not widget_js_path.exists():
+        return FastAPIResponse("/* widget.js not found */", media_type="application/javascript")
+
+    base_js = widget_js_path.read_text(encoding="utf-8")
+
+    # Inject branding block at the top of the IIFE — replaces injectCSS call
+    branding_injection = f"""
+  // ── Injected branding (server-side, clinic={clinic!r}) ──────────────
+  (function applyBranding() {{
+    var style = document.createElement("style");
+    style.id  = "aria-widget-branding";
+    style.textContent = [
+      ":root {{",
+      "  --aria-primary: {primary_color};",
+      "  --aria-button:  {button_color};",
+      "  --aria-font:    {font_family};",
+      "}}"
+    ].join("\\n");
+    document.head.appendChild(style);
+  }})();
+  window._ARIA_WIDGET_TITLE    = {repr(widget_title)};
+  window._ARIA_WIDGET_SUBTITLE = {repr(widget_subtitle)};
+  window._ARIA_CTA_TEXT        = {repr(cta_button_text)};
+  window._ARIA_LOGO_URL        = {repr(logo_url)};
+  window._ARIA_SHOW_LOGO       = {'true' if show_logo else 'false'};
+  // ── End injected branding ─────────────────────────────────────────
+"""
+    # Insert after the opening IIFE line
+    branded_js = base_js.replace(
+        '(function () {\n  "use strict";\n',
+        '(function () {\n  "use strict";\n' + branding_injection,
+        1,
+    )
+
+    return FastAPIResponse(
+        content=branded_js,
+        media_type="application/javascript",
+        headers={
+            "Cache-Control": "public, max-age=300",  # 5-min cache; branding changes are rare
+            "X-Clinic": clinic or "default",
+        },
+    )
 
 
 if frontend_dir.exists():
