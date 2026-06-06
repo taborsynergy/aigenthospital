@@ -26,15 +26,44 @@ if settings.sentry_dsn and settings.sentry_dsn.startswith("https://"):
         import sentry_sdk
         from sentry_sdk.integrations.fastapi import FastApiIntegration
         from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+        from sentry_sdk.integrations.logging import LoggingIntegration
+        import logging as _logging
+
         sentry_sdk.init(
             dsn=settings.sentry_dsn,
-            integrations=[FastApiIntegration(), SqlalchemyIntegration()],
-            traces_sample_rate=0.1,   # 10% of requests traced for performance
-            send_default_pii=False,   # never send PII to Sentry
+            integrations=[
+                FastApiIntegration(),
+                SqlalchemyIntegration(),
+                LoggingIntegration(level=_logging.WARNING, event_level=_logging.ERROR),
+            ],
+            traces_sample_rate=0.2,       # 20% of requests traced for performance
+            profiles_sample_rate=0.1,     # 10% profiling
+            send_default_pii=False,        # HIPAA — never send PII to Sentry
             environment="production" if not settings.debug_mode else "development",
+            release="taborsynergy@1.0.0",
+            # Scrub sensitive fields before sending to Sentry
+            before_send=lambda event, hint: _scrub_sentry_event(event),
         )
+        print("✓ Sentry initialized — error tracking active")
     except Exception as e:
         print(f"Warning: Sentry init failed: {e} — continuing without error tracking")
+
+
+def _scrub_sentry_event(event: dict) -> dict:
+    """Remove HIPAA-sensitive fields from Sentry events before transmission."""
+    _PHI_KEYS = {
+        "patient_name", "patient_phone", "patient_email", "patient_dob",
+        "member_id", "group_number", "ssn", "date_of_birth",
+        "password", "token", "session_token", "api_key", "api_key",
+    }
+    def _scrub(obj):
+        if isinstance(obj, dict):
+            return {k: "[REDACTED]" if k.lower() in _PHI_KEYS else _scrub(v)
+                    for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_scrub(i) for i in obj]
+        return obj
+    return _scrub(event)
 
 # ── PHI redaction filter ──────────────────────────────────────────────────────
 _PHI_PATTERNS = [

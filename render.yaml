@@ -19,7 +19,9 @@ services:
       - key: BASE_URL
         value: https://aifrontdesk.taborsynergy.com
       - key: ALLOWED_ORIGINS
-        value: "https://aifrontdesk.taborsynergy.com,https://taborsynergy-agent.onrender.com"
+        value: "*"
+        # Widget embed runs on clinic 3rd-party sites — must allow all origins.
+        # API security is enforced via X-Clinic-Token header auth, not CORS.
       - key: DEBUG_MODE
         value: "false"
       - key: SENTRY_DSN
