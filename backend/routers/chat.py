@@ -447,6 +447,46 @@ async def upgrade_request(
     return {"ok": True, "paypal_url": paypal_url, "new_plan": new_plan, "new_price": new_price}
 
 
+@router.post("/api/{clinic_slug}/cancel-subscription")
+async def cancel_subscription(
+    clinic_slug: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """
+    Clinic requests subscription cancellation.
+    Marks status as 'cancelled' and notifies admin via email.
+    Access remains active until subscription_ends_at.
+    """
+    from backend.services.email_svc import send_subscription_cancelled_email
+
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    if clinic.subscription_status == "cancelled":
+        return JSONResponse(status_code=400, content={"error": "Subscription is already cancelled."})
+
+    if clinic.subscription_status == "trial":
+        return JSONResponse(status_code=400, content={"error": "Trial accounts cannot be cancelled — simply stop using the service."})
+
+    from backend.db.crud import update_clinic
+    update_clinic(db, clinic_slug, {"subscription_status": "cancelled"})
+
+    background_tasks.add_task(send_subscription_cancelled_email, {
+        "clinic_name":  clinic.name,
+        "clinic_email": clinic.email,
+    })
+
+    ends_at = clinic.subscription_ends_at.strftime("%B %d, %Y") if clinic.subscription_ends_at else None
+    return {
+        "ok": True,
+        "message": "Subscription cancelled. Access remains active until the end of your billing period.",
+        "active_until": ends_at,
+    }
+
+
 @router.get("/api/{clinic_slug}/plan")
 async def clinic_plan(
     clinic_slug: str,

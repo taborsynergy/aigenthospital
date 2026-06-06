@@ -563,11 +563,16 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
               </tbody>
             </table>
           </div>
-          <div style="margin-top:16px;text-align:center;">
+          <div style="margin-top:16px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
             <button id="upgrade-btn" onclick="openUpgradeModal()"
                style="display:inline-block;background:#1E40AF;color:#fff;padding:10px 28px;
                       border-radius:8px;font-weight:700;border:none;cursor:pointer;font-size:14px;">
               Upgrade Plan →
+            </button>
+            <button id="cancel-sub-btn" onclick="openCancelModal()"
+               style="display:none;background:#fff;color:#DC2626;padding:10px 22px;
+                      border-radius:8px;font-weight:600;border:1.5px solid #DC2626;cursor:pointer;font-size:14px;">
+              Cancel Subscription
             </button>
           </div>
         </div>
@@ -584,6 +589,29 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
       <button id="upgrade-submit-btn" onclick="submitUpgrade()"
         style="background:#1E40AF;color:#fff;padding:10px 24px;border-radius:8px;font-weight:700;border:none;cursor:pointer;font-size:14px;">
         Pay with PayPal →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Cancel Subscription Modal ── -->
+<div id="cancel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:32px;max-width:440px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,.25);position:relative;">
+    <button onclick="closeCancelModal()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#6B7280;">✕</button>
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:40px;margin-bottom:8px;">⚠️</div>
+      <h2 style="margin:0 0 6px;font-size:20px;color:#DC2626;">Cancel Subscription?</h2>
+      <p style="color:#6B7280;margin:0;font-size:14px;">Your access will remain active until the end of your current billing period. This action cannot be undone.</p>
+    </div>
+    <div id="cancel-ends-at-note" style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:10px 14px;font-size:13px;color:#991B1B;margin-bottom:20px;display:none;"></div>
+    <div id="cancel-modal-msg" style="font-size:13px;margin-bottom:12px;display:none;"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="closeCancelModal()" style="background:#F3F4F6;color:#374151;padding:10px 20px;border-radius:8px;font-weight:600;border:none;cursor:pointer;font-size:14px;">
+        Keep Subscription
+      </button>
+      <button id="cancel-confirm-btn" onclick="confirmCancelSubscription()"
+        style="background:#DC2626;color:#fff;padding:10px 20px;border-radius:8px;font-weight:700;border:none;cursor:pointer;font-size:14px;">
+        Yes, Cancel →
       </button>
     </div>
   </div>
@@ -857,14 +885,27 @@ function loadPlan() {{
 
       // Track current plan for upgrade modal
       _currentPlanKey = p.plan_key || "professional";
+      _currentSubStatus = p.subscription_status || "active";
+      _currentEndsAt = p.subscription_ends_at || null;
       maybeShowWlTab(_currentPlanKey);
+
       var upgradeBtn = document.getElementById("upgrade-btn");
       if (upgradeBtn) {{
-        if (_currentPlanKey === "enterprise") {{
+        if (_currentPlanKey === "enterprise" || _currentSubStatus === "cancelled") {{
           upgradeBtn.style.display = "none";
         }} else {{
           upgradeBtn.style.display = "inline-block";
           upgradeBtn.textContent = "Upgrade Plan →";
+        }}
+      }}
+
+      // Show cancel button only for active paid subscriptions
+      var cancelBtn = document.getElementById("cancel-sub-btn");
+      if (cancelBtn) {{
+        if (_currentSubStatus === "active") {{
+          cancelBtn.style.display = "inline-block";
+        }} else {{
+          cancelBtn.style.display = "none";
         }}
       }}
 
@@ -1053,6 +1094,70 @@ function showUpgradeMsg(html, color) {{
   el.innerHTML = html;
   el.style.color = color || "#374151";
   el.style.display = "block";
+}}
+
+// ── Cancel Subscription ───────────────────────────────────────────────────────
+var _currentSubStatus = "active";
+var _currentEndsAt    = null;
+
+function openCancelModal() {{
+  var modal = document.getElementById("cancel-modal");
+  modal.style.display = "flex";
+  document.getElementById("cancel-modal-msg").style.display = "none";
+  document.getElementById("cancel-confirm-btn").disabled = false;
+  document.getElementById("cancel-confirm-btn").textContent = "Yes, Cancel →";
+
+  var noteEl = document.getElementById("cancel-ends-at-note");
+  if (_currentEndsAt) {{
+    noteEl.textContent = "Your access will remain active until " + _currentEndsAt + ".";
+    noteEl.style.display = "block";
+  }} else {{
+    noteEl.style.display = "none";
+  }}
+}}
+
+function closeCancelModal() {{
+  document.getElementById("cancel-modal").style.display = "none";
+}}
+
+function confirmCancelSubscription() {{
+  var token = localStorage.getItem(TKEY);
+  var btn = document.getElementById("cancel-confirm-btn");
+  var msg = document.getElementById("cancel-modal-msg");
+  btn.disabled = true;
+  btn.textContent = "Cancelling…";
+
+  fetch("/api/" + SLUG + "/cancel-subscription", {{
+    method: "POST",
+    headers: {{ "X-Clinic-Token": token || "" }}
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    msg.style.display = "block";
+    if (res.ok) {{
+      msg.style.color = "#059669";
+      msg.textContent = "✅ " + (res.data.message || "Subscription cancelled.");
+      btn.style.display = "none";
+      // Update UI to reflect cancelled status
+      document.getElementById("cancel-sub-btn").style.display = "none";
+      document.getElementById("upgrade-btn").style.display = "none";
+      _currentSubStatus = "cancelled";
+      // Reload plan section after 2s
+      setTimeout(function() {{ closeCancelModal(); loadPlan(); }}, 2500);
+    }} else {{
+      msg.style.color = "#DC2626";
+      msg.textContent = "⚠️ " + (res.data.error || "Failed to cancel.");
+      btn.disabled = false;
+      btn.textContent = "Yes, Cancel →";
+    }}
+  }})
+  .catch(function() {{
+    msg.style.display = "block";
+    msg.style.color = "#DC2626";
+    msg.textContent = "⚠️ Network error. Please try again.";
+    btn.disabled = false;
+    btn.textContent = "Yes, Cancel →";
+  }});
 }}
 
 // ── White Label ──────────────────────────────────────────────────────────────
