@@ -190,6 +190,13 @@ def list_appointments(db: Session, clinic_id: int, limit: int = 200) -> list[App
     )
 
 
+def get_appointment_by_confirmation(db: Session, confirmation_number: str, clinic_id: int) -> Optional[Appointment]:
+    return db.query(Appointment).filter(
+        Appointment.confirmation_number == confirmation_number,
+        Appointment.clinic_id == clinic_id,
+    ).first()
+
+
 def update_appointment_status(db: Session, confirmation_number: str, status: str) -> Optional[Appointment]:
     appt = db.query(Appointment).filter(Appointment.confirmation_number == confirmation_number).first()
     if appt:

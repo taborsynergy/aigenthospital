@@ -186,6 +186,21 @@ def generate_slots(
 
         current += timedelta(days=1)
 
+    # Annotate slots with location if multi-location is configured
+    if db and clinic and slots:
+        try:
+            from backend.plans import can_use_location_routing
+            from backend.db.crud import list_locations
+            if can_use_location_routing(clinic):
+                locations = list_locations(db, clinic.id)
+                if locations:
+                    primary = next((l for l in locations if l.is_primary), locations[0])
+                    for slot in slots:
+                        slot["location_name"] = primary.name
+                        slot["location_address"] = primary.address or clinic.address
+        except Exception:
+            pass
+
     return slots
 
 
@@ -295,6 +310,17 @@ def book_appointment(
     # Send booking confirmation SMS (best-effort, non-blocking)
     if patient_phone and clinic and db:
         _send_confirmation_sms(conf_num, clinic, db)
+
+    # Sync to EHR if configured (best-effort, non-blocking)
+    if clinic and db:
+        try:
+            from backend.services.ehr_svc import sync_appointment_to_ehr
+            from backend.db.crud import get_appointment_by_confirmation
+            appt_obj = get_appointment_by_confirmation(db, conf_num, clinic.id)
+            if appt_obj:
+                sync_appointment_to_ehr(clinic.id, appt_obj, db)
+        except Exception:
+            logger.debug("EHR sync skipped for %s", conf_num)
 
     return {
         "success":             True,

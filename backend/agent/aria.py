@@ -78,9 +78,9 @@ def _session_key(clinic_id: int, session_id: str) -> str:
     return f"{clinic_id}:{session_id}"
 
 
-def _get_prompt(clinic) -> str:
+def _get_prompt(clinic, db=None) -> str:
     if clinic.id not in _prompts:
-        _prompts[clinic.id] = build_system_prompt(clinic)
+        _prompts[clinic.id] = build_system_prompt(clinic, db=db)
     return _prompts[clinic.id]
 
 
@@ -139,7 +139,7 @@ async def chat(
         _save_history(clinic.id, session_id, history, db, channel)
         return text, is_escalated
 
-    system_prompt = _get_prompt(clinic)
+    system_prompt = _get_prompt(clinic, db=db)
     is_escalated  = False
     total_input   = 0
     total_output  = 0
@@ -228,7 +228,7 @@ async def chat_stream(
         yield ("done", (text, is_escalated))
         return
 
-    system_prompt = _get_prompt(clinic)
+    system_prompt = _get_prompt(clinic, db=db)
     is_escalated  = False
     total_input   = 0
     total_output  = 0

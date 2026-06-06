@@ -15,8 +15,74 @@ def _safe(value: str, max_len: int = 500) -> str:
     return cleaned[:max_len]
 
 
-def build_system_prompt(clinic) -> str:
+def _build_insurance_section(clinic) -> str:
+    """Build insurance section from InsuranceKnowledge model if available."""
+    base = _safe(clinic.insurance_accepted, 300)
+    try:
+        if hasattr(clinic, "_db") and clinic._db:
+            from backend.db.crud import get_insurance_knowledge
+            knowledge = get_insurance_knowledge(clinic._db, clinic.id)
+            if knowledge:
+                parts = [base] if base else []
+                if knowledge.accepted_plans:
+                    parts.append(f"Accepted plans: {_safe(knowledge.accepted_plans, 500)}")
+                if knowledge.copay_info:
+                    parts.append(f"Co-pay info: {_safe(knowledge.copay_info, 300)}")
+                if knowledge.deductible_info:
+                    parts.append(f"Deductible info: {_safe(knowledge.deductible_info, 300)}")
+                if knowledge.prior_auth_notes:
+                    parts.append(f"Prior auth: {_safe(knowledge.prior_auth_notes, 300)}")
+                if knowledge.custom_knowledge:
+                    parts.append(_safe(knowledge.custom_knowledge, 500))
+                return " | ".join(p for p in parts if p)
+    except Exception:
+        pass
+    return base
+
+
+def _build_custom_training_section(clinic) -> str:
+    """Append custom AI training data to system prompt if available."""
+    try:
+        if hasattr(clinic, "_db") and clinic._db:
+            from backend.services.custom_ai_training_svc import build_training_prompt_injection
+            injection = build_training_prompt_injection(clinic._db, clinic.id)
+            if injection:
+                return f"\n\n## CLINIC-SPECIFIC TRAINING DATA\n{injection}"
+    except Exception:
+        pass
+    return ""
+
+
+def _build_location_section(clinic) -> str:
+    """Append multi-location info to system prompt if available."""
+    try:
+        if hasattr(clinic, "_db") and clinic._db:
+            from backend.db.crud import list_locations
+            from backend.plans import can_use_location_routing
+            if can_use_location_routing(clinic):
+                locations = list_locations(clinic._db, clinic.id)
+                if len(locations) > 1:
+                    loc_lines = []
+                    for loc in locations:
+                        line = f"- {loc.name}: {loc.address}"
+                        if loc.zip_code_coverage:
+                            line += f" (serves zips: {loc.zip_code_coverage})"
+                        if loc.phone:
+                            line += f" | {loc.phone}"
+                        loc_lines.append(line)
+                    return "\n\nMULTI-LOCATION PRACTICES:\n" + "\n".join(loc_lines) + \
+                           "\nWhen a patient mentions their zip code or area, route them to the nearest location."
+    except Exception:
+        pass
+    return ""
+
+
+def build_system_prompt(clinic, db=None) -> str:
     """Build a system prompt from a Clinic DB model or any object with the same attributes."""
+    # Attach db to clinic temporarily so helper functions can use it
+    if db is not None and not hasattr(clinic, "_db"):
+        clinic._db = db
+
     agent_name  = _safe(clinic.agent_name,          50)
     name        = _safe(clinic.name,               100)
     specialty   = _safe(clinic.specialty,           100)
@@ -29,11 +95,13 @@ def build_system_prompt(clinic) -> str:
     after_hours         = _safe(clinic.after_hours_protocol, 300)
     providers           = _safe(clinic.providers,          300)
     services_offered    = _safe(clinic.services_offered,   300)
-    insurance_accepted  = _safe(clinic.insurance_accepted, 300)
+    insurance_accepted  = _build_insurance_section(clinic)
     cancellation_policy = _safe(clinic.cancellation_policy, 200)
     hipaa_method        = _safe(clinic.hipaa_verify_method, 200)
     escalation_contact  = _safe(clinic.escalation_contact,  100)
     pms_system          = _safe(clinic.pms_system,           50)
+    custom_training     = _build_custom_training_section(clinic)
+    location_section    = _build_location_section(clinic)
 
     return f"""You are {agent_name}, the AI front desk assistant for {name}, \
 a {specialty} practice in {city_state}. You are powered by Tabor Synergy.
@@ -202,4 +270,4 @@ our team will follow up within 15 minutes. Is there anything else I can help you
 - Confirm details back before taking action
 - After completing any task, always end with: "Is there anything else I can help you with today?"
 - Keep responses to 2–4 sentences unless listing options or analytics data
-"""
+{location_section}{custom_training}"""
