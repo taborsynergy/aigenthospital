@@ -1150,3 +1150,18 @@ def get_by_custom_domain(db: Session, domain: str) -> Optional[WhitelabelConfig]
         WhitelabelConfig.custom_domain == domain.lower(),
         WhitelabelConfig.domain_verified.is_(True)
     ).first()
+
+
+def get_db_clinics_for_onboarding(db: Session) -> list:
+    """Get clinics that are in trial or active and need onboarding emails (Day 12 not yet sent)."""
+    from backend.db.models import Clinic
+    return (
+        db.query(Clinic)
+        .filter(
+            Clinic.email != "",
+            Clinic.onboarding_emails_sent < 12,
+            Clinic.subscription_status.in_(["trial", "active"]),
+            Clinic.is_active.is_(True),
+        )
+        .all()
+    )

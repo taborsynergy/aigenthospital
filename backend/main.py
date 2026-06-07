@@ -1645,12 +1645,32 @@ def on_startup():
             finally:
                 db.close()
 
+        def _onboarding_job_wrapper():
+            """Wrapper for onboarding email sequence."""
+            from backend.jobs.onboarding_jobs import run_onboarding_email_sequence
+            db = SessionLocal()
+            try:
+                result = run_onboarding_email_sequence(db)
+                _logger.info(f"Onboarding job completed: {result}")
+            except Exception as e:
+                _logger.error(f"Onboarding job failed: {e}")
+            finally:
+                db.close()
+
         # Schedule daily at 1 AM UTC
         scheduler.add_job(
             _trial_job_wrapper,
             CronTrigger(hour=1, minute=0),
             id="trial_expiry_check",
             name="Trial Expiry Check",
+            replace_existing=True
+        )
+        # Schedule onboarding emails daily at 9 AM UTC
+        scheduler.add_job(
+            _onboarding_job_wrapper,
+            CronTrigger(hour=9, minute=0),
+            id="onboarding_email_sequence",
+            name="Onboarding Email Sequence",
             replace_existing=True
         )
         scheduler.start()

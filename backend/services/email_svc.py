@@ -547,3 +547,278 @@ def send_trial_expired_to_clinic(data: dict) -> bool:
     if clinic_email:
         msg.replace_header("To", clinic_email)
     return _send(msg)
+
+
+# ── Onboarding Email Sequence ─────────────────────────────────────────────────
+
+def send_onboarding_day0(data: dict) -> bool:
+    """Day 0 — Welcome email sent immediately on signup."""
+    clinic_email = data.get("clinic_email", "")
+    if not clinic_email:
+        return False
+
+    plan = data.get("plan", "starter")
+    subject = {
+        "starter":      "Your AI front desk is ready — here's how to turn it on ⚕️",
+        "professional": "Welcome to Professional — let's get SMS live today ⚕️",
+        "enterprise":   "Welcome to Enterprise — let's schedule your onboarding call ⚕️",
+        "white_label":  "White Label access granted — your platform is ready to deploy ⚕️",
+    }.get(plan, "Your AI front desk is ready ⚕️")
+
+    plain = f"""Hi {data.get('first_name', 'there')},
+
+Welcome to Tabor Synergy! Your 14-day free trial starts now.
+
+Your clinic portal: {data.get('portal_url', 'https://aifrontdesk.taborsynergy.com')}
+
+3-STEP LAUNCH:
+1. Fill in your clinic profile (Settings tab) — 5 minutes
+2. Embed Aria on your website (Widget tab) — 5 minutes
+3. Send a test message → type "I need an appointment"
+
+Trial ends: {data.get('trial_ends_at', 'in 14 days')}
+No credit card needed until then.
+
+Questions? Reply to this email — I respond personally.
+
+— Dinakar, Founder · Tabor Synergy
+aifrontdesk.taborsynergy.com"""
+
+    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#1E40AF;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Welcome to Tabor Synergy</h2>
+  <p style="color:#93C5FD;margin:4px 0 0">Your 14-day free trial starts now ⚕️</p>
+</div>
+<div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0">
+  <p>Hi <strong>{data.get('first_name', 'there')}</strong>,</p>
+  <p>Welcome! Your free trial is activated. Let's get Aria live in 3 steps:</p>
+  <ol style="color:#0F172A">
+    <li><strong>Fill in your clinic profile</strong> (Settings tab) — 5 min</li>
+    <li><strong>Embed Aria on your website</strong> (Widget tab) — 5 min</li>
+    <li><strong>Send a test message</strong> → type "I need an appointment"</li>
+  </ol>
+  <p>Your clinic portal: <a href="{data.get('portal_url', 'https://aifrontdesk.taborsynergy.com')}" style="color:#1E40AF">{data.get('portal_url', 'https://aifrontdesk.taborsynergy.com')}</a></p>
+  <p><strong>Trial ends:</strong> {data.get('trial_ends_at', 'in 14 days')}<br/>No credit card required until then.</p>
+  <p style="margin-top:20px;font-size:13px;color:#666">Questions? Just reply to this email — I respond personally.</p>
+  <p style="margin-top:20px;font-size:12px;color:#999">— Dinakar<br/>Founder, Tabor Synergy</p>
+</div></body></html>"""
+
+    msg = _build_msg(subject, plain, html, reply_to="write2dinakar10@gmail.com")
+    msg.replace_header("To", clinic_email)
+    return _send(msg)
+
+
+def send_onboarding_day1(data: dict) -> bool:
+    """Day 1 — Widget / SMS check-in."""
+    clinic_email = data.get("clinic_email", "")
+    if not clinic_email:
+        return False
+
+    subject = f"Is Aria live on your website yet? [{data.get('clinic_name', '')}]"
+    plain = f"""Hi {data.get('first_name', 'there')},
+
+Quick check-in — did you embed Aria on your website yesterday?
+
+If not yet, here's the 2-minute fix:
+1. Login to {data.get('portal_url')}
+2. Go to "Widget" tab
+3. Copy the embed code
+4. Paste before </body> tag on your website
+
+WordPress:    Appearance → Theme Editor → footer.php
+Squarespace:  Settings → Advanced → Code Injection → Footer
+Wix:          Add → HTML iFrame → paste code
+Custom HTML:  Paste before closing </body> tag
+
+Still stuck? Reply with your website URL and I'll write the exact code.
+
+— Dinakar, Tabor Synergy"""
+
+    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#1E40AF;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Day 1 Check-In</h2>
+  <p style="color:#93C5FD;margin:4px 0 0">Is Aria live on your website yet?</p>
+</div>
+<div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0">
+  <p>Hi <strong>{data.get('first_name', 'there')}</strong>,</p>
+  <p>Quick check-in — did you embed Aria on your website yesterday? If yes, great! Test it with "I need an appointment." If not yet, here's the 2-minute fix:</p>
+  <ol style="color:#0F172A">
+    <li>Login to <a href="{data.get('portal_url')}" style="color:#1E40AF">{data.get('portal_url')}</a></li>
+    <li>Click <strong>Widget</strong> tab</li>
+    <li>Copy the embed code</li>
+    <li>Paste before <code>&lt;/body&gt;</code> on your website</li>
+  </ol>
+  <p style="font-size:13px;color:#666;margin-top:16px"><strong>Stuck?</strong> Reply with your website URL and I'll write the exact code for you.</p>
+  <p style="margin-top:20px;font-size:12px;color:#999">— Dinakar · Tabor Synergy</p>
+</div></body></html>"""
+
+    msg = _build_msg(subject, plain, html, reply_to="write2dinakar10@gmail.com")
+    msg.replace_header("To", clinic_email)
+    return _send(msg)
+
+
+def send_onboarding_day3(data: dict) -> bool:
+    """Day 3 — Power tips (insurance + recall)."""
+    clinic_email = data.get("clinic_email", "")
+    if not clinic_email:
+        return False
+
+    subject = f"3 things that make Aria 10x better"
+    plain = f"""Hi {data.get('first_name', 'there')},
+
+3 days in — here are the 3 things that make the biggest difference:
+
+1. FILL IN YOUR INSURANCE LIST
+   Login → Settings → Insurance Accepted → add every plan you accept
+   This makes Aria answer "Do you accept my insurance?" instantly.
+
+2. SET YOUR AFTER-HOURS MESSAGE
+   Settings → After Hours Protocol
+   Example: "For emergencies call 911. We return calls by 9am next day."
+
+3. ADD YOUR CANCELLATION POLICY
+   Settings → Cancellation Policy
+   Example: "24-hour notice required. Late cancellations incur $50 fee."
+
+These 3 changes take 10 minutes and double Aria's response quality.
+
+Portal: {data.get('portal_url')}
+
+— Dinakar, Tabor Synergy
+
+P.S. Your trial has 11 days remaining."""
+
+    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#1E40AF;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Power Tips</h2>
+  <p style="color:#93C5FD;margin:4px 0 0">3 settings that make Aria 10x better</p>
+</div>
+<div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0">
+  <p>Hi <strong>{data.get('first_name', 'there')}</strong>,</p>
+  <p>You're 3 days in! Here are the 3 settings that make the biggest difference:</p>
+  <h3 style="color:#0F172A;font-size:14px;margin:16px 0 8px">1. Insurance List</h3>
+  <p style="margin:0;font-size:13px;color:#666">Settings → Insurance Accepted → add every plan you accept. Aria will then answer "Do you accept my insurance?" instantly.</p>
+  <h3 style="color:#0F172A;font-size:14px;margin:16px 0 8px">2. After-Hours Message</h3>
+  <p style="margin:0;font-size:13px;color:#666">Settings → After Hours Protocol. Example: "For emergencies call 911. We return calls by 9am next day."</p>
+  <h3 style="color:#0F172A;font-size:14px;margin:16px 0 8px">3. Cancellation Policy</h3>
+  <p style="margin:0;font-size:13px;color:#666">Settings → Cancellation Policy. Example: "24-hour notice required. Late cancellations incur $50 fee."</p>
+  <p style="margin:16px 0;font-size:13px;color:#666">These 3 changes take 10 minutes and double Aria's quality. <a href="{data.get('portal_url')}" style="color:#1E40AF">Update your settings →</a></p>
+  <p style="font-size:12px;color:#999;margin-top:20px">— Dinakar<br/>Founder, Tabor Synergy</p>
+  <p style="font-size:11px;color:#CCC;margin-top:12px;padding-top:12px;border-top:1px solid #E5E7EB">P.S. Your trial has 11 days remaining.</p>
+</div></body></html>"""
+
+    msg = _build_msg(subject, plain, html, reply_to="write2dinakar10@gmail.com")
+    msg.replace_header("To", clinic_email)
+    return _send(msg)
+
+
+def send_onboarding_day7(data: dict) -> bool:
+    """Day 7 — Usage review + upgrade nudge."""
+    clinic_email = data.get("clinic_email", "")
+    if not clinic_email:
+        return False
+
+    plan = data.get("plan", "starter")
+    subject = f"Halfway through your trial — how is it going?"
+
+    upgrade_section = ""
+    if plan == "starter":
+        upgrade_section = "\nREADY FOR MORE?\nProfessional ($597/mo) adds SMS, WhatsApp, 5 providers, and recall campaigns.\nUpgrade anytime: Billing tab → Upgrade Plan"
+
+    plain = f"""Hi {data.get('first_name', 'there')},
+
+You're halfway through your 14-day trial! Quick question:
+Has Aria answered any patient messages yet?
+
+Check your usage: {data.get('portal_url')} → Analytics{upgrade_section}
+
+Your trial ends on {data.get('trial_ends_at', 'soon')}.
+To keep Aria running: Billing tab → Activate Subscription.
+
+Questions? Just reply — happy to help.
+
+— Dinakar, Tabor Synergy"""
+
+    upgrade_html = ""
+    if plan == "starter":
+        portal_url = data.get('portal_url')
+        upgrade_html = f'<div style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:6px;padding:14px;margin:16px 0;font-size:13px"><strong style="color:#92400E">Ready for more?</strong><br/>Professional ($597/mo) adds SMS, WhatsApp, 5 providers, and recall campaigns.<br/><a href="{portal_url}" style="color:#1E40AF">Upgrade Plan →</a></div>'
+
+    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#1E40AF;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Halfway Through</h2>
+  <p style="color:#93C5FD;margin:4px 0 0">How is Aria working for you?</p>
+</div>
+<div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0">
+  <p>Hi <strong>{data.get('first_name', 'there')}</strong>,</p>
+  <p>You're halfway through your trial! Quick question: <strong>Has Aria answered any patient messages yet?</strong></p>
+  <p>Check your usage: <a href="{data.get('portal_url')}" style="color:#1E40AF">{data.get('portal_url')}</a> → Analytics</p>
+  {upgrade_html}
+  <p style="margin-top:16px;font-size:13px;color:#666"><strong>Your trial ends:</strong> {data.get('trial_ends_at', 'soon')}<br/>To keep Aria running, go to Billing tab → Activate Subscription.</p>
+  <p style="margin-top:20px;font-size:12px;color:#999">Questions? Just reply — happy to help.<br/>— Dinakar · Tabor Synergy</p>
+</div></body></html>"""
+
+    msg = _build_msg(subject, plain, html, reply_to="write2dinakar10@gmail.com")
+    msg.replace_header("To", clinic_email)
+    return _send(msg)
+
+
+def send_onboarding_day12(data: dict) -> bool:
+    """Day 12 — Trial ending in 2 days."""
+    clinic_email = data.get("clinic_email", "")
+    if not clinic_email:
+        return False
+
+    plan = data.get("plan", "starter")
+    prices = {"starter": "$297", "professional": "$597", "enterprise": "$997", "white_label": "$997"}
+    price = prices.get(plan, "$297")
+    plan_label = {"starter": "Starter", "professional": "Professional", "enterprise": "Enterprise", "white_label": "White Label"}.get(plan, "Starter")
+
+    subject = f"Your trial ends in 2 days — activate to continue"
+    plain = f"""Hi {data.get('first_name', 'there')},
+
+Your 14-day trial ends on {data.get('trial_ends_at', 'soon')} — in 2 days.
+
+To keep Aria running for your patients, activate your subscription:
+{data.get('portal_url')} → Billing → Activate
+
+{plan_label.upper()} PLAN: {price}/month
+Everything you've been using during your trial
+Cancel anytime, no contracts
+
+If you have questions before deciding, reply to this email.
+I'll personally help.
+
+If timing isn't right now, no problem — your account stays accessible
+and you can reactivate whenever you're ready.
+
+Thank you for trying Tabor Synergy!
+
+— Dinakar
+Founder, Tabor Synergy
+aifrontdesk.taborsynergy.com"""
+
+    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#DC2626;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Trial Ends in 2 Days</h2>
+  <p style="color:#FECACA;margin:4px 0 0">Activate your subscription to continue</p>
+</div>
+<div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0">
+  <p>Hi <strong>{data.get('first_name', 'there')}</strong>,</p>
+  <p>Your 14-day trial ends on <strong>{data.get('trial_ends_at', 'soon')}</strong> — in 2 days.</p>
+  <p style="margin:16px 0;">To keep Aria running for your patients, activate your subscription:</p>
+  <div style="background:#1E40AF;color:#fff;padding:16px;border-radius:8px;text-align:center;margin:16px 0">
+    <a href="{data.get('portal_url')}/billing" style="color:#fff;text-decoration:none;font-weight:700;font-size:16px">Activate Subscription →</a>
+  </div>
+  <table style="width:100%;font-size:13px;margin:16px 0">
+    <tr><td style="padding:6px 0"><strong>{plan_label.upper()} PLAN</strong></td><td style="text-align:right;font-weight:700">{price}/month</td></tr>
+    <tr><td colspan="2" style="padding:6px 0;color:#666;font-size:12px">✓ Everything you've been using<br/>✓ Cancel anytime<br/>✓ No contracts</td></tr>
+  </table>
+  <p style="font-size:13px;color:#666;margin:16px 0">If you have questions before deciding, <strong>reply to this email</strong>. I'll help personally.</p>
+  <p style="font-size:13px;color:#666;margin:16px 0">If timing isn't right now, your account stays accessible and you can reactivate whenever you're ready.</p>
+  <p style="font-size:12px;color:#999;margin-top:20px;padding-top:16px;border-top:1px solid #E5E7EB">Thank you for trying Tabor Synergy!<br/>— Dinakar<br/>Founder, Tabor Synergy</p>
+</div></body></html>"""
+
+    msg = _build_msg(subject, plain, html, reply_to="write2dinakar10@gmail.com")
+    msg.replace_header("To", clinic_email)
+    return _send(msg)

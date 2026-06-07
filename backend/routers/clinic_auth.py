@@ -158,6 +158,22 @@ def signup(request: Request, body: dict, db: Session = Depends(get_db)):
     crud.set_session_token(db, clinic.id, token)
     logger.info("Trial signup: slug=%s, email=%s", clinic.slug, email)
 
+    # Send Day 0 welcome email (async, non-blocking)
+    try:
+        from backend.services.email_svc import send_onboarding_day0
+        send_onboarding_day0({
+            "clinic_name": clinic.name,
+            "clinic_email": clinic.email,
+            "first_name": clinic.name.split()[0] if clinic.name else "there",
+            "slug": clinic.slug,
+            "plan": "starter",
+            "trial_ends_at": clinic.trial_ends_at.strftime("%B %d, %Y") if clinic.trial_ends_at else "soon",
+            "portal_url": f"https://aifrontdesk.taborsynergy.com/c/{clinic.slug}",
+        })
+        clinic.onboarding_emails_sent = 0  # Mark Day 0 as sent by APScheduler
+    except Exception as e:
+        logger.error(f"Failed to send Day 0 onboarding email to {clinic.email}: {e}")
+
     return {
         "token": token,
         "slug": clinic.slug,

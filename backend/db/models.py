@@ -50,6 +50,10 @@ class Clinic(Base):
     activated_at            = Column(DateTime, nullable=True)
     admin_notes             = Column(Text, default="")
 
+    # Onboarding email sequence tracking
+    # Stores highest day sent: 0=Day0, 1=Day1, 3=Day3, 7=Day7, 12=Day12, 99=complete
+    onboarding_emails_sent  = Column(Integer, default=0)
+
     is_active   = Column(Boolean,  default=True)
     created_at  = Column(DateTime, default=datetime.utcnow)
     updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
