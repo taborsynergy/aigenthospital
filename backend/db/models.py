@@ -426,9 +426,8 @@ class ClinicUser(Base):
     # Metadata
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-Index("ix_clinic_users_clinic", ClinicUser.clinic_id)
-Index("ix_clinic_users_email", ClinicUser.email)
+    # Note: clinic_id and email already get indexes via index=True on the columns above;
+    # no explicit Index() needed (a same-named explicit index would collide on create_all).
 
 
 class OnboardingChecklist(Base):

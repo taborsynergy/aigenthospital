@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from backend.db.database import get_db
 from backend.db.models import OnboardingChecklist, Clinic, ClinicUser
 from backend.auth import verify_access_token
-from backend.email_service import send_email
+from backend.services.email_svc import send_email
 
 router = APIRouter(prefix="/api/clinic/onboarding", tags=["clinic-onboarding"])
 
@@ -227,18 +227,31 @@ async def validate_smtp(
     """
     clinic, user = get_clinic_and_user(clinic_slug, user_id, db)
 
+    import smtplib
+    import ssl
+    from email.mime.text import MIMEText
+
     try:
-        # Test send email
-        send_email(
-            to=user.email,
-            subject="Aria AI — SMTP Configuration Test",
-            body="This is a test email to verify your SMTP configuration.\n\nIf you received this, your settings are correct!",
-            smtp_host=req.smtp_host,
-            smtp_port=req.smtp_port,
-            smtp_user=req.smtp_user,
-            smtp_pass=req.smtp_pass,
-            from_email=req.from_email
+        # Test the clinic-provided SMTP credentials directly (don't touch global config)
+        msg = MIMEText(
+            "This is a test email to verify your SMTP configuration.\n\n"
+            "If you received this, your settings are correct!"
         )
+        msg["Subject"] = "Aria AI — SMTP Configuration Test"
+        msg["From"] = req.from_email
+        msg["To"] = user.email
+
+        if int(req.smtp_port) == 465:
+            ctx = ssl.create_default_context()
+            with smtplib.SMTP_SSL(req.smtp_host, 465, context=ctx, timeout=15) as smtp:
+                smtp.login(req.smtp_user, req.smtp_pass)
+                smtp.sendmail(req.from_email, [user.email], msg.as_string())
+        else:
+            with smtplib.SMTP(req.smtp_host, int(req.smtp_port), timeout=15) as smtp:
+                smtp.ehlo()
+                smtp.starttls()
+                smtp.login(req.smtp_user, req.smtp_pass)
+                smtp.sendmail(req.from_email, [user.email], msg.as_string())
 
         # Mark as tested
         checklist = db.query(OnboardingChecklist).filter(
@@ -277,10 +290,16 @@ async def validate_twilio(
 
         # Test Twilio connection
         client = Client(req.account_sid, req.auth_token)
+        if not clinic.phone:
+            raise HTTPException(
+                status_code=400,
+                detail="Clinic phone number not set. Complete 'Clinic Info' step first."
+            )
+
         message = client.messages.create(
             body="Aria AI: SMS configuration test. If you received this, your Twilio setup is correct!",
             from_=req.phone_number,
-            to=user.clinic.phone  # Send to clinic's primary phone
+            to=clinic.phone  # Send to clinic's primary phone
         )
 
         # Mark as tested

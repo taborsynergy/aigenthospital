@@ -86,6 +86,48 @@ def _send(msg: MIMEMultipart) -> bool:
     return False
 
 
+def send_email(to: str, subject: str, body: str) -> bool:
+    """
+    Generic plain-text email to an arbitrary recipient (clinic users, password resets).
+    Returns False gracefully if SMTP is not configured — never raises, so callers
+    (user creation, go-live) never crash on email failure.
+    """
+    if not settings.smtp_host or not settings.smtp_user:
+        logger.warning("send_email skipped — SMTP not configured (to=%s, subject=%s)", to, subject)
+        return False
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = f"Aria AI <{settings.smtp_user}>"
+    msg["To"]      = to
+    msg.attach(MIMEText(body, "plain"))
+
+    def _via_ssl() -> None:
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL(settings.smtp_host, 465, context=ctx, timeout=15) as smtp:
+            smtp.login(settings.smtp_user, settings.smtp_pass)
+            smtp.sendmail(settings.smtp_user, [to], msg.as_string())
+
+    def _via_starttls() -> None:
+        port = settings.smtp_port or 587
+        with smtplib.SMTP(settings.smtp_host, port, timeout=15) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(settings.smtp_user, settings.smtp_pass)
+            smtp.sendmail(settings.smtp_user, [to], msg.as_string())
+
+    for attempt, send_fn in [("SSL/465", _via_ssl), ("STARTTLS/587", _via_starttls)]:
+        try:
+            send_fn()
+            logger.info("send_email sent via %s to %s", attempt, to)
+            return True
+        except Exception as exc:
+            logger.warning("send_email attempt %s failed: %s: %s", attempt, type(exc).__name__, exc)
+
+    logger.error("send_email: all delivery attempts failed for %s", to)
+    return False
+
+
 # ── public API ────────────────────────────────────────────────────────────────
 
 def send_trial_signup_email(data: dict) -> bool:

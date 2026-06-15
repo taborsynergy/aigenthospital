@@ -10,13 +10,13 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
-import bcrypt
 
 from backend.db.database import get_db
 from backend.db.models import ClinicUser, Clinic
 from backend.config import settings
 from backend.auth import create_access_token, verify_access_token
-from backend.email_service import send_email
+from backend.routers.clinic_auth import hash_password, verify_password
+from backend.services.email_svc import send_email
 
 router = APIRouter(prefix="/api/clinic/users", tags=["clinic-users"])
 
@@ -66,15 +66,7 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
-# ─── Helper Functions ───────────────────────────────────────────────────────
-def hash_password(password: str) -> str:
-    """Hash password with bcrypt"""
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-
-def verify_password(password: str, password_hash: str) -> bool:
-    """Verify password with bcrypt"""
-    return bcrypt.checkpw(password.encode(), password_hash.encode())
+# hash_password / verify_password are imported from clinic_auth (stdlib PBKDF2)
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────

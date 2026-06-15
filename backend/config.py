@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     admin_password: str
     admin_panel_path: str = "/ts-mgmt"   # Secret URL — change via ADMIN_PANEL_PATH env var
 
+    # ── Clinic user JWT auth ─────────────────────────────────────────
+    # Signing key for clinic-user JWT tokens. Falls back to admin_password
+    # in auth.py if left blank, so no new env var is strictly required.
+    jwt_secret_key: str = ""
+
     # ── PayPal ───────────────────────────────────────────────────────
     paypal_me_url: str = "https://www.paypal.com/paypalme/write2dinakar"
 

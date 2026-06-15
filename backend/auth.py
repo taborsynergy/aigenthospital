@@ -6,11 +6,16 @@ import jwt
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from backend.config import settings
 
 security = HTTPBearer()
+
+
+def _signing_key() -> str:
+    """JWT signing key — explicit jwt_secret_key, else fall back to admin_password."""
+    return settings.jwt_secret_key or settings.admin_password
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -35,13 +40,13 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
     encoded_jwt = jwt.encode(
         to_encode,
-        settings.jwt_secret_key or "your-secret-key-change-this",
+        _signing_key(),
         algorithm="HS256"
     )
     return encoded_jwt
 
 
-def verify_access_token(credentials: HTTPAuthCredentials = Depends(security)) -> int:
+def verify_access_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> int:
     """
     Verify JWT token and return user_id.
 
@@ -61,7 +66,7 @@ def verify_access_token(credentials: HTTPAuthCredentials = Depends(security)) ->
     try:
         payload = jwt.decode(
             token,
-            settings.jwt_secret_key or "your-secret-key-change-this",
+            _signing_key(),
             algorithms=["HS256"]
         )
         user_id: int = payload.get("user_id")
