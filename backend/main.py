@@ -239,6 +239,12 @@ app.include_router(providers_router)
 app.include_router(onboarding_router)
 app.include_router(whitelabel_router)
 
+# ── Health check endpoint (for Render uptime monitoring) ───────────────────────
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint for uptime monitoring and deployment verification."""
+    return {"status": "ok", "service": "taborsynergy-agent"}
+
 # ── Clinic widget pages ───────────────────────────────────────────────────────
 @app.get("/c/{clinic_slug}", response_class=HTMLResponse)
 async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
