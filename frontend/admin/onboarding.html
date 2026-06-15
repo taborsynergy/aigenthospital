@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aria AI - Setup Checklist</title>
+    <link rel="stylesheet" href="admin.css">
+    <style>
+        .onboarding-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .onboarding-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .onboarding-header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #1f2937;
+        }
+
+        .onboarding-header p {
+            font-size: 16px;
+            color: #6b7280;
+        }
+
+        .progress-container {
+            margin-bottom: 40px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 14px;
+            color: #6b7280;
+            text-align: center;
+        }
+
+        .checklist {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .checklist-item {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .checklist-item:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+        }
+
+        .checklist-item.completed {
+            border-color: #10b981;
+            background: #ecfdf5;
+        }
+
+        .checklist-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .checklist-checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #d1d5db;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .checklist-item.completed .checklist-checkbox {
+            background: #10b981;
+            border-color: #10b981;
+            color: white;
+            font-size: 14px;
+        }
+
+        .checklist-title {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 16px;
+        }
+
+        .checklist-description {
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+
+        .step-status {
+            font-size: 12px;
+            margin-top: 12px;
+            padding: 8px 12px;
+            background: #f3f4f6;
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .step-status.completed {
+            background: #d1fae5;
+            color: #047857;
+        }
+
+        .step-status.pending {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .launch-button {
+            width: 100%;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 40px;
+        }
+
+        .launch-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4);
+        }
+
+        .launch-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 24px;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            margin-bottom: 8px;
+            color: #1f2937;
+        }
+
+        .modal-header p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1f2937;
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+
+        .success-message {
+            background: #d1fae5;
+            border: 1px solid #6ee7b7;
+            color: #047857;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e5e7eb;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .ready-badge {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="onboarding-container">
+        <div class="onboarding-header">
+            <h1>🚀 Setup Your Aria AI Portal</h1>
+            <p>Complete these 6 steps to launch your clinic's appointment system</p>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+            <div class="progress-text">
+                <span id="progressPercent">0</span>% complete
+            </div>
+        </div>
+
+        <div class="checklist" id="checklist"></div>
+
+        <button class="launch-button" id="launchButton" disabled>
+            🎉 Launch Portal Now
+        </button>
+    </div>
+
+    <!-- Modal for editing steps -->
+    <div class="modal" id="stepModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Edit Step</h2>
+                <p id="modalDescription"></p>
+            </div>
+
+            <div id="messageContainer"></div>
+            <form id="stepForm"></form>
+
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveStep()">Save & Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/clinic';
+        let clinicSlug = null;
+        let token = null;
+        let checklist = null;
+
+        // Parse clinic slug from URL or localStorage
+        function getClinicSlug() {
+            const url = new URL(window.location.href);
+            return url.hostname.split('.')[0];
+        }
+
+        // Get token from localStorage
+        function getToken() {
+            return localStorage.getItem('auth_token');
+        }
+
+        // Initialize on page load
+        async function init() {
+            clinicSlug = getClinicSlug();
+            token = getToken();
+
+            if (!token) {
+                window.location.href = `/login?redirect=/onboarding`;
+                return;
+            }
+
+            await loadChecklist();
+        }
+
+        // Load checklist from API
+        async function loadChecklist() {
+            try {
+                const response = await fetch(`${API_BASE}/onboarding/${clinicSlug}/status`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load checklist');
+                }
+
+                checklist = await response.json();
+                renderChecklist();
+                updateProgress();
+            } catch (error) {
+                console.error('Error loading checklist:', error);
+                showError('Failed to load checklist. Please refresh the page.');
+            }
+        }
+
+        // Render checklist items
+        function renderChecklist() {
+            const checklistContainer = document.getElementById('checklist');
+            checklistContainer.innerHTML = '';
+
+            Object.values(checklist.steps).forEach(step => {
+                const item = document.createElement('div');
+                item.className = `checklist-item ${step.completed ? 'completed' : ''}`;
+                item.onclick = () => openModal(step.name);
+
+                item.innerHTML = `
+                    <div class="checklist-header">
+                        <div class="checklist-checkbox">
+                            ${step.completed ? '✓' : ''}
+                        </div>
+                        <div>
+                            <div class="checklist-title">${step.label}</div>
+                            <div class="checklist-description">${step.description}</div>
+                            <div class="step-status ${step.completed ? 'completed' : 'pending'}">
+                                ${step.completed ? '✓ Completed' : '○ Pending'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                checklistContainer.appendChild(item);
+            });
+        }
+
+        // Update progress bar
+        function updateProgress() {
+            const completed = Object.values(checklist.steps).filter(s => s.completed).length;
+            const total = Object.values(checklist.steps).length;
+            const percent = Math.round((completed / total) * 100);
+
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressPercent').textContent = percent;
+
+            // Enable launch button if all complete
+            const launchButton = document.getElementById('launchButton');
+            launchButton.disabled = !checklist.go_live_ready;
+        }
+
+        // Modal functions
+        function openModal(stepName) {
+            const step = checklist.steps[stepName];
+            if (!step) return;
+
+            document.getElementById('modalTitle').textContent = step.label;
+            document.getElementById('modalDescription').textContent = step.description;
+            document.getElementById('messageContainer').innerHTML = '';
+
+            const form = document.getElementById('stepForm');
+            form.innerHTML = getFormHTML(stepName);
+
+            document.getElementById('stepModal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('stepModal').classList.remove('show');
+        }
+
+        // Get form HTML for each step
+        function getFormHTML(stepName) {
+            const forms = {
+                'clinic_info': `
+                    <div class="form-group">
+                        <label>Clinic Specialty</label>
+                        <input type="text" id="specialty" placeholder="e.g., Family Medicine, Pediatrics" value="Family Medicine">
+                    </div>
+                    <div class="form-group">
+                        <label>Address</label>
+                        <input type="text" id="address" placeholder="Clinic street address">
+                    </div>
+                    <div class="form-group">
+                        <label>City, State</label>
+                        <input type="text" id="city_state" placeholder="e.g., New York, NY">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <input type="tel" id="phone" placeholder="(555) 123-4567">
+                    </div>
+                `,
+                'branding': `
+                    <div class="form-group">
+                        <label>Logo URL</label>
+                        <input type="url" id="logo_url" placeholder="https://example.com/logo.png">
+                    </div>
+                    <div class="form-group">
+                        <label>Primary Color</label>
+                        <input type="color" id="primary_color" value="#3b82f6">
+                    </div>
+                    <div class="form-group">
+                        <label>Custom Text</label>
+                        <textarea id="custom_text" placeholder="Optional: custom welcome message"></textarea>
+                    </div>
+                `,
+                'email_config': `
+                    <div class="form-group">
+                        <label>SMTP Host</label>
+                        <input type="text" id="smtp_host" placeholder="smtp.gmail.com">
+                    </div>
+                    <div class="form-group">
+                        <label>SMTP Port</label>
+                        <input type="number" id="smtp_port" value="587">
+                    </div>
+                    <div class="form-group">
+                        <label>SMTP User</label>
+                        <input type="email" id="smtp_user" placeholder="your-email@gmail.com">
+                    </div>
+                    <div class="form-group">
+                        <label>SMTP Password</label>
+                        <input type="password" id="smtp_pass" placeholder="app password (not your main password)">
+                    </div>
+                    <div class="form-group">
+                        <label>From Email</label>
+                        <input type="email" id="from_email" placeholder="noreply@clinic.com">
+                    </div>
+                `,
+                'sms_config': `
+                    <div class="form-group">
+                        <label>Twilio Account SID</label>
+                        <input type="text" id="account_sid" placeholder="AC...">
+                    </div>
+                    <div class="form-group">
+                        <label>Twilio Auth Token</label>
+                        <input type="password" id="auth_token" placeholder="Your auth token">
+                    </div>
+                    <div class="form-group">
+                        <label>Twilio Phone Number</label>
+                        <input type="tel" id="phone_number" placeholder="+1234567890">
+                    </div>
+                `,
+                'emr_integration': `
+                    <div class="form-group">
+                        <label>EMR System</label>
+                        <select id="ehr_system">
+                            <option value="">Select your EMR</option>
+                            <option value="epic">Epic</option>
+                            <option value="cerner">Cerner</option>
+                            <option value="athenahealth">Athena Health</option>
+                            <option value="eclinicalworks">eClinicalWorks</option>
+                            <option value="medidata">Medidata</option>
+                            <option value="manual">Manual (we'll provide API docs)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>API Endpoint (if applicable)</label>
+                        <input type="url" id="api_endpoint" placeholder="https://api.youremr.com/v1">
+                    </div>
+                `,
+                'staff_training': `
+                    <div class="form-group">
+                        <label>Training Completed?</label>
+                        <p style="margin: 16px 0; color: #6b7280;">
+                            ✓ Dashboard walkthrough<br>
+                            ✓ How to approve appointments<br>
+                            ✓ How to view patient summaries<br>
+                            ✓ How to export reports
+                        </p>
+                        <input type="checkbox" id="training_check" style="width: auto; margin-right: 8px;">
+                        <label for="training_check" style="display: inline; margin: 0;">I have trained my staff</label>
+                    </div>
+                `
+            };
+
+            return forms[stepName] || '';
+        }
+
+        // Save step
+        async function saveStep() {
+            const stepName = Object.keys(checklist.steps).find(name =>
+                document.getElementById('stepModal').classList.contains('show')
+            );
+
+            if (!stepName) return;
+
+            const formData = {};
+            document.querySelectorAll('[id]').forEach(input => {
+                if (input.id && input.value) {
+                    formData[input.id] = input.value;
+                }
+            });
+
+            try {
+                const response = await fetch(`${API_BASE}/onboarding/${clinicSlug}/steps/${stepName}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ step: stepName, data: formData })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save step');
+                }
+
+                showSuccess(`${Object.values(checklist.steps).find(s => s.name === stepName)?.label} saved!`);
+                closeModal();
+                await loadChecklist();
+            } catch (error) {
+                console.error('Error saving step:', error);
+                showError('Failed to save. Please try again.');
+            }
+        }
+
+        // Launch clinic
+        async function launchClinic() {
+            if (!confirm('Are you ready to launch your clinic portal? Patients will be able to book appointments.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/onboarding/${clinicSlug}/go-live`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to launch');
+                }
+
+                const result = await response.json();
+                alert(`🎉 Welcome to Aria AI!\n\nYour portal is now live!\n\n${result.portal_url}`);
+                window.location.href = result.admin_url;
+            } catch (error) {
+                console.error('Error launching:', error);
+                showError('Failed to launch. Please try again.');
+            }
+        }
+
+        // Message helpers
+        function showSuccess(message) {
+            const container = document.getElementById('messageContainer');
+            container.innerHTML = `<div class="success-message">${message}</div>`;
+        }
+
+        function showError(message) {
+            const container = document.getElementById('messageContainer');
+            container.innerHTML = `<div class="error-message">${message}</div>`;
+        }
+
+        // Event listeners
+        document.getElementById('launchButton').addEventListener('click', launchClinic);
+        document.getElementById('stepModal').addEventListener('click', (e) => {
+            if (e.target.id === 'stepModal') closeModal();
+        });
+
+        // Initialize
+        init();
+    </script>
+</body>
+</html>

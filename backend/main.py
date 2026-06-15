@@ -106,6 +106,8 @@ from backend.routers.sms import router as sms_router  # noqa: E402
 from backend.routers.billing import router as billing_router  # noqa: E402
 from backend.routers.signup import router as signup_router  # noqa: E402
 from backend.routers.clinic_auth import router as clinic_auth_router  # noqa: E402
+from backend.routers.clinic_users import router as clinic_users_router  # noqa: E402
+from backend.routers.clinic_onboarding import router as clinic_onboarding_router  # noqa: E402
 from backend.routers.reminders import router as reminders_router  # noqa: E402
 from backend.routers.recall import router as recall_router  # noqa: E402
 from backend.routers.locations import router as locations_router  # noqa: E402
@@ -228,6 +230,8 @@ app.include_router(sms_router)
 app.include_router(billing_router)
 app.include_router(signup_router)
 app.include_router(clinic_auth_router)
+app.include_router(clinic_users_router)
+app.include_router(clinic_onboarding_router)
 app.include_router(reminders_router)
 app.include_router(recall_router)
 app.include_router(locations_router)

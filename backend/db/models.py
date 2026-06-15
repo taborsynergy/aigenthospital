@@ -400,3 +400,79 @@ class WhitelabelConfig(Base):
 Index("ix_whitelabel_clinic", WhitelabelConfig.clinic_id)
 Index("ix_whitelabel_reseller", WhitelabelConfig.is_reseller)
 Index("ix_whitelabel_domain", WhitelabelConfig.custom_domain)
+
+
+class ClinicUser(Base):
+    """
+    Admin/staff users for a clinic.
+    Each clinic can have multiple users with different roles.
+    """
+    __tablename__ = "clinic_users"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    email           = Column(String,   unique=True, nullable=False, index=True)
+    password_hash   = Column(String,   nullable=False)
+    full_name       = Column(String,   nullable=False)
+    role            = Column(String,   default="staff")        # admin | manager | staff | billing
+    is_active       = Column(Boolean,  default=True)
+    # Password reset
+    reset_token     = Column(String,   default="", index=True)
+    reset_token_expires = Column(DateTime, nullable=True)
+    # Login tracking
+    last_login_at   = Column(DateTime, nullable=True)
+    failed_login_attempts = Column(Integer, default=0)
+    locked_until    = Column(DateTime, nullable=True)
+    # Metadata
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+Index("ix_clinic_users_clinic", ClinicUser.clinic_id)
+Index("ix_clinic_users_email", ClinicUser.email)
+
+
+class OnboardingChecklist(Base):
+    """
+    Tracks setup checklist completion for clinics (Day 1-5 onboarding).
+    Used to monitor progress and trigger go-live actions.
+    """
+    __tablename__ = "onboarding_checklists"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), unique=True, index=True)
+
+    # Step 1: Clinic Info
+    clinic_info_completed = Column(Boolean, default=False)
+    clinic_info_data = Column(Text, default="{}")  # JSON: specialty, address, etc.
+
+    # Step 2: Branding
+    branding_completed = Column(Boolean, default=False)
+    branding_data = Column(Text, default="{}")  # JSON: logo_url, primary_color, etc.
+
+    # Step 3: Email Config (SMTP)
+    email_config_completed = Column(Boolean, default=False)
+    email_config_data = Column(Text, default="{}")  # JSON: smtp_host, smtp_port, etc.
+    email_config_tested = Column(Boolean, default=False)
+
+    # Step 4: SMS Config (Twilio)
+    sms_config_completed = Column(Boolean, default=False)
+    sms_config_data = Column(Text, default="{}")  # JSON: twilio_account_sid, etc.
+    sms_config_tested = Column(Boolean, default=False)
+
+    # Step 5: EMR Integration
+    emr_integration_completed = Column(Boolean, default=False)
+    emr_integration_data = Column(Text, default="{}")  # JSON: ehr_system, api_endpoint, etc.
+
+    # Step 6: Staff Training
+    staff_training_completed = Column(Boolean, default=False)
+    staff_training_date = Column(DateTime, nullable=True)
+
+    # Go-Live
+    go_live_date = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    # Metadata
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+Index("ix_onboarding_checklist_clinic", OnboardingChecklist.clinic_id)
