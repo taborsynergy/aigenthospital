@@ -9,9 +9,15 @@ from sqlalchemy.orm import Session
 from backend.db.database import get_db
 from backend.db.models import WidgetConfig
 from backend.db.crud import get_clinic_by_token
+from backend.plans import can_embed_widget
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
+
+_WIDGET_UPGRADE_MSG = (
+    "The website embed widget is available on the Growth and Enterprise plans. "
+    "Please upgrade to enable it."
+)
 
 
 class WidgetConfigUpdate(BaseModel):
@@ -53,6 +59,9 @@ def get_widget_config(
     if not clinic or clinic.slug != clinic_slug:
         return JSONResponse(status_code=403, content={"error": "Unauthorized"})
 
+    if not can_embed_widget(clinic):
+        return JSONResponse(status_code=403, content={"error": _WIDGET_UPGRADE_MSG})
+
     cfg = db.query(WidgetConfig).filter(WidgetConfig.clinic_id == clinic.id).first()
     if not cfg:
         # Return defaults
@@ -82,6 +91,9 @@ def update_widget_config(
     clinic = get_clinic_by_token(db, x_clinic_token)
     if not clinic or clinic.slug != clinic_slug:
         return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    if not can_embed_widget(clinic):
+        return JSONResponse(status_code=403, content={"error": _WIDGET_UPGRADE_MSG})
 
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
     if not updates:

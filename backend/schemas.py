@@ -11,6 +11,7 @@ class ClinicProfileUpdate(BaseModel):
     Staff can update their own clinic's profile info (not admin-only).
     """
     name: Optional[str] = None
+    agent_name: Optional[str] = None   # AI assistant name — plan-gated in the route
     specialty: Optional[str] = None
     address: Optional[str] = None
     city_state: Optional[str] = None
@@ -34,6 +35,15 @@ class ClinicProfileUpdate(BaseModel):
             v = v.strip()
             if len(v) < 2 or len(v) > 100:
                 raise ValueError("Clinic name must be 2–100 characters.")
+        return v
+
+    @field_validator("agent_name")
+    @classmethod
+    def validate_agent_name(cls, v):
+        if v is not None:
+            v = v.strip()
+            if len(v) < 2 or len(v) > 40:
+                raise ValueError("Agent name must be 2–40 characters.")
         return v
 
     @field_validator("specialty")

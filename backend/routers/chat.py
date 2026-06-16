@@ -344,6 +344,15 @@ async def update_profile(
     if not updates:
         return JSONResponse(status_code=400, content={"error": "No fields to update."})
 
+    # Custom agent name is a Growth+ feature — block it on plans that don't include it
+    if "agent_name" in updates:
+        from backend.plans import can_customize_agent_name
+        if not can_customize_agent_name(clinic):
+            return JSONResponse(status_code=403, content={
+                "error": "Customizing the assistant name is available on the Growth and "
+                         "Enterprise plans. Please upgrade to change it."
+            })
+
     # Record before state for audit
     before = {k: getattr(clinic, k, None) for k in updates.keys()}
 
