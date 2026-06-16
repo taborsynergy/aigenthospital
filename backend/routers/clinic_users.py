@@ -7,7 +7,7 @@ from typing import Optional
 import json
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
@@ -16,9 +16,17 @@ from backend.db.models import ClinicUser, Clinic
 from backend.config import settings
 from backend.auth import create_access_token, verify_access_token
 from backend.routers.clinic_auth import hash_password, verify_password
+from backend.routers.admin import require_admin
 from backend.services.email_svc import send_email
+from backend.db.crud import write_audit_log
+from backend.limiter import limiter
 
 router = APIRouter(prefix="/api/clinic/users", tags=["clinic-users"])
+
+# Roles a clinic user may hold. Anything else is rejected at creation time.
+ALLOWED_ROLES = {"admin", "manager", "staff", "billing"}
+# Minimum password length for clinic users (matches a sane production baseline).
+MIN_PASSWORD_LEN = 8
 
 
 # ─── Pydantic Models ──────────────────────────────────────────────────────
@@ -70,15 +78,35 @@ class ResetPasswordRequest(BaseModel):
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────
-@router.post("/create", response_model=dict)
+@router.post("/create", response_model=dict, dependencies=[Depends(require_admin)])
 async def create_clinic_user(
     req: CreateClinicUserRequest,
+    request: Request,
     db: Session = Depends(get_db)
 ) -> dict:
     """
     Create a new clinic user (admin/staff).
-    Called during Day 1 kickoff to create admin account.
+    Called during Day 1 kickoff to create the admin account.
+
+    SECURITY: protected by the platform admin password (X-Admin-Password header)
+    via require_admin. Without this, anyone could mint a clinic-admin account for
+    any clinic. Self-service staff invites can be layered on later behind a
+    clinic-admin JWT, but account bootstrap stays platform-admin-only.
     """
+    # Validate role against the allowlist (never trust client-supplied role)
+    if req.role not in ALLOWED_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid role. Must be one of: {', '.join(sorted(ALLOWED_ROLES))}",
+        )
+
+    # Enforce a minimum password strength
+    if len(req.password) < MIN_PASSWORD_LEN:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {MIN_PASSWORD_LEN} characters",
+        )
+
     # Verify clinic exists
     clinic = db.query(Clinic).filter(Clinic.slug == req.clinic_slug).first()
     if not clinic:
@@ -104,6 +132,16 @@ async def create_clinic_user(
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # Audit: who got a clinic account, with what role
+    write_audit_log(
+        db,
+        actor="admin",
+        action="clinic_user.create",
+        target=f"{clinic.slug}:{user.email}",
+        detail=json.dumps({"role": user.role, "user_id": user.id}),
+        ip=(request.client.host if request.client else ""),
+    )
 
     # Send welcome email
     send_email(
@@ -139,7 +177,9 @@ async def create_clinic_user(
 
 
 @router.post("/login", response_model=LoginResponse)
+@limiter.limit("10/hour")   # brute-force protection per IP (matches app-wide pattern)
 async def login(
+    request: Request,
     req: LoginRequest,
     db: Session = Depends(get_db)
 ) -> LoginResponse:
@@ -160,12 +200,17 @@ async def login(
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # Check if account is locked
+    # Check if account is currently locked
     if user.locked_until and user.locked_until > datetime.utcnow():
         raise HTTPException(
             status_code=429,
             detail="Account locked due to too many failed attempts. Try again later."
         )
+
+    # Lock window has elapsed — reset the counter so a stale count can't re-lock instantly
+    if user.locked_until and user.locked_until <= datetime.utcnow():
+        user.failed_login_attempts = 0
+        user.locked_until = None
 
     # Verify password
     if not verify_password(req.password, user.password_hash):
@@ -204,7 +249,9 @@ async def login(
 
 
 @router.post("/forgot-password")
+@limiter.limit("5/hour")   # prevent reset-email flooding / enumeration probing
 async def forgot_password(
+    request: Request,
     req: ForgotPasswordRequest,
     db: Session = Depends(get_db)
 ) -> dict:
@@ -249,13 +296,26 @@ async def forgot_password(
 
 
 @router.post("/reset-password")
+@limiter.limit("5/hour")   # prevent brute-forcing reset tokens
 async def reset_password(
+    request: Request,
     req: ResetPasswordRequest,
     db: Session = Depends(get_db)
 ) -> dict:
     """
     Reset password using reset token.
     """
+    # Enforce password strength on reset too
+    if len(req.new_password) < MIN_PASSWORD_LEN:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {MIN_PASSWORD_LEN} characters",
+        )
+
+    # Reject empty/blank tokens outright (avoid matching users with empty reset_token="")
+    if not req.token or not req.token.strip():
+        raise HTTPException(status_code=400, detail="Invalid reset token")
+
     user = db.query(ClinicUser).filter(
         ClinicUser.reset_token == req.token
     ).first()
