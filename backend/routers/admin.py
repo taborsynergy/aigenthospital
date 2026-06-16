@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 # ── Auth ─────────────────────────────────────────────────────────────────────
 
 def require_admin(x_admin_password: Optional[str] = Header(None)):
-    if x_admin_password != settings.admin_password:
+    # .strip() both sides so a stray trailing space/newline in the ADMIN_PASSWORD
+    # env var (a common deploy gotcha) can't silently break login.
+    if (x_admin_password or "").strip() != (settings.admin_password or "").strip():
         raise HTTPException(status_code=401, detail="Invalid admin password")
 
 
