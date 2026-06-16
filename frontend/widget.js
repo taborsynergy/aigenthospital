@@ -160,10 +160,43 @@
     input.value = "";
     autoResize();
 
+    // Instant emergency tripwire — surface 911 guidance immediately, before the
+    // AI round-trip (which can take ~30s). The message is still sent to the agent
+    // so server-side escalation / staff alerting still happens.
+    if (isLikelyEmergency(text)) appendEmergencyBanner();
+
     isWaiting = true;
     sendBtn.disabled = true;
 
     ws.send(JSON.stringify({ message: text }));
+  }
+
+  // ── Emergency tripwire (client-side, zero-latency) ──────────────────
+  var EMERGENCY_PATTERNS = [
+    /chest pain/, /can'?t breathe/, /cannot breathe/, /trouble breathing/, /difficulty breathing/,
+    /heart attack/, /having a stroke/, /face (is )?drooping/, /slurred speech/,
+    /arm (is |feels )?numb/, /numb arm/,
+    /not breathing/, /unconscious/, /unresponsive/, /passed out/,
+    /severe bleeding/, /bleeding (won'?t|wont) stop/, /heavy bleeding/,
+    /overdose/, /seizure/, /convuls/, /choking/, /anaphylax/,
+    /suicid/, /kill myself/, /want to die/, /end my life/, /\bdying\b/
+  ];
+  function isLikelyEmergency(text) {
+    var t = (text || "").toLowerCase();
+    return EMERGENCY_PATTERNS.some(function (re) { return re.test(t); });
+  }
+  function appendEmergencyBanner() {
+    if (msgList.querySelector(".aria-911-banner")) return; // show once per session
+    var b = document.createElement("div");
+    b.className = "aria-911-banner";
+    b.setAttribute("role", "alert");
+    b.style.cssText = "margin:8px 0;padding:12px 14px;border-radius:10px;background:#b91c1c;" +
+      "color:#fff;font-weight:600;line-height:1.45;box-shadow:0 2px 8px rgba(185,28,28,.35)";
+    b.innerHTML = '🚨 If this is a medical emergency, call ' +
+      '<a href="tel:911" style="color:#fff;text-decoration:underline;font-weight:800">911</a>' +
+      ' now — don\'t wait for a reply.';
+    msgList.appendChild(b);
+    scrollToBottom();
   }
 
   function sendQuickReply(text) {
