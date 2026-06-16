@@ -499,7 +499,7 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
 
       <div class="share-card">
         <h2>🔗 Patient Chat Link</h2>
-        <p>Share this link with your patients via SMS, WhatsApp, or email. They can open it in any browser — no app or login needed — and start chatting with {clinic.agent_name} instantly.</p>
+        <p>Share this link with your patients via SMS or email. They can open it in any browser — no app or login needed — and start chatting with {clinic.agent_name} instantly.</p>
         <div class="url-row">
           <span class="url-text" id="patient-url"></span>
           <button class="btn-copy" onclick="copyText('patient-url', this)">Copy Link</button>
@@ -520,7 +520,6 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
               <strong>Copy the link above</strong> and paste it into any message to your patients.
               <div class="channel-pills">
                 <span class="pill">📱 SMS / Text</span>
-                <span class="pill">💬 WhatsApp</span>
                 <span class="pill">✉️ Email</span>
                 <span class="pill">📘 Facebook</span>
                 <span class="pill">📷 Instagram Bio</span>
@@ -1002,7 +1001,7 @@ function loadPlan() {{
 
       // Feature cards
       var fRows = [
-        ["💬 SMS / WhatsApp",          p.features.sms],
+        ["💬 SMS",                     p.features.sms],
         ["🔧 Website embed widget",    p.features.widget_embed],
         ["✏️ Custom agent name",       p.features.custom_agent_name],
         ["🏷️ White-label branding",   p.features.white_label],
@@ -1032,7 +1031,7 @@ function loadPlan() {{
         ["Appointment booking", function()   {{ return "✅"; }}],
         ["Insurance & billing", function()   {{ return "✅"; }}],
         ["Appointments dashboard", function(){{ return "✅"; }}],
-        ["SMS / WhatsApp",      function(pl) {{ return pl.sms   ? "✅" : "❌"; }}],
+        ["SMS",                 function(pl) {{ return pl.sms   ? "✅" : "❌"; }}],
         ["Website embed widget",function(pl) {{ return pl.embed ? "✅" : "❌"; }}],
         ["Custom agent name",   function(pl) {{ return pl.custom? "✅" : "❌"; }}],
         ["White-label",         function(pl) {{ return pl.wl    ? "✅" : "❌"; }}],

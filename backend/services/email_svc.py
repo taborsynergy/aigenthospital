@@ -487,7 +487,7 @@ def send_trial_expiry_reminder_to_clinic(data: dict) -> bool:
         "Don't lose access! Upgrade now to continue using TaborSynergy Agent.",
         "",
         "Growth Plan: $597/month",
-        "  ✅ SMS & WhatsApp messaging",
+        "  ✅ SMS messaging",
         "  ✅ Custom insurance knowledge",
         "  ✅ Monthly reports",
         "",
@@ -513,7 +513,7 @@ def send_trial_expiry_reminder_to_clinic(data: dict) -> bool:
   <div style="background:#FEF2F2;padding:16px;border-left:4px solid #DC2626;border-radius:4px">
     <strong>Growth Plan: $597/month</strong>
     <ul style="margin:8px 0;padding-left:20px;font-size:14px">
-      <li>SMS & WhatsApp messaging</li>
+      <li>SMS messaging</li>
       <li>Custom insurance knowledge</li>
       <li>Monthly performance reports</li>
       <li>Priority support</li>
@@ -765,7 +765,7 @@ def send_onboarding_day7(data: dict) -> bool:
 
     upgrade_section = ""
     if plan == "starter":
-        upgrade_section = "\nREADY FOR MORE?\nProfessional ($597/mo) adds SMS, WhatsApp, 5 providers, and recall campaigns.\nUpgrade anytime: Billing tab → Upgrade Plan"
+        upgrade_section = "\nREADY FOR MORE?\nProfessional ($597/mo) adds SMS, 5 providers, and recall campaigns.\nUpgrade anytime: Billing tab → Upgrade Plan"
 
     plain = f"""Hi {data.get('first_name', 'there')},
 
@@ -784,7 +784,7 @@ Questions? Just reply — happy to help.
     upgrade_html = ""
     if plan == "starter":
         portal_url = data.get('portal_url')
-        upgrade_html = f'<div style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:6px;padding:14px;margin:16px 0;font-size:13px"><strong style="color:#92400E">Ready for more?</strong><br/>Professional ($597/mo) adds SMS, WhatsApp, 5 providers, and recall campaigns.<br/><a href="{portal_url}" style="color:#1E40AF">Upgrade Plan →</a></div>'
+        upgrade_html = f'<div style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:6px;padding:14px;margin:16px 0;font-size:13px"><strong style="color:#92400E">Ready for more?</strong><br/>Professional ($597/mo) adds SMS, 5 providers, and recall campaigns.<br/><a href="{portal_url}" style="color:#1E40AF">Upgrade Plan →</a></div>'
 
     html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
 <div style="background:#1E40AF;padding:20px;border-radius:8px 8px 0 0">

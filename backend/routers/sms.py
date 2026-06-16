@@ -1,7 +1,6 @@
 """
-Twilio inbound SMS and WhatsApp webhooks.
-POST /sms/inbound      — called by Twilio when a patient texts the clinic's number.
-POST /whatsapp/inbound — called by Twilio when a patient messages via WhatsApp.
+Twilio inbound SMS webhook.
+POST /sms/inbound — called by Twilio when a patient texts the clinic's number.
 """
 import logging
 
@@ -12,7 +11,7 @@ from backend.config import settings
 from backend.db.database import get_db
 from backend.db.crud import get_clinic_by_twilio_number, get_or_create_sms_session
 from backend.agent import aria
-from backend.plans import can_use_sms, can_use_whatsapp
+from backend.plans import can_use_sms
 from backend.services.twilio_svc import twiml_response
 
 router = APIRouter()
@@ -40,15 +39,14 @@ async def _handle_inbound(
     channel: str,
     path_suffix: str,
 ):
-    """Shared handler for both SMS and WhatsApp inbound messages."""
+    """Handler for inbound SMS messages."""
     if not await _validate_twilio_signature(request, path_suffix):
         logger.warning("Invalid Twilio signature — possible spoofed %s from %s",
                        channel.upper(), request.client.host if request.client else "unknown")
         return Response(content="", media_type="application/xml", status_code=403)
 
-    # Normalize WhatsApp From/To (strip "whatsapp:" prefix for number lookup)
-    lookup_to = To.replace("whatsapp:", "")
-    lookup_from = From.replace("whatsapp:", "")
+    lookup_to = To
+    lookup_from = From
 
     logger.info("Inbound %s: from=%s to=%s body=%s", channel.upper(), lookup_from, lookup_to, Body[:60])
 
@@ -61,7 +59,7 @@ async def _handle_inbound(
         )
 
     # Plan gate check
-    plan_ok = can_use_whatsapp(clinic) if channel == "whatsapp" else can_use_sms(clinic)
+    plan_ok = can_use_sms(clinic)
     if not plan_ok:
         return Response(
             content=twiml_response(
@@ -117,17 +115,3 @@ async def inbound_sms(
 ):
     return await _handle_inbound(request, From, To, Body, db,
                                  channel="sms", path_suffix="/sms/inbound")
-
-
-@router.post("/whatsapp/inbound")
-async def inbound_whatsapp(
-    request: Request,
-    From: str = Form(...),
-    To: str = Form(...),
-    Body: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    """Twilio WhatsApp inbound webhook. Configure in Twilio Console:
-    Messaging > WhatsApp Sandbox > When a message comes in → POST /whatsapp/inbound"""
-    return await _handle_inbound(request, From, To, Body, db,
-                                 channel="whatsapp", path_suffix="/whatsapp/inbound")

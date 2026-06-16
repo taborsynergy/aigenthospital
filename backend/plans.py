@@ -25,7 +25,6 @@ PLANS = {
         "price":               597,
         "conversations_limit": 1000,
         "sms":                 True,
-        "whatsapp":            True,
         "widget_embed":        True,
         "custom_agent_name":   True,
         "white_label":         False,
@@ -42,7 +41,6 @@ PLANS = {
         "price":               997,
         "conversations_limit": None,      # unlimited
         "sms":                 True,
-        "whatsapp":            True,
         "widget_embed":        True,
         "custom_agent_name":   True,
         "white_label":         True,
@@ -96,11 +94,6 @@ def get_coming_soon_features(clinic) -> list[str]:
 def is_feature_coming_soon(clinic, feature: str) -> bool:
     """Check if a specific feature is coming soon for this plan."""
     return feature in get_coming_soon_features(clinic)
-
-
-def can_use_whatsapp(clinic) -> bool:
-    """Check if clinic plan supports WhatsApp messaging."""
-    return get_plan(clinic).get("whatsapp", False)
 
 
 def can_use_monthly_reports(clinic) -> bool:

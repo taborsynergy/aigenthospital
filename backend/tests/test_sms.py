@@ -1,4 +1,4 @@
-"""SMS and WhatsApp inbound webhook tests."""
+"""SMS inbound webhook tests."""
 import os
 import pytest
 from datetime import datetime, timedelta
@@ -182,64 +182,3 @@ class TestSmsInbound:
         })
         assert r.status_code == 200
         assert b"<Response>" in r.content
-
-
-# ── WhatsApp Inbound ──────────────────────────────────────────────────────────
-
-class TestWhatsAppInbound:
-
-    def test_whatsapp_returns_xml(self, client, sms_clinic):
-        r = client.post("/whatsapp/inbound", data={
-            "From": f"whatsapp:{_PATIENT_NUMBER}",
-            "To": f"whatsapp:{sms_clinic.twilio_phone}",
-            "Body": "What are your hours?",
-        })
-        assert r.status_code == 200
-        assert "xml" in r.headers["content-type"].lower()
-
-    def test_whatsapp_strips_prefix_for_lookup(self, client, sms_clinic):
-        """WhatsApp: prefix should be stripped before clinic lookup."""
-        r = client.post("/whatsapp/inbound", data={
-            "From": f"whatsapp:{_PATIENT_NUMBER}",
-            "To": f"whatsapp:{sms_clinic.twilio_phone}",
-            "Body": "Hello",
-        })
-        assert r.status_code == 200
-        assert b"<Response>" in r.content
-        assert b"not currently active" not in r.content
-
-    def test_whatsapp_unknown_number_returns_xml_error(self, client):
-        r = client.post("/whatsapp/inbound", data={
-            "From": "whatsapp:+19999999999",
-            "To": "whatsapp:+19999999999",
-            "Body": "Hello",
-        })
-        assert r.status_code == 200
-        assert b"not currently active" in r.content
-
-    def test_whatsapp_optout_handled(self, client, sms_clinic):
-        r = client.post("/whatsapp/inbound", data={
-            "From": f"whatsapp:{_PATIENT_NUMBER}",
-            "To": f"whatsapp:{sms_clinic.twilio_phone}",
-            "Body": "OPTOUT",
-        })
-        assert r.status_code == 200
-        assert b"<Response>" in r.content
-
-    def test_whatsapp_ai_chat_responds(self, client, sms_clinic):
-        r = client.post("/whatsapp/inbound", data={
-            "From": f"whatsapp:{_PATIENT_NUMBER}",
-            "To": f"whatsapp:{sms_clinic.twilio_phone}",
-            "Body": "I need to book an appointment",
-        })
-        assert r.status_code == 200
-        assert b"<Message>" in r.content
-
-    def test_whatsapp_starter_plan_blocked(self, client, starter_clinic):
-        r = client.post("/whatsapp/inbound", data={
-            "From": f"whatsapp:{_PATIENT_NUMBER}",
-            "To": f"whatsapp:{starter_clinic.twilio_phone}",
-            "Body": "Hello",
-        })
-        assert r.status_code == 200
-        assert b"<Message>" in r.content
