@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     smtp_pass: str = ""                  # App password (not your login password)
     notify_email: str = "admin@tabor.taborsynergy.com"   # Where quote emails are delivered
 
+    # ── Transactional email via HTTP API (works on hosts that block SMTP, e.g. Render free) ──
+    # If SENDGRID_API_KEY is set, email is sent over HTTPS via SendGrid instead of SMTP.
+    sendgrid_api_key: str = ""
+    email_from: str = ""                 # Verified sender address; falls back to smtp_user/notify_email
+
     # ── Mock PMS defaults (used by pms.py when real EHR is not connected) ──
     providers: str = "Dr. Provider"
     clinic_name: str = "Tabor Synergy"

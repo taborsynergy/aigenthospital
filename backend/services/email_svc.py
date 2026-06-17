@@ -49,12 +49,70 @@ def _build_msg(subject: str, plain: str, html: str, reply_to: str = "") -> MIMEM
     return msg
 
 
+def _email_from() -> str:
+    """Verified sender address for outbound mail."""
+    return settings.email_from or settings.smtp_user or settings.notify_email
+
+
+def _extract_parts(msg: MIMEMultipart) -> tuple:
+    """Pull (plain, html) bodies out of a MIMEMultipart alternative message."""
+    plain, html = "", ""
+    for part in msg.walk():
+        ct = part.get_content_type()
+        payload = part.get_payload(decode=True)
+        text = payload.decode("utf-8", errors="replace") if payload else ""
+        if ct == "text/plain" and not plain:
+            plain = text
+        elif ct == "text/html" and not html:
+            html = text
+    return plain, html
+
+
+def _sendgrid_send(to_list: List[str], subject: str, plain: str, html: str = "", reply_to: str = "") -> bool:
+    """Send email over HTTPS via the SendGrid API (used when SENDGRID_API_KEY is set)."""
+    import httpx
+    content = []
+    if plain:
+        content.append({"type": "text/plain", "value": plain})
+    if html:
+        content.append({"type": "text/html", "value": html})
+    if not content:
+        content = [{"type": "text/plain", "value": ""}]
+    payload = {
+        "personalizations": [{"to": [{"email": a} for a in to_list]}],
+        "from": {"email": _email_from(), "name": "Tabor Synergy"},
+        "subject": subject or "(no subject)",
+        "content": content,
+    }
+    if reply_to:
+        payload["reply_to"] = {"email": reply_to}
+    try:
+        r = httpx.post(
+            "https://api.sendgrid.com/v3/mail/send",
+            headers={"Authorization": f"Bearer {settings.sendgrid_api_key}",
+                     "Content-Type": "application/json"},
+            json=payload, timeout=15,
+        )
+        if r.status_code in (200, 201, 202):
+            logger.info("Email sent via SendGrid to %s", to_list)
+            return True
+        logger.error("SendGrid send failed: HTTP %s: %s", r.status_code, r.text[:300])
+        return False
+    except Exception as exc:
+        logger.error("SendGrid send error to=%s: %s: %s", to_list, type(exc).__name__, exc)
+        return False
+
+
 def _send(msg: MIMEMultipart) -> bool:
     """
-    Try SSL (port 465) first, then STARTTLS (port 587).
-    Logs the specific error so it shows clearly in Render logs.
+    Send via SendGrid HTTP API if configured (works where SMTP is blocked),
+    else fall back to SMTP: SSL (465) first, then STARTTLS (587).
     """
     recipients = _recipients()
+
+    if settings.sendgrid_api_key:
+        plain, html = _extract_parts(msg)
+        return _sendgrid_send(recipients, msg["Subject"] or "", plain, html, msg.get("Reply-To", ""))
 
     def _via_ssl() -> None:
         ctx = ssl.create_default_context()
@@ -89,11 +147,14 @@ def _send(msg: MIMEMultipart) -> bool:
 def send_email(to: str, subject: str, body: str) -> bool:
     """
     Generic plain-text email to an arbitrary recipient (clinic users, password resets).
-    Returns False gracefully if SMTP is not configured — never raises, so callers
-    (user creation, go-live) never crash on email failure.
+    Uses SendGrid HTTP API if configured, else SMTP. Returns False gracefully if
+    neither is configured — never raises, so callers never crash on email failure.
     """
+    if settings.sendgrid_api_key:
+        return _sendgrid_send([to], subject, body, "")
+
     if not settings.smtp_host or not settings.smtp_user:
-        logger.warning("send_email skipped — SMTP not configured (to=%s, subject=%s)", to, subject)
+        logger.warning("send_email skipped — email not configured (to=%s, subject=%s)", to, subject)
         return False
 
     msg = MIMEMultipart("alternative")
@@ -132,7 +193,7 @@ def send_email(to: str, subject: str, body: str) -> bool:
 
 def send_trial_signup_email(data: dict) -> bool:
     """Notify admin when a new trial clinic signs up."""
-    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+    if not settings.sendgrid_api_key and (not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass):
         logger.warning(
             "SMTP not configured — trial signup NOT emailed. "
             "Set SMTP_HOST, SMTP_USER, SMTP_PASS in Render environment variables. "
@@ -198,7 +259,7 @@ def send_trial_signup_email(data: dict) -> bool:
 
 def send_upgrade_request_email(data: dict) -> bool:
     """Notify admin when a clinic requests a plan upgrade."""
-    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+    if not settings.sendgrid_api_key and (not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass):
         logger.warning("SMTP not configured — upgrade request NOT emailed. Details: %s", data)
         return False
 
@@ -257,7 +318,7 @@ def send_upgrade_request_email(data: dict) -> bool:
 
 def send_subscription_activated_email(data: dict) -> bool:
     """Notify clinic when their PayPal subscription is manually activated by admin."""
-    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+    if not settings.sendgrid_api_key and (not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass):
         return False
 
     clinic  = data.get("clinic_name", "Your clinic")
@@ -306,7 +367,7 @@ def send_subscription_activated_email(data: dict) -> bool:
 
 def send_subscription_cancelled_email(data: dict) -> bool:
     """Notify clinic when their subscription is cancelled."""
-    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+    if not settings.sendgrid_api_key and (not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass):
         return False
 
     clinic  = data.get("clinic_name", "Your clinic")
@@ -341,7 +402,7 @@ def send_subscription_cancelled_email(data: dict) -> bool:
 
 def send_quote_email(data: dict) -> bool:
     """Send a White Label quote request to the notify_email address."""
-    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+    if not settings.sendgrid_api_key and (not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass):
         logger.warning(
             "SMTP not configured — quote request NOT emailed. "
             "Set SMTP_HOST, SMTP_USER, SMTP_PASS in Render environment variables. "
@@ -404,7 +465,7 @@ def send_quote_email(data: dict) -> bool:
 
 def send_trial_confirmation_to_clinic(data: dict) -> bool:
     """Send trial confirmation email to newly signed-up clinic."""
-    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+    if not settings.sendgrid_api_key and (not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass):
         logger.warning("SMTP not configured — trial confirmation NOT emailed. Details: %s", data)
         return False
 
@@ -468,7 +529,7 @@ def send_trial_confirmation_to_clinic(data: dict) -> bool:
 
 def send_trial_expiry_reminder_to_clinic(data: dict) -> bool:
     """Send trial expiry reminder email to clinic (5+ days before expiry)."""
-    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+    if not settings.sendgrid_api_key and (not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass):
         logger.warning("SMTP not configured — trial reminder NOT emailed. Details: %s", data)
         return False
 
@@ -545,7 +606,7 @@ def send_trial_expiry_reminder_to_clinic(data: dict) -> bool:
 
 def send_trial_expired_to_clinic(data: dict) -> bool:
     """Send trial expired notification to clinic."""
-    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+    if not settings.sendgrid_api_key and (not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass):
         logger.warning("SMTP not configured — trial expired email NOT sent. Details: %s", data)
         return False
 
