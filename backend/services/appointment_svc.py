@@ -204,18 +204,6 @@ def generate_slots(
     return slots
 
 
-def _send_confirmation_sms(confirmation_number: str, clinic, db) -> None:
-    """Fire-and-forget booking confirmation SMS."""
-    try:
-        from backend.db.models import Appointment
-        from backend.services.reminders_svc import send_booking_confirmation_sms
-        appt = db.query(Appointment).filter_by(confirmation_number=confirmation_number).first()
-        if appt:
-            send_booking_confirmation_sms(clinic, appt, db)
-    except Exception:
-        logger.debug("Booking confirmation SMS skipped — %s", confirmation_number)
-
-
 def _send_confirmation_email(confirmation_number: str, clinic, db) -> None:
     """Fire-and-forget booking confirmation EMAIL to the patient (all plans)."""
     try:
@@ -318,10 +306,6 @@ def book_appointment(
             "success": False,
             "error":   "Failed to save appointment. Please try again.",
         }
-
-    # Send booking confirmation SMS (best-effort, non-blocking)
-    if patient_phone and clinic and db:
-        _send_confirmation_sms(conf_num, clinic, db)
 
     # Send booking confirmation EMAIL (best-effort, non-blocking; all plans)
     if patient_email and clinic and db:

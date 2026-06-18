@@ -517,7 +517,7 @@ async def clinic_plan(
         "conversations_used":    used,
         "conversations_limit":   limit,
         "features": {
-            "sms":               plan["sms"],
+            "reminders":         plan.get("reminders", False),
             "widget_embed":      plan["widget_embed"],
             "custom_agent_name": plan["custom_agent_name"],
             "white_label":       plan["white_label"],

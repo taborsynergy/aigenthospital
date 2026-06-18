@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zapier Video Automation — Tabor Synergy</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #0F172A; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+
+        .alert {
+            background: #DBEAFE;
+            border: 1px solid #93C5FD;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 30px;
+        }
+        .alert h3 { color: #1E40AF; margin-bottom: 8px; font-size: 14px; }
+        .alert p { color: #0369A1; font-size: 13px; line-height: 1.6; }
+
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            font-size: 18px;
+            color: #0F172A;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #E5E7EB;
+        }
+        .section h3 {
+            color: #1E40AF;
+            margin: 20px 0 12px;
+            font-size: 14px;
+        }
+
+        .workflow-diagram {
+            background: #f0f7ff;
+            border: 2px solid #1E40AF;
+            border-radius: 8px;
+            padding: 24px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .workflow-step {
+            display: inline-block;
+            background: white;
+            border: 2px solid #1E40AF;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin: 0 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #1E40AF;
+        }
+        .workflow-arrow {
+            color: #1E40AF;
+            font-size: 20px;
+            display: inline-block;
+            margin: 0 4px;
+        }
+
+        .step-box {
+            background: #f0f7ff;
+            border-left: 4px solid #1E40AF;
+            padding: 16px;
+            margin: 16px 0;
+            border-radius: 6px;
+        }
+        .step-num {
+            color: #1E40AF;
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        .step-content {
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .code-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            margin: 12px 0;
+        }
+
+        .manual-step {
+            background: #FEF3C7;
+            border: 2px solid #FCD34D;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+        .manual-step h4 { color: #92400E; margin-bottom: 8px; }
+        .manual-step p { color: #78350F; font-size: 12px; line-height: 1.6; }
+
+        .setup-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+        }
+        .setup-table th {
+            background: #1E40AF;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .setup-table td {
+            padding: 12px;
+            border-bottom: 1px solid #E5E7EB;
+            font-size: 12px;
+        }
+
+        .copy-btn {
+            background: #059669;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+        .copy-btn:hover { background: #047857; }
+
+        .checklist {
+            list-style: none;
+            margin: 16px 0;
+        }
+        .checklist li {
+            padding: 8px 0;
+            font-size: 13px;
+            display: flex;
+            gap: 8px;
+        }
+        .checklist input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .timeline {
+            background: #ECFDF5;
+            border: 1px solid #D1FAE5;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+
+        code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .highlight {
+            background: #FBBF24;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        ol { margin-left: 20px; }
+        ol li { font-size: 13px; margin-bottom: 8px; line-height: 1.6; }
+        ul { margin-left: 20px; }
+        ul li { font-size: 13px; margin-bottom: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ Zapier Video Automation Blueprint</h1>
+        <p class="subtitle">Automated workflow: Script → AI Voice → Video | Minimal manual steps</p>
+
+        <div class="alert">
+            <h3>✅ What This Does</h3>
+            <p>
+                <strong>Fully Automated:</strong> Your script → Google Cloud TTS → MP3 audio file<br/>
+                <strong>Semi-Automated:</strong> Audio + Canva slides template → Video (one manual step)<br/>
+                <strong>Result:</strong> 90-second video with professional voice-over ready for email
+            </p>
+        </div>
+
+        <!-- WORKFLOW OVERVIEW -->
+        <div class="section">
+            <h2>📊 Workflow Overview</h2>
+
+            <div class="workflow-diagram">
+                <div class="workflow-step">1️⃣ You Submit Script</div>
+                <span class="workflow-arrow">→</span>
+                <div class="workflow-step">2️⃣ Google TTS Generates Audio</div>
+                <span class="workflow-arrow">→</span>
+                <div class="workflow-step">3️⃣ Saves to Google Drive</div>
+                <span class="workflow-arrow">→</span>
+                <div class="workflow-step">4️⃣ Create Slides + Combine (Manual 5 min)</div>
+                <span class="workflow-arrow">→</span>
+                <div class="workflow-step">5️⃣ Upload to Loom</div>
+            </div>
+
+            <p style="margin-top: 20px; font-size: 13px; color: #666;">
+                <strong>Total Time:</strong> 15 minutes (10 min automated + 5 min manual)<br/>
+                <strong>Cost:</strong> $0 (free tools)<br/>
+                <strong>Quality:</strong> Professional
+            </p>
+        </div>
+
+        <!-- SETUP INSTRUCTIONS -->
+        <div class="section">
+            <h2>🔧 Setup Instructions (One-Time)</h2>
+
+            <div class="step-box">
+                <div class="step-num">Step 1: Enable Google Cloud Text-to-Speech API</div>
+                <div class="step-content">
+                    1. Go to <code>console.cloud.google.com</code><br/>
+                    2. Create new project (name: "Tabor Video")<br/>
+                    3. Enable APIs: Search for "Text-to-Speech API" → Click "Enable"<br/>
+                    4. Create service account:<br/>
+                    &nbsp;&nbsp;• Go to "Service Accounts"<br/>
+                    &nbsp;&nbsp;• Create new service account → Name: "zapier-tts"<br/>
+                    &nbsp;&nbsp;• Create JSON key → Download & save<br/>
+                    5. Enable Google Drive API in same project
+                </div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-num">Step 2: Connect Google Cloud to Zapier</div>
+                <div class="step-content">
+                    1. Go to <code>zapier.com</code> → Dashboard<br/>
+                    2. Create new Zap: "Make a Zap"<br/>
+                    3. Trigger: Google Forms or Webhook (to submit script)<br/>
+                    &nbsp;&nbsp;• Use Webhook for maximum flexibility<br/>
+                    4. Test the trigger (you'll need sample data)<br/>
+                    5. Add Action: "Google Cloud Text-to-Speech"<br/>
+                    &nbsp;&nbsp;• Authenticate with service account JSON key<br/>
+                    &nbsp;&nbsp;• Configure: Input text → Output audio
+                </div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-num">Step 3: Save Audio to Google Drive</div>
+                <div class="step-content">
+                    1. Add another action: "Google Drive - Create File"<br/>
+                    2. Folder: Create new folder "Tabor Video Assets"<br/>
+                    3. Map output from TTS → save as MP3<br/>
+                    &nbsp;&nbsp;• Filename: {{Timestamp}} + "_voice.mp3"<br/>
+                    4. Test action to verify it saves
+                </div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-num">Step 4: Send Notification When Ready</div>
+                <div class="step-content">
+                    1. Add final action: "Gmail - Send Email"<br/>
+                    2. To: your email<br/>
+                    3. Subject: "Your Video Audio is Ready"<br/>
+                    4. Body: Include link to MP3 file in Google Drive<br/>
+                    5. Turn on Zap
+                </div>
+            </div>
+        </div>
+
+        <!-- AUTOMATED ZAPIER ZAP CONFIGURATION -->
+        <div class="section">
+            <h2>⚙️ Complete Zap Configuration</h2>
+
+            <h3>Trigger: Webhook (Catch Raw Hook)</h3>
+            <div class="code-block">POST Webhook URL: https://hooks.zapier.com/hooks/catch/YOUR_ID/
+
+Expected Input JSON:
+{
+  "script": "Hi! I'm Dinakar from Tabor Synergy...",
+  "voice": "en-US-Neural2-A",
+  "email": "your@email.com"
+}</div>
+
+            <h3>Action 1: Google Cloud Text-to-Speech</h3>
+            <table class="setup-table">
+                <thead>
+                    <tr>
+                        <th>Setting</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Input Text</td>
+                        <td>{{script}} (from webhook)</td>
+                    </tr>
+                    <tr>
+                        <td>Language Code</td>
+                        <td>en-US</td>
+                    </tr>
+                    <tr>
+                        <td>Voice Name</td>
+                        <td>en-US-Neural2-A (professional female)</td>
+                    </tr>
+                    <tr>
+                        <td>Speaking Rate</td>
+                        <td>1.0</td>
+                    </tr>
+                    <tr>
+                        <td>Audio Encoding</td>
+                        <td>MP3</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Action 2: Google Drive - Upload File</h3>
+            <table class="setup-table">
+                <thead>
+                    <tr>
+                        <th>Setting</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>File</td>
+                        <td>{{audio_content}} (from TTS output)</td>
+                    </tr>
+                    <tr>
+                        <td>Filename</td>
+                        <td>tabor_demo_{{now}}_voice.mp3</td>
+                    </tr>
+                    <tr>
+                        <td>Folder</td>
+                        <td>Tabor Video Assets</td>
+                    </tr>
+                    <tr>
+                        <td>Convert to Google Format</td>
+                        <td>No</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Action 3: Gmail - Send Email</h3>
+            <div class="code-block">To: {{email}}
+Subject: ✅ Your Video Audio is Ready — Next Step: Add Slides
+
+Body:
+Hi,
+
+Your voice-over audio has been generated and saved to Google Drive:
+
+📁 Folder: Tabor Video Assets
+🎙️ File: tabor_demo_[timestamp]_voice.mp3
+
+Next step (5 min manual work):
+1. Create slides in Canva (tabor_demo_slides.mp4)
+2. Combine in CapCut with the audio above
+3. Export as MP4
+4. Upload to Loom
+5. Share link for cold emails
+
+Ready? Download the audio and proceed to step 2.
+
+— Tabor Automation</div>
+        </div>
+
+        <!-- MANUAL STEP: CREATE SLIDES -->
+        <div class="manual-step">
+            <h4>⏸️ MANUAL STEP (5 Minutes) — Create Slides + Combine</h4>
+            <p>
+                <strong>After Zapier generates audio:</strong><br/><br/>
+                1. <strong>Canva Slides:</strong> Create 5-slide video with script points (2 min)<br/>
+                &nbsp;&nbsp;• Slide 1: Title "AI Medical Front Desk"<br/>
+                &nbsp;&nbsp;• Slide 2: "The Problem"<br/>
+                &nbsp;&nbsp;• Slide 3: "The Solution"<br/>
+                &nbsp;&nbsp;• Slide 4: "Features"<br/>
+                &nbsp;&nbsp;• Slide 5: CTA<br/>
+                &nbsp;&nbsp;• Export as MP4<br/><br/>
+                2. <strong>CapCut Combination:</strong> Sync audio + slides (3 min)<br/>
+                &nbsp;&nbsp;• Import Canva MP4<br/>
+                &nbsp;&nbsp;• Import Google Drive audio MP3<br/>
+                &nbsp;&nbsp;• Drag audio into timeline<br/>
+                &nbsp;&nbsp;• Sync to slides timing<br/>
+                &nbsp;&nbsp;• Export as MP4<br/><br/>
+                3. <strong>Upload:</strong> Loom or YouTube → Get share link<br/>
+                4. <strong>Use:</strong> Paste in Email 2 template
+            </p>
+        </div>
+
+        <!-- QUICK START -->
+        <div class="section">
+            <h2>🚀 Quick Start: Run the Automation</h2>
+
+            <div class="step-box">
+                <div class="step-num">Once Zap is Set Up (takes 30 min first time)</div>
+                <div class="step-content">
+                    <strong>To create a video:</strong><br/><br/>
+                    1. Paste this into your browser console or use curl:<br/>
+                    <div class="code-block">curl -X POST https://hooks.zapier.com/hooks/catch/YOUR_WEBHOOK_ID/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "script": "Hi! I am Dinakar from Tabor Synergy...",
+    "voice": "en-US-Neural2-A",
+    "email": "your@email.com"
+  }'</div>
+
+                    2. Wait 2 minutes<br/>
+                    3. Check email → Google Drive link appears<br/>
+                    4. Download audio MP3<br/>
+                    5. Create Canva slides (2 min)<br/>
+                    6. Combine in CapCut (3 min)<br/>
+                    7. Upload to Loom → Done!
+                </div>
+            </div>
+
+            <h3>OR Use Google Forms for Easier Submission</h3>
+            <div class="step-box">
+                <div class="step-content">
+                    Instead of webhooks, use Google Forms:<br/><br/>
+                    1. Create form: "Video Script Submission"<br/>
+                    2. Fields: Script (long text), Voice (dropdown), Email<br/>
+                    3. Zapier trigger: "New Google Form Response"<br/>
+                    4. Rest is same automation<br/>
+                    <br/>
+                    <strong>Benefit:</strong> Non-technical (just fill out form)
+                </div>
+            </div>
+        </div>
+
+        <!-- TESTING -->
+        <div class="section">
+            <h2>✅ Testing Checklist</h2>
+
+            <ul class="checklist">
+                <li><input type="checkbox"> Google Cloud TTS API enabled</li>
+                <li><input type="checkbox"> Service account JSON key downloaded & saved</li>
+                <li><input type="checkbox"> Zapier connected to Google Cloud</li>
+                <li><input type="checkbox"> Google Drive folder "Tabor Video Assets" created</li>
+                <li><input type="checkbox"> Test Zap with sample script</li>
+                <li><input type="checkbox"> MP3 file appears in Google Drive</li>
+                <li><input type="checkbox"> Notification email received</li>
+                <li><input type="checkbox"> Audio quality is acceptable (listen to MP3)</li>
+                <li><input type="checkbox"> Turn on Zap (set to Live)</li>
+            </ul>
+        </div>
+
+        <!-- TROUBLESHOOTING -->
+        <div class="section">
+            <h2>🔧 Troubleshooting</h2>
+
+            <h3>❓ "Zapier says 'Insufficient Permissions'"</h3>
+            <p style="font-size: 13px; color: #666; margin-top: 8px;">
+                → Google Cloud service account needs Editor role<br/>
+                → Or try: Generate new JSON key from Google Cloud
+            </p>
+
+            <h3>❓ "Audio file not saving to Google Drive"</h3>
+            <p style="font-size: 13px; color: #666; margin-top: 8px;">
+                → Verify Google Drive API is enabled<br/>
+                → Check folder permissions (allow Zapier access)<br/>
+                → Try uploading manually to test
+            </p>
+
+            <h3>❓ "Audio sounds robotic"</h3>
+            <p style="font-size: 13px; color: #666; margin-top: 8px;">
+                → Change voice: en-US-Neural2-C (more natural)<br/>
+                → Reduce speaking rate to 0.9<br/>
+                → Break script into shorter paragraphs
+            </p>
+
+            <h3>❓ "Webhook URL not working"</h3>
+            <p style="font-size: 13px; color: #666; margin-top: 8px;">
+                → Use Google Forms trigger instead (simpler)<br/>
+                → Or use Zapier's "Code" app to test webhook
+            </p>
+        </div>
+
+        <!-- TIMELINE -->
+        <div class="section">
+            <h2>⏱️ Complete Timeline</h2>
+
+            <div class="timeline">
+                <h4>Setup (One-time: 30 minutes)</h4>
+                <p>• Enable Google Cloud APIs: 5 min</p>
+                <p>• Create Zapier Zap: 15 min</p>
+                <p>• Test & debug: 10 min</p>
+                <p>✅ Automation ready</p>
+            </div>
+
+            <div class="timeline">
+                <h4>Per Video Creation: 15 Minutes</h4>
+                <p>• Submit script via webhook/form: 1 min</p>
+                <p>• Automation generates audio: 2 min (automated)</p>
+                <p>• Download audio + create Canva slides: 7 min</p>
+                <p>• Combine in CapCut: 3 min</p>
+                <p>• Upload to Loom: 2 min</p>
+                <p>✅ Video ready for email</p>
+            </div>
+        </div>
+
+        <!-- NEXT STEPS -->
+        <div class="section" style="background: linear-gradient(135deg, #ECFDF5 0%, #DBEAFE 100%); border-top: 4px solid #059669;">
+            <h2 style="border-bottom-color: #D1FAE5; color: #047857;">🎯 Next Steps</h2>
+
+            <ol>
+                <li>Set up Google Cloud TTS API (5 min)</li>
+                <li>Create Zapier Zap with config above (15 min)</li>
+                <li>Test with sample script (5 min)</li>
+                <li>Turn on Zap (Live)</li>
+                <li>Submit your demo script to create first video (15 min)</li>
+                <li>Use video in Email 2 of cold email campaign</li>
+            </ol>
+
+            <p style="margin-top: 20px; font-size: 13px; color: #065F46;">
+                <strong>Total setup time:</strong> 30 minutes one-time<br/>
+                <strong>Per video:</strong> 15 minutes (mostly automated)<br/>
+                <strong>Cost:</strong> $0
+            </p>
+        </div>
+    </div>
+</body>
+</html>

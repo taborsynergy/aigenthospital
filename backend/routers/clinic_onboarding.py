@@ -108,13 +108,13 @@ async def get_onboarding_status(
         "email_config": OnboardingStepResponse(
             name="email_config",
             label="Email Setup",
-            description="SMTP for appointment confirmations",
+            description="Email for confirmations, reminders & recall",
             completed=checklist.email_config_completed
         ),
         "sms_config": OnboardingStepResponse(
             name="sms_config",
-            label="SMS Setup",
-            description="Twilio for appointment reminders",
+            label="Reminders & Recall",
+            description="Automated email reminders and patient recall",
             completed=checklist.sms_config_completed
         ),
         "emr_integration": OnboardingStepResponse(
@@ -270,56 +270,6 @@ async def validate_smtp(
         raise HTTPException(
             status_code=400,
             detail=f"SMTP validation failed: {str(e)}"
-        )
-
-
-@router.post("/{clinic_slug}/validate-twilio")
-async def validate_twilio(
-    clinic_slug: str,
-    req: ValidateTwilioRequest,
-    user_id: int = Depends(verify_access_token),
-    db: Session = Depends(get_db)
-) -> dict:
-    """
-    Test Twilio credentials by sending a test SMS.
-    """
-    clinic, user = get_clinic_and_user(clinic_slug, user_id, db)
-
-    try:
-        from twilio.rest import Client
-
-        # Test Twilio connection
-        client = Client(req.account_sid, req.auth_token)
-        if not clinic.phone:
-            raise HTTPException(
-                status_code=400,
-                detail="Clinic phone number not set. Complete 'Clinic Info' step first."
-            )
-
-        message = client.messages.create(
-            body="Aria AI: SMS configuration test. If you received this, your Twilio setup is correct!",
-            from_=req.phone_number,
-            to=clinic.phone  # Send to clinic's primary phone
-        )
-
-        # Mark as tested
-        checklist = db.query(OnboardingChecklist).filter(
-            OnboardingChecklist.clinic_id == clinic.id
-        ).first()
-        if checklist:
-            checklist.sms_config_tested = True
-            db.commit()
-
-        return {
-            "success": True,
-            "detail": f"Twilio configuration verified. Test SMS sent.",
-            "message_sid": message.sid
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Twilio validation failed: {str(e)}"
         )
 
 

@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeyGen Video Creation — Tabor Synergy Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            padding: 20px;
+        }
+        .container { max-width: 1100px; margin: 0 auto; }
+        h1 { color: #0F172A; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+
+        .alert {
+            background: #DBEAFE;
+            border: 1px solid #93C5FD;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 30px;
+        }
+        .alert h3 { color: #1E40AF; margin-bottom: 8px; font-size: 14px; }
+        .alert p { color: #0369A1; font-size: 13px; line-height: 1.6; }
+
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            font-size: 18px;
+            color: #0F172A;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #E5E7EB;
+        }
+        .section h3 {
+            color: #1E40AF;
+            margin: 20px 0 12px;
+            font-size: 14px;
+        }
+
+        .step-box {
+            background: #f0f7ff;
+            border-left: 4px solid #1E40AF;
+            padding: 16px;
+            margin: 16px 0;
+            border-radius: 6px;
+        }
+        .step-num {
+            color: #1E40AF;
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        .step-content {
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .script-box {
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            padding: 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            margin: 16px 0;
+        }
+
+        .timing {
+            display: inline-block;
+            background: #FEF3C7;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #92400E;
+            margin: 0 4px;
+        }
+
+        .settings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+        }
+        .settings-table th {
+            background: #1E40AF;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .settings-table td {
+            padding: 12px;
+            border-bottom: 1px solid #E5E7EB;
+            font-size: 12px;
+        }
+
+        .copy-btn {
+            background: #059669;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+        .copy-btn:hover { background: #047857; }
+
+        .checklist {
+            list-style: none;
+            margin: 16px 0;
+        }
+        .checklist li {
+            padding: 8px 0;
+            font-size: 13px;
+            display: flex;
+            gap: 8px;
+        }
+        .checklist input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .timeline {
+            background: #ECFDF5;
+            border: 1px solid #D1FAE5;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+        .timeline h4 { color: #047857; margin-bottom: 8px; }
+        .timeline p { font-size: 12px; color: #065F46; margin-bottom: 4px; }
+
+        code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .highlight {
+            background: #FBBF24;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 HeyGen Video Creation Guide</h1>
+        <p class="subtitle">90-second AI avatar video for cold email follow-ups | Takes 5 minutes</p>
+
+        <div class="alert">
+            <h3>✅ Quick Start</h3>
+            <p>
+                <strong>Step 1:</strong> Sign up at <code>heygen.com</code> (free trial + $25 credits)<br/>
+                <strong>Step 2:</strong> Copy the script below<br/>
+                <strong>Step 3:</strong> Paste into HeyGen + select avatar<br/>
+                <strong>Step 4:</strong> Generate video (4 min)<br/>
+                <strong>Step 5:</strong> Download + use in cold emails
+            </p>
+        </div>
+
+        <!-- HEYGEN SCRIPT -->
+        <div class="section">
+            <h2>📝 HeyGen-Ready Script (90 Seconds)</h2>
+            <p style="margin-bottom: 16px; font-size: 13px; color: #666;">Copy this exact text into HeyGen. Timing is optimized for a 90-second video.</p>
+
+            <div class="script-box">Hi! I'm Dinakar from Tabor Synergy.
+
+I wanted to show you something I think could save your clinic a ton of time.
+
+This is Aria — our AI medical front desk.
+
+Here's what it does:
+• Books appointments 24/7 via chat, SMS, and WhatsApp
+• Answers insurance questions instantly
+• Sends automated reminders that cut no-shows by 30%
+
+Setup takes 10 minutes. No IT required.
+
+Watch what happens when a patient texts asking for an appointment:
+
+[The AI avatar demonstrates the interaction on screen]
+
+Aria: "Hello! I'd be happy to help you book an appointment. What date works best for you?"
+
+Patient: "I need to see someone tomorrow afternoon"
+
+Aria: "Perfect! I have openings at 2pm and 4pm. Which works better?"
+
+And it handles insurance, billing questions — everything your front desk usually does.
+
+The best part? It works 24/7 while your team focuses on patient care.
+
+Your clinic probably misses 40% of calls after hours right now.
+
+Aria answers every single one.
+
+Want to see it live? We have a 14-day free trial:
+
+aifrontdesk.taborsynergy.com
+
+No credit card needed.
+
+Thanks for watching!</div>
+
+            <div style="background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 6px; padding: 12px; margin-top: 16px; font-size: 12px; color: #92400E;">
+                <strong>📌 Exact Timing Breakdown:</strong><br/>
+                Intro (10s) → Features (15s) → Demo (30s) → CTA (20s) → Close (15s) = 90 seconds
+            </div>
+        </div>
+
+        <!-- STEP-BY-STEP INSTRUCTIONS -->
+        <div class="section">
+            <h2>🎥 How to Create the Video in HeyGen</h2>
+
+            <div class="step-box">
+                <div class="step-num">Step 1: Create HeyGen Account</div>
+                <div class="step-content">
+                    • Go to <a href="https://www.heygen.com" target="_blank" style="color: #1E40AF;">heygen.com</a><br/>
+                    • Click "Start Free" (free trial + $25 credits)<br/>
+                    • Sign up with email or Google<br/>
+                    • Verify email
+                </div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-num">Step 2: Create New Video</div>
+                <div class="step-content">
+                    • Dashboard → "Create" → "Avatar Video"<br/>
+                    • Choose "Generate with AI" option<br/>
+                    • Click "Continue"
+                </div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-num">Step 3: Select Avatar & Voice</div>
+                <div class="step-content">
+                    <strong>Avatar Selection (Recommended):</strong><br/>
+                    • Choose avatar: "Josh" (professional, confident) or "Sarah" (warm, approachable)<br/>
+                    <br/>
+                    <strong>Voice Settings:</strong><br/>
+                    • Language: English<br/>
+                    • Voice: "US English - Male" (Josh) or "US English - Female" (Sarah)<br/>
+                    • Speaking pace: 1.0x (normal)
+                </div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-num">Step 4: Paste Script</div>
+                <div class="step-content">
+                    • Copy the script above (all text)<br/>
+                    • Paste into HeyGen text box<br/>
+                    • Review for any errors<br/>
+                    • Click "Preview" to see timing
+                </div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-num">Step 5: Configure Settings</div>
+                <div class="step-content">
+                    <strong>Video Format:</strong> 16:9 (landscape)<br/>
+                    <strong>Background:</strong> "Professional Office" or "Blur"<br/>
+                    <strong>Quality:</strong> 1080p (HD)<br/>
+                    <strong>Duration:</strong> Should auto-calculate ~90 seconds
+                </div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-num">Step 6: Generate Video</div>
+                <div class="step-content">
+                    • Click "Generate" button<br/>
+                    • Wait 3-5 minutes (HeyGen processes)<br/>
+                    • Video will appear in your dashboard<br/>
+                    • Click preview to watch
+                </div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-num">Step 7: Download & Share</div>
+                <div class="step-content">
+                    • Click "..." menu next to video<br/>
+                    • Select "Download"<br/>
+                    • Choose "1080p MP4" format<br/>
+                    • Save as "Tabor_Synergy_Demo_90sec.mp4"
+                </div>
+            </div>
+        </div>
+
+        <!-- HEYGEN SETTINGS TABLE -->
+        <div class="section">
+            <h2>⚙️ Recommended HeyGen Settings</h2>
+
+            <table class="settings-table">
+                <thead>
+                    <tr>
+                        <th>Setting</th>
+                        <th>Recommended Value</th>
+                        <th>Why</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Avatar</strong></td>
+                        <td>Josh or Sarah</td>
+                        <td>Professional, trustworthy appearance</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Voice</strong></td>
+                        <td>US English - Natural</td>
+                        <td>Clear, not robotic</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Speaking Pace</strong></td>
+                        <td>1.0x (Normal)</td>
+                        <td>Matches script timing exactly</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Background</strong></td>
+                        <td>Blur or Office</td>
+                        <td>Keeps focus on avatar</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Video Format</strong></td>
+                        <td>16:9 Landscape</td>
+                        <td>Standard for LinkedIn/email</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Resolution</strong></td>
+                        <td>1080p HD</td>
+                        <td>Professional quality</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Subtitles</strong></td>
+                        <td>ON</td>
+                        <td>Better engagement (auto-generated)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- USAGE INSTRUCTIONS -->
+        <div class="section">
+            <h2>📧 Using the Video in Cold Emails</h2>
+
+            <h3>Option A: Embed in Email (Gmail)</h3>
+            <div class="step-box">
+                <div class="step-content">
+                    1. Upload video to Google Drive (public link)<br/>
+                    2. In Gmail draft, paste link in Email 2 template: <code>[VIDEO LINK]</code><br/>
+                    3. Email shows: "See it in action: [LINK]"<br/>
+                    4. Recipients click → watch demo → 30% higher reply rate
+                </div>
+            </div>
+
+            <h3>Option B: Upload to Loom (Recommended)</h3>
+            <div class="step-box">
+                <div class="step-content">
+                    1. Go to loom.com → Upload<br/>
+                    2. Upload the MP4 file<br/>
+                    3. Get shareable link: <code>loom.com/share/...</code><br/>
+                    4. Paste into Email 2 template: <code>[VIDEO LINK]</code><br/>
+                    5. Loom tracks: who watched, how long, when
+                </div>
+            </div>
+
+            <h3>Option C: YouTube (Public Link)</h3>
+            <div class="step-box">
+                <div class="step-content">
+                    1. Upload to YouTube (unlisted = private link)<br/>
+                    2. Get share link: <code>youtube.com/watch?v=...</code><br/>
+                    3. Paste into Email 2<br/>
+                    4. Benefit: YouTube tracking + longer term
+                </div>
+            </div>
+        </div>
+
+        <!-- TROUBLESHOOTING -->
+        <div class="section">
+            <h2>🔧 Troubleshooting</h2>
+
+            <div style="margin: 16px 0;">
+                <h3>❓ "Video generation failed"</h3>
+                <p style="font-size: 13px; color: #666; margin-top: 8px;">
+                    → Check text doesn't have special characters (©, ™, etc.)<br/>
+                    → Verify internet connection<br/>
+                    → Try shorter text first (test run)
+                </p>
+            </div>
+
+            <div style="margin: 16px 0;">
+                <h3>❓ "Avatar looks stiff/unnatural"</h3>
+                <p style="font-size: 13px; color: #666; margin-top: 8px;">
+                    → This is normal for AI avatars<br/>
+                    → Try different avatar (Josh vs Sarah)<br/>
+                    → Reduce speaking pace to 0.9x
+                </p>
+            </div>
+
+            <div style="margin: 16px 0;">
+                <h3>❓ "Video is longer/shorter than 90 seconds"</h3>
+                <p style="font-size: 13px; color: #666; margin-top: 8px;">
+                    → HeyGen auto-calculates based on avatar speed<br/>
+                    → Adjust speaking pace: slower = longer<br/>
+                    → Or trim text: remove filler words
+                </p>
+            </div>
+
+            <div style="margin: 16px 0;">
+                <h3>❓ "Low audio quality"</h3>
+                <p style="font-size: 13px; color: #666; margin-top: 8px;">
+                    → Upgrade to HeyGen paid plan for better voices<br/>
+                    → Or use Eleven Labs voice API (better quality)
+                </p>
+            </div>
+        </div>
+
+        <!-- NEXT STEPS -->
+        <div class="section" style="background: #ECFDF5; border-top: 4px solid #059669;">
+            <h2 style="border-bottom-color: #D1FAE5;">✅ What's Next</h2>
+
+            <div class="timeline">
+                <h4>After Video is Generated:</h4>
+                <p>1. Download MP4 file</p>
+                <p>2. Upload to Loom or YouTube (get share link)</p>
+                <p>3. Paste link into Email 2 template → [VIDEO LINK]</p>
+                <p>4. Start cold email campaign (Jun 9)</p>
+                <p>5. Monitor reply rates (Email 2 will have highest engagement)</p>
+            </div>
+
+            <h3 style="margin-top: 20px;">Cost Breakdown:</h3>
+            <ul style="margin-left: 20px; font-size: 13px;">
+                <li>HeyGen: $25 credits (free trial may work)</li>
+                <li>Loom: Free (unlimited uploads)</li>
+                <li>Total: ~$0-25</li>
+            </ul>
+        </div>
+
+        <!-- ZAPIER AUTOMATION (Optional) -->
+        <div class="section">
+            <h2>⚡ Zapier Automation (Optional — Advanced)</h2>
+
+            <p style="margin-bottom: 16px; font-size: 13px; color: #666;">
+                If you want to automate Email 2 sending with video link when Email 1 doesn't get a reply:
+            </p>
+
+            <div class="step-box">
+                <div class="step-num">Zapier Setup</div>
+                <div class="step-content">
+                    <strong>Trigger:</strong> Gmail → New email in label "Email 1 Sent"<br/>
+                    <strong>Condition:</strong> If no reply after 4 days<br/>
+                    <strong>Action:</strong> Gmail → Send Email 2 with [VIDEO_LINK] inserted<br/>
+                    <br/>
+                    <strong>Action 2:</strong> Google Drive → Log response tracking<br/>
+                    <br/>
+                    Would you like me to set this up?
+                </div>
+            </div>
+        </div>
+
+        <div style="background: #F3E8FF; border: 1px solid #E9D5FF; border-radius: 8px; padding: 16px; margin-top: 30px; text-align: center;">
+            <p style="font-size: 13px; color: #6B21A8;">
+                <strong>Ready?</strong> Go to heygen.com and create your video using the script above.<br/>
+                Expected time: 5-10 minutes start to finish. Total cost: $0-25.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

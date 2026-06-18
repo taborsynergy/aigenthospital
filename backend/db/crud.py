@@ -593,32 +593,32 @@ def find_patients_due_for_recall(db: Session, clinic_id: int,
                                   interval_months: int) -> list[dict]:
     """
     Return patients whose last completed/scheduled appointment was more than
-    interval_months ago and who have a phone number on file.
-    Returns list of dicts with patient_name, patient_phone, last_visit_ts.
+    interval_months ago and who have an EMAIL on file (recall is email-based).
+    Returns list of dicts with patient_name, patient_email, last_visit_ts.
     """
     cutoff = datetime.utcnow() - timedelta(days=interval_months * 30)
 
     rows = (
         db.query(
             Appointment.patient_name,
-            Appointment.patient_phone,
+            Appointment.patient_email,
             func.max(Appointment.appointment_ts).label("last_visit"),
         )
         .filter(
             Appointment.clinic_id == clinic_id,
             Appointment.status.in_(["scheduled", "confirmed", "completed", "rescheduled"]),
-            Appointment.patient_phone != "",
-            Appointment.patient_phone.isnot(None),
+            Appointment.patient_email != "",
+            Appointment.patient_email.isnot(None),
             Appointment.appointment_ts.isnot(None),
         )
-        .group_by(Appointment.patient_name, Appointment.patient_phone)
+        .group_by(Appointment.patient_name, Appointment.patient_email)
         .having(func.max(Appointment.appointment_ts) < cutoff)
         .all()
     )
     return [
         {
             "patient_name":  r.patient_name,
-            "patient_phone": r.patient_phone,
+            "patient_email": r.patient_email,
             "last_visit_ts": r.last_visit,
         }
         for r in rows

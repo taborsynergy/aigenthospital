@@ -102,7 +102,6 @@ logging.root.setLevel(logging.INFO)
 logging.root.handlers = [_handler]
 from backend.routers.chat import router as chat_router  # noqa: E402
 from backend.routers.admin import router as admin_router  # noqa: E402
-from backend.routers.sms import router as sms_router  # noqa: E402
 from backend.routers.billing import router as billing_router  # noqa: E402
 from backend.routers.signup import router as signup_router  # noqa: E402
 from backend.routers.clinic_auth import router as clinic_auth_router  # noqa: E402
@@ -226,7 +225,6 @@ app.add_middleware(
 # ── Routers ──────────────────────────────────────────────────────────────────
 app.include_router(chat_router)
 app.include_router(admin_router)
-app.include_router(sms_router)
 app.include_router(billing_router)
 app.include_router(signup_router)
 app.include_router(clinic_auth_router)
@@ -1001,7 +999,7 @@ function loadPlan() {{
 
       // Feature cards
       var fRows = [
-        ["💬 SMS",                     p.features.sms],
+        ["📧 Email reminders & recall", p.features.reminders],
         ["🔧 Website embed widget",    p.features.widget_embed],
         ["✏️ Custom agent name",       p.features.custom_agent_name],
         ["🏷️ White-label branding",   p.features.white_label],
@@ -1021,9 +1019,9 @@ function loadPlan() {{
 
       // Comparison table
       var ALL_PLANS = [
-        {{ key:"starter",      name:"Starter",      price:297,  limit:300,  sms:false, embed:false, custom:false, wl:false, locs:1,    sup:"Email" }},
-        {{ key:"professional", name:"Professional",  price:597,  limit:1000, sms:true,  embed:true,  custom:true,  wl:false, locs:3,    sup:"Priority email" }},
-        {{ key:"enterprise",   name:"Enterprise",    price:997,  limit:null, sms:true,  embed:true,  custom:true,  wl:true,  locs:null, sup:"Priority email" }},
+        {{ key:"starter",      name:"Starter",      price:297,  limit:300,  reminders:false, embed:false, custom:false, wl:false, locs:1,    sup:"Email" }},
+        {{ key:"professional", name:"Professional",  price:597,  limit:1000, reminders:true,  embed:true,  custom:true,  wl:false, locs:3,    sup:"Priority email" }},
+        {{ key:"enterprise",   name:"Enterprise",    price:997,  limit:null, reminders:true,  embed:true,  custom:true,  wl:true,  locs:null, sup:"Priority email" }},
       ];
       var FEAT_ROWS = [
         ["Conversations/month", function(pl) {{ return pl.limit === null ? "Unlimited" : pl.limit.toLocaleString(); }}],
@@ -1031,7 +1029,7 @@ function loadPlan() {{
         ["Appointment booking", function()   {{ return "✅"; }}],
         ["Insurance & billing", function()   {{ return "✅"; }}],
         ["Appointments dashboard", function(){{ return "✅"; }}],
-        ["SMS",                 function(pl) {{ return pl.sms   ? "✅" : "❌"; }}],
+        ["Email reminders & recall", function(pl) {{ return pl.reminders ? "✅" : "❌"; }}],
         ["Website embed widget",function(pl) {{ return pl.embed ? "✅" : "❌"; }}],
         ["Custom agent name",   function(pl) {{ return pl.custom? "✅" : "❌"; }}],
         ["White-label",         function(pl) {{ return pl.wl    ? "✅" : "❌"; }}],
@@ -1061,7 +1059,7 @@ var _selectedUpgradePlan = null;
 
 var _UPGRADE_PLANS = [
   {{ key:"starter",      name:"Starter",      price:297,  desc:"300 patient sessions/mo · Email support" }},
-  {{ key:"professional", name:"Professional",  price:597,  desc:"1,000 sessions/mo · SMS · Website widget · Priority email" }},
+  {{ key:"professional", name:"Professional",  price:597,  desc:"1,000 sessions/mo · Email reminders & recall · Website widget · Priority email" }},
   {{ key:"enterprise",   name:"Enterprise",    price:997,  desc:"Unlimited sessions · White-label · Priority email" }},
 ];
 

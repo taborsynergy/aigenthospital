@@ -10,7 +10,7 @@ PLANS = {
         "name":                "Starter",
         "price":               297,
         "conversations_limit": 300,       # per month; None = unlimited
-        "sms":                 False,
+        "reminders":           False,     # email reminders + recall (Growth+)
         "widget_embed":        False,
         "custom_agent_name":   False,
         "white_label":         False,
@@ -24,7 +24,7 @@ PLANS = {
         "name":                "Professional",
         "price":               597,
         "conversations_limit": 1000,
-        "sms":                 True,
+        "reminders":           True,      # email reminders + recall
         "widget_embed":        True,
         "custom_agent_name":   True,
         "white_label":         False,
@@ -40,7 +40,7 @@ PLANS = {
         "name":                "Enterprise",
         "price":               997,
         "conversations_limit": None,      # unlimited
-        "sms":                 True,
+        "reminders":           True,      # email reminders + recall
         "widget_embed":        True,
         "custom_agent_name":   True,
         "white_label":         True,
@@ -66,8 +66,9 @@ def get_plan(clinic) -> dict:
     return PLANS.get(key, PLANS["professional"])
 
 
-def can_use_sms(clinic) -> bool:
-    return get_plan(clinic)["sms"]
+def can_use_reminders(clinic) -> bool:
+    """Email appointment reminders + recall campaigns — Growth and Enterprise plans."""
+    return get_plan(clinic).get("reminders", False)
 
 
 def can_embed_widget(clinic) -> bool:

@@ -80,11 +80,6 @@ class ClinicPatch(BaseModel):
     subscription_status: Optional[Literal["trial", "active", "past_due", "cancelled"]] = None
 
 
-class SmsRequest(BaseModel):
-    to: str
-    message: str
-
-
 # ── Clinic CRUD ───────────────────────────────────────────────────────────────
 
 @router.get("/clinics", dependencies=[Depends(require_admin)])
@@ -307,34 +302,6 @@ def cancel_clinic_subscription(slug: str, db: Session = Depends(get_db)):
 
     crud.update_clinic(db, slug, {"subscription_status": "cancelled"})
     return {"ok": True, "message": "Subscription marked as cancelled."}
-
-
-# ── SMS ───────────────────────────────────────────────────────────────────────
-
-@router.post("/clinics/{slug}/sms", dependencies=[Depends(require_admin)])
-def send_sms(slug: str, body: SmsRequest, db: Session = Depends(get_db)):
-    from backend.services.twilio_svc import send_sms as _send
-    clinic = crud.get_clinic(db, slug)
-    if not clinic:
-        raise HTTPException(404, "Clinic not found.")
-    ok = _send(to=body.to, body=body.message, from_=clinic.twilio_phone or None)
-    return {"sent": ok}
-
-
-@router.get("/clinics/{slug}/sms", dependencies=[Depends(require_admin)])
-def list_sms(slug: str, db: Session = Depends(get_db)):
-    clinic = crud.get_clinic(db, slug)
-    if not clinic:
-        raise HTTPException(404, "Clinic not found.")
-    convs = crud.list_sms_conversations(db, clinic.id)
-    return [
-        {
-            "patient_phone":   c.patient_phone,
-            "session_id":      c.session_id,
-            "last_message_at": c.last_message_at.isoformat() if c.last_message_at else None,
-        }
-        for c in convs
-    ]
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────

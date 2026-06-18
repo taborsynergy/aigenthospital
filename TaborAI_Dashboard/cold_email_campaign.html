@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cold Email Campaign — Tabor Synergy</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            padding: 20px;
+        }
+        .container { max-width: 1100px; margin: 0 auto; }
+        h1 { color: #0F172A; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+
+        .alert {
+            background: #FEF3C7;
+            border: 1px solid #FCD34D;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 30px;
+        }
+        .alert h3 { color: #92400E; margin-bottom: 8px; font-size: 14px; }
+        .alert p { color: #78350F; font-size: 13px; line-height: 1.6; }
+
+        .email-template {
+            background: white;
+            border-left: 4px solid #1E40AF;
+            margin-bottom: 24px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .email-header {
+            background: linear-gradient(90deg, #1E40AF 0%, #3B82F6 100%);
+            color: white;
+            padding: 16px 20px;
+        }
+        .email-header h2 { font-size: 18px; margin: 0; }
+        .email-content {
+            padding: 20px;
+        }
+
+        .email-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .meta-item {
+            background: #f0f7ff;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .meta-label { color: #666; font-weight: 600; }
+        .meta-value { color: #1E40AF; font-weight: 600; margin-top: 2px; }
+
+        .email-body {
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            padding: 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 16px;
+        }
+
+        .variations {
+            background: #F0F9FF;
+            border: 1px solid #93C5FD;
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        .variations h4 { color: #1E40AF; margin-bottom: 8px; font-size: 13px; }
+        .variation-item {
+            margin-bottom: 12px;
+            font-size: 12px;
+        }
+        .variation-label { color: #0F172A; font-weight: 600; }
+        .variation-text { color: #666; font-style: italic; margin-top: 2px; }
+
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            font-size: 18px;
+            color: #0F172A;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #E5E7EB;
+        }
+
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+        }
+        .schedule-table th {
+            background: #1E40AF;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .schedule-table td {
+            padding: 12px;
+            border-bottom: 1px solid #E5E7EB;
+            font-size: 13px;
+        }
+        .schedule-table tr:hover { background: #f9f9f9; }
+
+        .apollo-filters {
+            background: #ECFDF5;
+            border: 1px solid #D1FAE5;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+        .apollo-filters h4 { color: #047857; margin-bottom: 8px; }
+        .apollo-filters ul { margin-left: 20px; }
+        .apollo-filters li { font-size: 13px; color: #065F46; margin-bottom: 4px; }
+
+        .copy-btn {
+            background: #059669;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+        .copy-btn:hover { background: #047857; }
+
+        .checklist {
+            list-style: none;
+            margin: 16px 0;
+        }
+        .checklist li {
+            padding: 8px 0;
+            font-size: 13px;
+            display: flex;
+            gap: 8px;
+        }
+        .checklist input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value { font-size: 28px; font-weight: 700; }
+        .stat-label { font-size: 12px; opacity: 0.9; margin-top: 4px; }
+
+        .timeline {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin: 20px 0;
+        }
+        .timeline-item {
+            background: #f9f9f9;
+            border: 2px solid #1E40AF;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        .timeline-day { color: #1E40AF; font-weight: 700; font-size: 16px; }
+        .timeline-action { color: #666; font-size: 12px; margin-top: 4px; }
+        .timeline-wait { color: #999; font-size: 11px; margin-top: 8px; }
+
+        code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .highlight {
+            background: #FBBF24;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📧 Cold Email Campaign — Tabor Synergy</h1>
+        <p class="subtitle">3-touch sequence to 50 clinic decision-makers | Jun 10 deadline</p>
+
+        <div class="alert">
+            <h3>⚠️ Important: Sending Limits</h3>
+            <p>
+                <strong>Max 20 emails/day</strong> to avoid Gmail spam filters.
+                50 contacts = 3 days minimum (Day 1: 20 | Day 2: 20 | Day 3: 10).
+                Stagger sends across 3 mornings for best deliverability.
+            </p>
+        </div>
+
+        <!-- EMAIL TEMPLATES -->
+        <div class="section">
+            <h2>📧 Email Template Library</h2>
+
+            <!-- EMAIL 1 -->
+            <div class="email-template">
+                <div class="email-header">
+                    <h2>Email 1 — Initial Outreach (Day 0)</h2>
+                </div>
+                <div class="email-content">
+                    <div class="email-meta">
+                        <div class="meta-item">
+                            <div class="meta-label">Send on Day</div>
+                            <div class="meta-value">Same day as signup</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Open Rate</div>
+                            <div class="meta-value">15-25% expected</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">CTR</div>
+                            <div class="meta-value">2-5% expected</div>
+                        </div>
+                    </div>
+
+                    <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 6px; margin-bottom: 16px; font-size: 12px; color: #856404;">
+                        ℹ️ Personalization: Replace [First Name] with actual name, [Specialty] with clinic type (Dental, Family Medicine, Pediatrics)
+                    </div>
+
+                    <div class="email-body">Subject: Your front desk misses 40% of calls after hours
+
+Hi [First Name],
+
+I built an AI front desk for [Specialty] practices that:
+
+• Books appointments 24/7 via chat, SMS, and WhatsApp
+• Answers insurance questions instantly
+• Sends automated reminders — cuts no-shows by 30%
+
+It takes 10 minutes to set up. No IT required.
+
+Would you try it free for 14 days? No credit card needed.
+
+→ See it live: aifrontdesk.taborsynergy.com
+
+— Dinakar
+Tabor Synergy | AI Medical Front Desk
+write2dinakar10@gmail.com</div>
+
+                    <div class="variations">
+                        <h4>🎯 Specialty-Specific Subject Lines</h4>
+                        <div class="variation-item">
+                            <div class="variation-label">DENTAL:</div>
+                            <div class="variation-text">"Your dental front desk misses calls every night"</div>
+                        </div>
+                        <div class="variation-item">
+                            <div class="variation-label">PEDIATRICS:</div>
+                            <div class="variation-text">"Parents can't call during school/work hours"</div>
+                        </div>
+                        <div class="variation-item">
+                            <div class="variation-label">FAMILY MEDICINE:</div>
+                            <div class="variation-text">"Your front desk is overwhelmed with routine calls"</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EMAIL 2 -->
+            <div class="email-template">
+                <div class="email-header">
+                    <h2>Email 2 — Follow-Up with Video (Day 4)</h2>
+                </div>
+                <div class="email-content">
+                    <div class="email-meta">
+                        <div class="meta-item">
+                            <div class="meta-label">Send on Day</div>
+                            <div class="meta-value">4 days after Email 1</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Trigger</div>
+                            <div class="meta-value">If no reply</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Content</div>
+                            <div class="meta-value">90-sec demo video</div>
+                        </div>
+                    </div>
+
+                    <div style="background: #D1FAE5; border: 1px solid #6EE7B7; padding: 12px; border-radius: 6px; margin-bottom: 16px; font-size: 12px; color: #065F46;">
+                        ✅ VIDEO FINALIZED: https://app.heygen.com/video-agent/88c68d9c3b0b4542b98829bf40af9aa0
+                    </div>
+
+                    <div class="email-body">Subject: Re: Quick follow-up on [Clinic Name]
+
+Hi [First Name],
+
+Following up on my note from earlier this week.
+
+I put together a quick 90-second demo so you can see exactly what
+it looks like for a [Specialty] practice:
+
+→ https://app.heygen.com/video-agent/88c68d9c3b0b4542b98829bf40af9aa0
+
+The most common reaction I get: "I didn't know AI could do this."
+
+Worth 90 seconds?
+
+— Dinakar
+Tabor Synergy | AI Medical Front Desk
+write2dinakar10@gmail.com</div>
+
+                    <div style="background: #E0F2FE; border: 1px solid #0EA5E9; border-radius: 6px; padding: 12px; margin-top: 16px; font-size: 12px; color: #0369A1;">
+                        <strong>💡 Pro Tip:</strong> This email has the highest reply rate because it provides value (video) without asking anything yet.
+                    </div>
+                </div>
+            </div>
+
+            <!-- EMAIL 3 -->
+            <div class="email-template">
+                <div class="email-header">
+                    <h2>Email 3 — Final Touch (Day 10)</h2>
+                </div>
+                <div class="email-content">
+                    <div class="email-meta">
+                        <div class="meta-item">
+                            <div class="meta-label">Send on Day</div>
+                            <div class="meta-value">10 days after Email 1</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Trigger</div>
+                            <div class="meta-value">If no reply to Email 2</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Strategy</div>
+                            <div class="meta-value">Low-pressure close</div>
+                        </div>
+                    </div>
+
+                    <div class="email-body">Subject: Last note — free trial for [Clinic Name]
+
+Hi [First Name],
+
+I'll keep this short — last email from me on this.
+
+If your clinic ever wants an AI front desk that handles booking,
+insurance questions, and patient reminders automatically —
+
+the 14-day free trial is at aifrontdesk.taborsynergy.com
+
+If timing isn't right, no worries at all.
+
+Wish you a great week,
+
+— Dinakar
+Tabor Synergy | AI Medical Front Desk</div>
+
+                    <div style="background: #ECFDF5; border: 1px solid #D1FAE5; border-radius: 6px; padding: 12px; margin-top: 16px; font-size: 12px; color: #065F46;">
+                        <strong>✓ Success Metric:</strong> 5-10% reply rate on this email usually means they're interested but need a decision-maker conversation.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SENDING SCHEDULE -->
+        <div class="section">
+            <h2>📅 Sending Schedule (50 Contacts)</h2>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">50</div>
+                    <div class="stat-label">Total Outreach</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">20</div>
+                    <div class="stat-label">Max/Day</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Days Required</div>
+                </div>
+            </div>
+
+            <h3 style="color: #0F172A; margin-bottom: 12px;">Phase 1: Initial Outreach (Day 0)</h3>
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th>Batch</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Count</th>
+                        <th>Email</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Batch 1</td>
+                        <td>Mon, Jun 9</td>
+                        <td>9:00 AM</td>
+                        <td>20</td>
+                        <td>Email 1 (Initial Outreach)</td>
+                    </tr>
+                    <tr>
+                        <td>Batch 2</td>
+                        <td>Tue, Jun 10</td>
+                        <td>9:00 AM</td>
+                        <td>20</td>
+                        <td>Email 1 (Initial Outreach)</td>
+                    </tr>
+                    <tr>
+                        <td>Batch 3</td>
+                        <td>Wed, Jun 11</td>
+                        <td>9:00 AM</td>
+                        <td>10</td>
+                        <td>Email 1 (Initial Outreach)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3 style="color: #0F172A; margin-bottom: 12px; margin-top: 24px;">Phase 2: Follow-ups (Days 4, 10)</h3>
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th>Phase</th>
+                        <th>Date</th>
+                        <th>Email</th>
+                        <th>Condition</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Email 2</td>
+                        <td>Fri, Jun 13 @ 9 AM</td>
+                        <td>Follow-up + Video</td>
+                        <td>If no reply to Email 1</td>
+                    </tr>
+                    <tr>
+                        <td>Email 3</td>
+                        <td>Mon, Jun 19 @ 9 AM</td>
+                        <td>Final Touch</td>
+                        <td>If no reply to Email 2</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- APOLLO SEARCH SETUP -->
+        <div class="section">
+            <h2>🔍 Apollo.io Search Configuration</h2>
+
+            <p style="margin-bottom: 16px; font-size: 13px; color: #666;">
+                Use these filters to find 50 decision-makers at independent clinics. Search in batches of 20 to match your sending schedule.
+            </p>
+
+            <div class="apollo-filters">
+                <h4>🎯 Job Titles (Use OR)</h4>
+                <ul>
+                    <li><code>Office Manager</code></li>
+                    <li><code>Practice Manager</code></li>
+                    <li><code>Clinic Director</code></li>
+                    <li><code>Medical Director</code></li>
+                    <li><code>Practice Administrator</code></li>
+                </ul>
+            </div>
+
+            <div class="apollo-filters">
+                <h4>🏥 Industry & Type</h4>
+                <ul>
+                    <li><code>Industry:</code> Medical Practice, Healthcare Services</li>
+                    <li><code>Company Size:</code> 1-20 employees (independent clinics)</li>
+                    <li><code>Company Type:</code> Small Business / Private Practice</li>
+                </ul>
+            </div>
+
+            <div class="apollo-filters">
+                <h4>📍 Geography (Target 5 States)</h4>
+                <ul>
+                    <li><code>Texas</code> — 15 contacts</li>
+                    <li><code>Florida</code> — 15 contacts</li>
+                    <li><code>California</code> — 10 contacts</li>
+                    <li><code>New York</code> — 5 contacts</li>
+                    <li><code>Georgia</code> — 5 contacts</li>
+                </ul>
+            </div>
+
+            <div class="apollo-filters">
+                <h4>🏥 Specialties (Use OR, search by keyword)</h4>
+                <ul>
+                    <li><code>"Family Medicine"</code> — 15 contacts</li>
+                    <li><code>"Dental"</code> or <code>"Dentistry"</code> — 15 contacts</li>
+                    <li><code>"Pediatrics"</code> or <code>"Pediatric"</code> — 10 contacts</li>
+                    <li><code>"Urgent Care"</code> — 10 contacts</li>
+                </ul>
+            </div>
+
+            <div style="background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 6px; padding: 12px; margin-top: 16px; font-size: 12px; color: #92400E;">
+                <strong>💡 Apollo Pro Tip:</strong> After searching, export the CSV with: Email, First Name, Company, Job Title, Phone. Use this for personalization in Gmail drafts.
+            </div>
+        </div>
+
+        <!-- SENDING INSTRUCTIONS -->
+        <div class="section">
+            <h2>📤 How to Send (3 Options)</h2>
+
+            <h3 style="color: #1E40AF; margin: 20px 0 12px; font-size: 14px;">Option A: Manual Gmail (Complete Control)</h3>
+            <ol style="margin-left: 20px; font-size: 13px; line-height: 1.8;">
+                <li>Export contacts from Apollo (CSV: Email, First Name, Company)</li>
+                <li>Open Gmail → Compose</li>
+                <li>Paste Email 1 template, customize [First Name], [Specialty], [Clinic Name]</li>
+                <li>Send to individual addresses (one at a time)</li>
+                <li>Space out 2-3 minutes between sends to avoid spam filter</li>
+                <li>Note in spreadsheet: sent date, time, contact name</li>
+            </ol>
+
+            <h3 style="color: #1E40AF; margin: 20px 0 12px; font-size: 14px;">Option B: Gmail MCP Bulk Draft (I Create Drafts)</h3>
+            <p style="font-size: 13px; margin-bottom: 12px;">I can create 50 personalized Gmail drafts ready to send. You just hit Send on each.</p>
+            <div style="background: #f0f7ff; border: 1px solid #93C5FD; border-radius: 6px; padding: 12px; font-size: 12px;">
+                Need: List of 50 contacts (Email, First Name, Company, Specialty)<br/>
+                I'll create: 50 drafts with personalized copy + Email 1 template
+            </div>
+
+            <h3 style="color: #1E40AF; margin: 20px 0 12px; font-size: 14px;">Option C: Zapier Email Sequence (Automated)</h3>
+            <p style="font-size: 13px; margin-bottom: 12px;">Set up Zapier to trigger Email 1→2→3 automatically based on date.</p>
+            <div style="background: #f0f7ff; border: 1px solid #93C5FD; border-radius: 6px; padding: 12px; font-size: 12px;">
+                Setup: Zapier Gmail trigger + 3-step delay sequence<br/>
+                Benefit: Hands-off, automatic follow-ups
+            </div>
+        </div>
+
+        <!-- CAMPAIGN CHECKLIST -->
+        <div class="section">
+            <h2>✓ Campaign Checklist</h2>
+
+            <ul class="checklist">
+                <li><input type="checkbox"> Step 1: Record 90-second Loom demo (for Email 2 video link)</li>
+                <li><input type="checkbox"> Step 2: Search Apollo.io for 50 clinic contacts (Job title + Specialty filters)</li>
+                <li><input type="checkbox"> Step 3: Export CSV from Apollo (Email, First Name, Company, Specialty)</li>
+                <li><input type="checkbox"> Step 4: Choose sending method (Manual Gmail / Drafts / Zapier)</li>
+                <li><input type="checkbox"> Step 5: Send Batch 1 (20 emails) — Monday Jun 9 @ 9 AM</li>
+                <li><input type="checkbox"> Step 6: Send Batch 2 (20 emails) — Tuesday Jun 10 @ 9 AM</li>
+                <li><input type="checkbox"> Step 7: Send Batch 3 (10 emails) — Wednesday Jun 11 @ 9 AM</li>
+                <li><input type="checkbox"> Step 8: Monitor replies & track open rates in Gmail</li>
+                <li><input type="checkbox"> Step 9: Send Email 2 (follow-up) — Friday Jun 13 @ 9 AM</li>
+                <li><input type="checkbox"> Step 10: Send Email 3 (final touch) — Monday Jun 19 @ 9 AM</li>
+            </ul>
+        </div>
+
+        <!-- EXPECTED OUTCOMES -->
+        <div class="section">
+            <h2>📊 Expected Campaign Results</h2>
+
+            <div class="stats-grid">
+                <div class="stat-card" style="background: linear-gradient(135deg, #059669 0%, #10B981 100%);">
+                    <div class="stat-value">10-15</div>
+                    <div class="stat-label">Replies Total</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);">
+                    <div class="stat-value">3-5</div>
+                    <div class="stat-label">Trial Signups</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%);">
+                    <div class="stat-value">1-2</div>
+                    <div class="stat-label">Paid Customers</div>
+                </div>
+            </div>
+
+            <h3 style="color: #0F172A; margin-top: 20px; margin-bottom: 12px;">Response Rates by Email</h3>
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Open Rate</th>
+                        <th>Reply Rate</th>
+                        <th>Trial Click Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Email 1 (Initial)</td>
+                        <td>15-25%</td>
+                        <td>2-4%</td>
+                        <td>1-2%</td>
+                    </tr>
+                    <tr>
+                        <td>Email 2 (Video)</td>
+                        <td>20-30%</td>
+                        <td>5-8%</td>
+                        <td>3-5%</td>
+                    </tr>
+                    <tr>
+                        <td>Email 3 (Final)</td>
+                        <td>10-15%</td>
+                        <td>1-2%</td>
+                        <td>0.5-1%</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p style="margin-top: 20px; font-size: 13px; color: #666;">
+                <strong>Total Campaign ROI:</strong> 50 emails → ~10-15 replies → 3-5 trials → 1-2 paying customers<br/>
+                <strong>Expected MRR from this cohort:</strong> $600-$1,200/month (assuming 50% conversion to $300-$600/mo plans)
+            </p>
+        </div>
+
+        <!-- NEXT STEPS -->
+        <div class="alert" style="background: #ECFDF5; border-color: #D1FAE5;">
+            <h3 style="color: #047857;">✓ Next Steps</h3>
+            <p style="color: #065F46;">
+                1. Record 90-second Loom demo + get link<br/>
+                2. Provide me with 50 contacts (Email, Name, Company, Specialty) OR authorize Apollo search<br/>
+                3. Choose sending method (Manual / Drafts / Zapier)<br/>
+                4. Start sending Batch 1 on Jun 9
+            </p>
+        </div>
+    </div>
+</body>
+</html>

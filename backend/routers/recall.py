@@ -202,17 +202,17 @@ def run_campaign_now(
     db: Session = Depends(get_db),
     x_clinic_token: str = Header(None),
 ):
-    """Manually trigger a campaign — sends SMS to all due patients immediately."""
+    """Manually trigger a campaign — emails all due patients immediately."""
     from backend.services.recall_svc import run_campaign
-    from backend.plans import can_use_sms
+    from backend.plans import can_use_reminders
 
     clinic   = _clinic_auth(clinic_slug, x_clinic_token, db)
     campaign = get_recall_campaign(db, campaign_id, clinic.id)
     if not campaign:
         raise HTTPException(404, "Campaign not found.")
-    if not can_use_sms(clinic):
+    if not can_use_reminders(clinic):
         return JSONResponse(status_code=403, content={
-            "error": "SMS is not available on your current plan. Upgrade to Professional or Enterprise."
+            "error": "Recall campaigns are available on the Growth and Enterprise plans. Please upgrade."
         })
 
     stats = run_campaign(db, clinic, campaign)

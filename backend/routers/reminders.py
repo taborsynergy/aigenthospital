@@ -38,10 +38,10 @@ def trigger_reminders(db: Session = Depends(get_db)):
 
 @router.post("/send-confirmation/{confirmation_number}", dependencies=[Depends(_require_admin)])
 def resend_confirmation(confirmation_number: str, db: Session = Depends(get_db)):
-    """Manually resend a booking confirmation SMS for a specific appointment."""
+    """Manually resend a booking confirmation EMAIL for a specific appointment."""
     from backend.db.models import Appointment
     from backend.db.crud import get_clinic_by_id
-    from backend.services.reminders_svc import send_booking_confirmation_sms
+    from backend.services.email_svc import send_booking_confirmation_email
 
     appt = db.query(Appointment).filter_by(confirmation_number=confirmation_number).first()
     if not appt:
@@ -51,8 +51,8 @@ def resend_confirmation(confirmation_number: str, db: Session = Depends(get_db))
     if not clinic:
         raise HTTPException(404, "Clinic not found.")
 
-    if not appt.patient_phone:
-        raise HTTPException(400, "No patient phone number on record.")
+    if not appt.patient_email:
+        raise HTTPException(400, "No patient email on record.")
 
-    ok = send_booking_confirmation_sms(clinic, appt, db)
-    return {"ok": ok, "to": appt.patient_phone}
+    ok = send_booking_confirmation_email(clinic, appt)
+    return {"ok": ok, "to": appt.patient_email}

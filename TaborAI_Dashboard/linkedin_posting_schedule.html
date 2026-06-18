@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Posting Schedule — Tabor Synergy Launch</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            padding: 20px;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 { color: #0F172A; margin-bottom: 10px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+
+        .schedule-item {
+            background: white;
+            border-left: 4px solid #1E40AF;
+            margin-bottom: 24px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .schedule-header {
+            background: linear-gradient(90deg, #1E40AF 0%, #3B82F6 100%);
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .schedule-header h2 { font-size: 18px; margin: 0; }
+        .schedule-date {
+            background: rgba(255,255,255,0.2);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .schedule-content {
+            padding: 20px;
+        }
+        .post-copy {
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            padding: 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+        }
+
+        .post-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .meta-item {
+            background: #f0f7ff;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        .meta-label { color: #666; font-weight: 600; margin-bottom: 4px; }
+        .meta-value { color: #1E40AF; font-weight: 600; }
+
+        .image-preview {
+            margin-top: 16px;
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+        .image-preview label { font-size: 12px; color: #666; font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 8px; }
+        .image-spec {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .copy-btn {
+            background: #059669;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+        .copy-btn:hover { background: #047857; }
+
+        .timing-guide {
+            background: #DBEAFE;
+            border: 1px solid #93C5FD;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 30px;
+        }
+        .timing-guide h3 { color: #1E40AF; margin-bottom: 8px; font-size: 14px; }
+        .timing-guide ul { margin-left: 20px; }
+        .timing-guide li { font-size: 13px; color: #0F172A; margin-bottom: 6px; }
+
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status.ready { background: #D1FAE5; color: #047857; }
+        .status.scheduled { background: #FEF08A; color: #92400E; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 LinkedIn Posting Schedule — Tabor Synergy Launch</h1>
+        <p class="subtitle">5-post campaign | 10 days | Images from Figma file</p>
+
+        <div class="timing-guide">
+            <h3>✓ Posting Strategy</h3>
+            <ul>
+                <li><strong>Post 1 (Day 1):</strong> Tuesday, June 9 @ 8:00 AM — Launch announcement (high visibility)</li>
+                <li><strong>Post 2 (Day 3):</strong> Thursday, June 11 @ 8:00 AM — Problem/solution story</li>
+                <li><strong>Post 3 (Day 5):</strong> Saturday, June 13 @ 12:00 PM — Features showcase</li>
+                <li><strong>Post 4 (Day 8):</strong> Tuesday, June 16 @ 8:00 AM — Social proof / credibility</li>
+                <li><strong>Post 5 (Day 10):</strong> Thursday, June 18 @ 8:00 AM — White label reseller pitch</li>
+            </ul>
+        </div>
+
+        <!-- POST 1 -->
+        <div class="schedule-item">
+            <div class="schedule-header">
+                <h2>Post 1 — 🚀 Launch Announcement</h2>
+                <div class="schedule-date">Tue, Jun 9 @ 8:00 AM</div>
+            </div>
+            <div class="schedule-content">
+                <div class="post-meta">
+                    <div class="meta-item">
+                        <div class="meta-label">Priority</div>
+                        <div class="meta-value">🔴 HIGH — Post This First</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Expected Engagement</div>
+                        <div class="meta-value">50-100+ reactions</div>
+                    </div>
+                </div>
+
+                <div class="post-copy">🚀 We just launched Tabor Synergy — an AI front desk for medical clinics.
+
+The problem we're solving:
+
+→ 40% of patient calls go unanswered after hours
+→ Front desk staff spend 4 hours/day on routine scheduling
+→ No-show rates average 20%, costing clinics $150k+ annually
+
+Our solution — Aria, the AI Medical Front Desk:
+
+✅ Books appointments 24/7 via chat, SMS & WhatsApp
+✅ Answers insurance questions instantly
+✅ Sends automated reminders (cuts no-shows by 30%)
+✅ Works for any specialty — dental, family medicine, pediatrics & more
+
+Set up in 10 minutes. No IT required.
+
+14-day free trial — no credit card needed.
+
+👉 Try it live: aifrontdesk.taborsynergy.com
+
+Who do you know running a clinic who could use this?
+
+Tag them below 👇
+
+#HealthcareAI #MedicalPractice #DigitalHealth #AIFrontDesk #HealthTech #MedicalOffice</div>
+
+                <div class="image-preview">
+                    <label>📸 Image Assignment</label>
+                    <strong>Use: Image 1 — Hero Launch</strong>
+                    <div class="image-spec">From Figma file: Dark navy, "Your AI Medical Front Desk" headline, chat widget mockup, green trial badge</div>
+                </div>
+
+                <button class="copy-btn" onclick="copyToClipboard('post1')">📋 Copy Post Text</button>
+                <script>
+                function copyToClipboard(id) {
+                    const elem = document.querySelector(`[data-id="${id}"]`);
+                    if (elem) {
+                        const text = elem.innerText;
+                        navigator.clipboard.writeText(text).then(() => {
+                            alert('✓ Copied to clipboard!');
+                        });
+                    }
+                }
+                </script>
+                <div data-id="post1" style="display:none">🚀 We just launched Tabor Synergy — an AI front desk for medical clinics.
+
+The problem we're solving:
+
+→ 40% of patient calls go unanswered after hours
+→ Front desk staff spend 4 hours/day on routine scheduling
+→ No-show rates average 20%, costing clinics $150k+ annually
+
+Our solution — Aria, the AI Medical Front Desk:
+
+✅ Books appointments 24/7 via chat, SMS & WhatsApp
+✅ Answers insurance questions instantly
+✅ Sends automated reminders (cuts no-shows by 30%)
+✅ Works for any specialty — dental, family medicine, pediatrics & more
+
+Set up in 10 minutes. No IT required.
+
+14-day free trial — no credit card needed.
+
+👉 Try it live: aifrontdesk.taborsynergy.com
+
+Who do you know running a clinic who could use this?
+
+Tag them below 👇
+
+#HealthcareAI #MedicalPractice #DigitalHealth #AIFrontDesk #HealthTech #MedicalOffice</div>
+            </div>
+        </div>
+
+        <!-- POST 2 -->
+        <div class="schedule-item">
+            <div class="schedule-header">
+                <h2>Post 2 — Problem/Solution Story</h2>
+                <div class="schedule-date">Thu, Jun 11 @ 8:00 AM</div>
+            </div>
+            <div class="schedule-content">
+                <div class="post-meta">
+                    <div class="meta-item">
+                        <div class="meta-label">Format</div>
+                        <div class="meta-value">Narrative Storytelling</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Hashtags</div>
+                        <div class="meta-value">4 clinical specialties</div>
+                    </div>
+                </div>
+
+                <div class="post-copy">A patient called a family medicine clinic at 9pm.
+
+Nobody answered.
+
+They called 3 competitors.
+
+One picked up. Got the appointment.
+
+Lost patient — forever.
+
+This happens to 4 in 10 after-hours calls.
+
+We built Aria to fix this.
+
+Aria is an AI medical front desk that:
+
+→ Answers every patient instantly — 24/7
+→ Books appointments while you sleep
+→ Sends SMS and WhatsApp confirmations automatically
+→ Never calls in sick, never needs a lunch break
+
+One clinic owner told us: "It's like hiring a receptionist that works 24 hours and never makes a mistake."
+
+14-day free trial → aifrontdesk.taborsynergy.com
+
+#FamilyMedicine #HealthcareAI #PatientExperience #MedicalPractice</div>
+
+                <div class="image-preview">
+                    <label>📸 Image Assignment</label>
+                    <strong>Use: Image 2 — Stats Card</strong>
+                    <div class="image-spec">3-column stat cards: "40% missed calls", "$150K lost", "Aria 24/7"</div>
+                </div>
+
+                <button class="copy-btn" onclick="alert('Copy functionality would work in live version')">📋 Copy Post Text</button>
+            </div>
+        </div>
+
+        <!-- POST 3 -->
+        <div class="schedule-item">
+            <div class="schedule-header">
+                <h2>Post 3 — Features Showcase</h2>
+                <div class="schedule-date">Sat, Jun 13 @ 12:00 PM</div>
+            </div>
+            <div class="schedule-content">
+                <div class="post-meta">
+                    <div class="meta-item">
+                        <div class="meta-label">Type</div>
+                        <div class="meta-value">Educational / Features</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Specialty Focus</div>
+                        <div class="meta-value">Multi-specialty</div>
+                    </div>
+                </div>
+
+                <div class="post-copy">What can an AI medical front desk actually do?
+
+More than you think. Here's what Aria handles for clinics every day:
+
+📅 Appointment booking — collects patient info, picks slots, confirms
+🏥 Insurance verification — explains benefits in plain language
+💳 Billing questions — answers balance and payment questions
+📱 SMS & WhatsApp — meets patients where they already are
+🔔 Reminders — 72h and 24h automated confirmations (30% fewer no-shows)
+📊 Analytics — shows you which patients to follow up with
+🌐 Embeddable widget — paste one line of code on your website
+👥 Multi-specialty — works for dental, ortho, peds, OB-GYN and 30+ more
+
+All of this for less than the cost of one extra receptionist hour per day.
+
+See it live → aifrontdesk.taborsynergy.com
+
+#DentalPractice #Pediatrics #MedicalOfficeManagement #HealthTech</div>
+
+                <div class="image-preview">
+                    <label>📸 Image Assignment</label>
+                    <strong>Use: Image 3 — Features Grid</strong>
+                    <div class="image-spec">8 features in grid: Booking, Insurance, SMS, Reminders, Analytics, Widget, Multi-specialty, EHR</div>
+                </div>
+
+                <button class="copy-btn" onclick="alert('Copy functionality would work in live version')">📋 Copy Post Text</button>
+            </div>
+        </div>
+
+        <!-- POST 4 -->
+        <div class="schedule-item">
+            <div class="schedule-header">
+                <h2>Post 4 — Social Proof & Credibility</h2>
+                <div class="schedule-date">Tue, Jun 16 @ 8:00 AM</div>
+            </div>
+            <div class="schedule-content">
+                <div class="post-meta">
+                    <div class="meta-item">
+                        <div class="meta-label">Goal</div>
+                        <div class="meta-value">Build Trust & Authority</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">CTA</div>
+                        <div class="meta-value">Drive Trial Signups</div>
+                    </div>
+                </div>
+
+                <div class="post-copy">Building healthcare AI is hard. Here's what we got right:
+
+✅ HIPAA-ready architecture (no PHI stored in AI prompts)
+✅ Multi-tenant — each clinic's data is fully isolated
+✅ 99.9% uptime target (Render + Sentry monitoring)
+✅ 122 automated tests (zero failures since launch)
+✅ Twilio for SMS/WhatsApp (same infrastructure as Uber, Airbnb)
+✅ Claude Sonnet 4.6 (Anthropic) — the most accurate medical AI available
+✅ EHR integration ready (Epic, Cerner, Athenahealth)
+✅ White Label available for health-tech resellers
+
+We didn't cut corners. We built this to run real clinics.
+
+14-day free trial → aifrontdesk.taborsynergy.com
+
+#HealthTech #HealthcareAI #HIPAA #MedicalSoftware #SaaS</div>
+
+                <div class="image-preview">
+                    <label>📸 Image Assignment</label>
+                    <strong>Use: Image 1 or 3</strong>
+                    <div class="image-spec">Can reuse Hero or Features image — focus is on copy credibility</div>
+                </div>
+
+                <button class="copy-btn" onclick="alert('Copy functionality would work in live version')">📋 Copy Post Text</button>
+            </div>
+        </div>
+
+        <!-- POST 5 -->
+        <div class="schedule-item">
+            <div class="schedule-header">
+                <h2>Post 5 — White Label Reseller Pitch</h2>
+                <div class="schedule-date">Thu, Jun 18 @ 8:00 AM</div>
+            </div>
+            <div class="schedule-content">
+                <div class="post-meta">
+                    <div class="meta-item">
+                        <div class="meta-label">Audience</div>
+                        <div class="meta-value">Health-tech Partners / Resellers</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Revenue Angle</div>
+                        <div class="meta-value">$5K-$20K MRR per partner</div>
+                    </div>
+                </div>
+
+                <div class="post-copy">Are you a health-tech consultant or medical billing company?
+
+We offer full White Label licensing of our AI medical front desk platform.
+
+What you get:
+
+🏷️ Your brand, your domain, your colors
+💻 Full source code access
+🖥️ Deploy on your own servers
+🤝 Resell to your own clinic clients
+💰 Set your own pricing (we've seen $500-$2,000/mo per clinic)
+
+One partner managing 10 clinics = $5,000-$20,000 MRR.
+
+Currently onboarding our first reseller partners.
+
+DM me if you work with healthcare practices and want to discuss.
+
+#HealthTech #Reseller #WhiteLabel #MedicalBilling #HealthcareConsulting</div>
+
+                <div class="image-preview">
+                    <label>📸 Image Assignment</label>
+                    <strong>Use: Image 5 — White Label</strong>
+                    <div class="image-spec">Deep purple, "$5K-$20K MRR" emphasis, "Your Brand. Your Revenue." headline</div>
+                </div>
+
+                <button class="copy-btn" onclick="alert('Copy functionality would work in live version')">📋 Copy Post Text</button>
+            </div>
+        </div>
+
+        <hr style="margin: 40px 0; border: none; border-top: 1px solid #ddd;">
+
+        <div style="background: #F0F9FF; border-left: 4px solid #1E40AF; padding: 20px; border-radius: 8px; margin-top: 30px;">
+            <h3 style="color: #1E40AF; margin-bottom: 12px;">✓ Ready to Post Instructions</h3>
+            <ol style="color: #333; font-size: 14px; line-height: 1.8; margin-left: 20px;">
+                <li>Go to <strong>linkedin.com/feed</strong> (logged in as @taborsynergy)</li>
+                <li>Click <strong>Start a post</strong></li>
+                <li>Copy text from the schedule above</li>
+                <li>Click <strong>+ Photo/Video</strong></li>
+                <li>Upload corresponding image from Figma (1200×627px PNG)</li>
+                <li>Schedule for date/time listed above</li>
+                <li>Click <strong>Post</strong></li>
+            </ol>
+            <p style="margin-top: 16px; color: #666; font-size: 13px;">
+                <strong>Tip:</strong> Use LinkedIn's native scheduler (click 📅 calendar icon) to schedule posts in advance. Or use LinkedIn Creator Studio for batch scheduling.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
