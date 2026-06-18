@@ -208,7 +208,7 @@ async def get_appointments(
             "chief_complaint":      a.chief_complaint,
             "status":               a.status,
             "channel":              a.channel,
-            "booked_at":            a.created_at.strftime("%Y-%m-%d %H:%M UTC"),
+            "booked_at":            a.created_at.strftime("%Y-%m-%d %H:%M UTC") if a.created_at else "",
         }
         for a in appts
     ]
