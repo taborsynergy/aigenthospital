@@ -216,6 +216,18 @@ def _send_confirmation_sms(confirmation_number: str, clinic, db) -> None:
         logger.debug("Booking confirmation SMS skipped — %s", confirmation_number)
 
 
+def _send_confirmation_email(confirmation_number: str, clinic, db) -> None:
+    """Fire-and-forget booking confirmation EMAIL to the patient (all plans)."""
+    try:
+        from backend.db.models import Appointment
+        from backend.services.email_svc import send_booking_confirmation_email
+        appt = db.query(Appointment).filter_by(confirmation_number=confirmation_number).first()
+        if appt:
+            send_booking_confirmation_email(clinic, appt)
+    except Exception:
+        logger.debug("Booking confirmation email skipped — %s", confirmation_number)
+
+
 def _get_booked_isos(db, clinic_id: int, date_start: date, date_end: date) -> set[str]:
     """Return set of booked ISO datetime strings for the clinic in the date range."""
     from backend.db.models import Appointment
@@ -310,6 +322,10 @@ def book_appointment(
     # Send booking confirmation SMS (best-effort, non-blocking)
     if patient_phone and clinic and db:
         _send_confirmation_sms(conf_num, clinic, db)
+
+    # Send booking confirmation EMAIL (best-effort, non-blocking; all plans)
+    if patient_email and clinic and db:
+        _send_confirmation_email(conf_num, clinic, db)
 
     # Sync to EHR if configured (best-effort, non-blocking)
     if clinic and db:

@@ -189,6 +189,44 @@ def send_email(to: str, subject: str, body: str) -> bool:
     return False
 
 
+def send_booking_confirmation_email(clinic, appt) -> bool:
+    """
+    Email a booking confirmation to the PATIENT (appt.patient_email).
+    Best-effort: returns False if no email / not configured. Available on all plans
+    (especially important for Starter, which has no SMS channel).
+    """
+    to = (getattr(appt, "patient_email", "") or "").strip()
+    if not to:
+        return False
+
+    clinic_name = getattr(clinic, "name", "your clinic")
+    lines = [
+        f"Hi {getattr(appt, 'patient_name', '') or 'there'},",
+        "",
+        f"Your appointment at {clinic_name} is confirmed!",
+        "",
+        f"Confirmation #: {getattr(appt, 'confirmation_number', '')}",
+        f"Service:        {getattr(appt, 'appointment_type', '')}",
+        f"When:           {getattr(appt, 'appointment_datetime', '')}",
+    ]
+    if getattr(appt, "provider", ""):
+        lines.append(f"Provider:       {appt.provider}")
+    if getattr(clinic, "address", ""):
+        lines.append(f"Where:          {clinic.address}")
+    lines += [
+        "",
+        "What to bring: your insurance card, a photo ID, and a list of any current medications.",
+    ]
+    if getattr(clinic, "cancellation_policy", ""):
+        lines += ["", clinic.cancellation_policy]
+    if getattr(clinic, "phone", ""):
+        lines += ["", f"Need to reschedule or have questions? Call us at {clinic.phone}."]
+    lines += ["", "See you then!", f"— {clinic_name}"]
+
+    subject = f"Your appointment is confirmed — {clinic_name}"
+    return send_email(to=to, subject=subject, body="\n".join(lines))
+
+
 # ── public API ────────────────────────────────────────────────────────────────
 
 def send_trial_signup_email(data: dict) -> bool:
