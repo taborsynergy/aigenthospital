@@ -125,7 +125,17 @@ def update_clinic(slug: str, body: ClinicPatch, db: Session = Depends(get_db)):
 
 
 @router.delete("/clinics/{slug}", dependencies=[Depends(require_admin)])
-def deactivate_clinic(slug: str, db: Session = Depends(get_db)):
+def deactivate_clinic(slug: str, hard: bool = False, db: Session = Depends(get_db)):
+    """
+    Default (hard=false): reversible soft-delete (deactivate).
+    hard=true: permanent purge of the clinic + all its data (cascades). Irreversible —
+    use for right-to-be-forgotten / removing test data.
+    """
+    if hard:
+        ok = crud.purge_clinic(db, slug)
+        if not ok:
+            raise HTTPException(404, "Clinic not found.")
+        return {"purged": slug}
     ok = crud.deactivate_clinic(db, slug)
     if not ok:
         raise HTTPException(404, "Clinic not found.")

@@ -170,6 +170,20 @@ def deactivate_clinic(db: Session, slug: str) -> bool:
     return True
 
 
+def purge_clinic(db: Session, slug: str) -> bool:
+    """
+    Permanently delete a clinic and ALL its data (right-to-be-forgotten / GDPR/HIPAA
+    data minimization). Child rows are removed via ON DELETE CASCADE foreign keys.
+    Irreversible — use deactivate_clinic for the normal reversible soft-delete.
+    """
+    clinic = get_clinic(db, slug)
+    if not clinic:
+        return False
+    db.delete(clinic)
+    db.commit()
+    return True
+
+
 # ── Appointments ─────────────────────────────────────────────────────────────
 
 def create_appointment(db: Session, data: dict) -> Appointment:

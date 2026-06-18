@@ -67,7 +67,7 @@ class Location(Base):
     __tablename__ = "locations"
 
     id                  = Column(Integer,  primary_key=True, index=True)
-    clinic_id           = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    clinic_id           = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
     name                = Column(String,   nullable=False)          # "Main Office", "Downtown", etc.
     address             = Column(String,   default="")
     city_state          = Column(String,   default="")
@@ -83,7 +83,7 @@ class Location(Base):
     created_at          = Column(DateTime, default=datetime.utcnow)
     updated_at          = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-Index("ix_locations_clinic", Location.clinic_id)
+# clinic_id is already indexed via index=True on the column (no separate Index needed)
 
 
 class Provider(Base):
@@ -109,7 +109,7 @@ class Provider(Base):
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-Index("ix_providers_clinic", Provider.clinic_id)
+# clinic_id is already indexed via index=True on the column (no separate Index needed)
 
 
 class OnboardingSession(Base):
@@ -136,15 +136,15 @@ class OnboardingSession(Base):
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-Index("ix_onboarding_clinic", OnboardingSession.clinic_id)
+# clinic_id is already indexed via index=True on the column (no separate Index needed)
 
 
 class Appointment(Base):
     __tablename__ = "appointments"
 
     id                   = Column(Integer,  primary_key=True, index=True)
-    clinic_id            = Column(Integer,  ForeignKey("clinics.id"), index=True)
-    location_id          = Column(Integer,  ForeignKey("locations.id"), nullable=True, index=True)
+    clinic_id            = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    location_id          = Column(Integer,  ForeignKey("locations.id", ondelete="CASCADE"), nullable=True, index=True)
     confirmation_number  = Column(String,   unique=True, index=True)
     patient_name         = Column(String,   nullable=False)
     patient_phone        = Column(String,   default="")
@@ -175,8 +175,8 @@ class UsageLog(Base):
     __tablename__ = "usage_logs"
 
     id            = Column(Integer,  primary_key=True, index=True)
-    clinic_id     = Column(Integer,  ForeignKey("clinics.id"), index=True)
-    location_id   = Column(Integer,  ForeignKey("locations.id"), nullable=True, index=True)
+    clinic_id     = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    location_id   = Column(Integer,  ForeignKey("locations.id", ondelete="CASCADE"), nullable=True, index=True)
     session_id    = Column(String)
     channel       = Column(String,   default="web")
     input_tokens  = Column(Integer,  default=0)
@@ -188,7 +188,7 @@ class SmsConversation(Base):
     __tablename__ = "sms_conversations"
 
     id              = Column(Integer,  primary_key=True, index=True)
-    clinic_id       = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
     patient_phone   = Column(String,   index=True)
     session_id      = Column(String,   unique=True)
     last_message_at = Column(DateTime, default=datetime.utcnow)
@@ -200,7 +200,7 @@ class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
     id          = Column(Integer,  primary_key=True, index=True)
-    clinic_id   = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    clinic_id   = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
     session_id  = Column(String,   index=True, nullable=False)
     history     = Column(Text,     default="[]")   # JSON array of messages
     channel     = Column(String,   default="web")
@@ -231,7 +231,7 @@ class RecallCampaign(Base):
     __tablename__ = "recall_campaigns"
 
     id               = Column(Integer,  primary_key=True, index=True)
-    clinic_id        = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    clinic_id        = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
     name             = Column(String,   nullable=False)          # "Annual Physical Recall"
     visit_type       = Column(String,   nullable=False)          # "annual physical"
     interval_months  = Column(Integer,  default=12)              # recall after X months
@@ -249,8 +249,8 @@ class RecallLog(Base):
     __tablename__ = "recall_logs"
 
     id              = Column(Integer,  primary_key=True, index=True)
-    campaign_id     = Column(Integer,  ForeignKey("recall_campaigns.id"), nullable=True, index=True)
-    clinic_id       = Column(Integer,  ForeignKey("clinics.id"), index=True)
+    campaign_id     = Column(Integer,  ForeignKey("recall_campaigns.id", ondelete="CASCADE"), nullable=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
     patient_name    = Column(String,   nullable=False)
     patient_phone   = Column(String,   nullable=False, index=True)
     status          = Column(String,   default="sent")   # sent | failed | opted_out | booked
@@ -267,7 +267,7 @@ class WidgetConfig(Base):
     __tablename__ = "widget_configs"
 
     id              = Column(Integer,  primary_key=True, index=True)
-    clinic_id       = Column(Integer,  ForeignKey("clinics.id"), unique=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), unique=True, index=True)
     # Branding
     logo_url        = Column(String,   default="")              # clinic logo
     primary_color   = Column(String,   default="#007ACC")       # brand color (hex)
@@ -306,7 +306,7 @@ class CustomAITraining(Base):
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-Index("ix_custom_ai_clinic", CustomAITraining.clinic_id)
+# clinic_id is already indexed via index=True on the column (no separate Index needed)
 
 
 class EHRConfiguration(Base):
@@ -317,7 +317,7 @@ class EHRConfiguration(Base):
     __tablename__ = "ehr_configurations"
 
     id              = Column(Integer,  primary_key=True, index=True)
-    clinic_id       = Column(Integer,  ForeignKey("clinics.id"), unique=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), unique=True, index=True)
     # EHR system type
     ehr_system      = Column(String,   default="")              # "epic", "cerner", "athenahealth", etc.
     # Connection details (encrypted at rest)
@@ -343,7 +343,7 @@ class InsuranceKnowledge(Base):
     __tablename__ = "insurance_knowledge"
 
     id              = Column(Integer,  primary_key=True, index=True)
-    clinic_id       = Column(Integer,  ForeignKey("clinics.id"), unique=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), unique=True, index=True)
     # Insurance info
     accepted_plans  = Column(Text,     default="")              # CSV: "Blue Cross, Aetna, United Healthcare"
     copay_info      = Column(Text,     default="")              # e.g., "Office visit: $25, Lab: $50"
@@ -363,7 +363,7 @@ class WhitelabelConfig(Base):
     __tablename__ = "whitelabel_configs"
 
     id                      = Column(Integer,  primary_key=True, index=True)
-    clinic_id               = Column(Integer,  ForeignKey("clinics.id"), unique=True, index=True)
+    clinic_id               = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), unique=True, index=True)
 
     # Branding
     logo_url                = Column(String,   default="")              # Custom logo URL
