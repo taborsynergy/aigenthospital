@@ -2,10 +2,11 @@
 Admin API — protected by X-Admin-Password header.
 Provides CRUD for clinics, usage stats, and billing actions.
 """
+import json
 import logging
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -149,6 +150,58 @@ def activate_subscription(slug: str, db: Session = Depends(get_db)):
     if not clinic:
         raise HTTPException(404, "Clinic not found.")
     return _serialize(clinic)
+
+
+@router.post("/clinics/{slug}/plan", dependencies=[Depends(require_admin)])
+def change_clinic_plan(slug: str, plan: str, request: Request, db: Session = Depends(get_db)):
+    """
+    Switch a clinic's plan tier (upgrade or downgrade), e.g. starter -> professional
+    -> enterprise and back. Syncs monthly_rate; feature gating follows automatically.
+    Returns any downgrade warnings (existing providers/locations over the new limit).
+    """
+    from backend.plans import PLANS, PLAN_RATES
+    from backend.db.models import Provider, Location
+
+    key = (plan or "").lower().strip()
+    if key not in PLANS:
+        raise HTTPException(400, f"Invalid plan '{plan}'. Valid: {', '.join(PLANS)}.")
+
+    clinic = crud.get_clinic(db, slug)
+    if not clinic:
+        raise HTTPException(404, "Clinic not found.")
+
+    old_plan = clinic.plan
+    new = PLANS[key]
+
+    # Downgrade guardrail: warn (don't block) if current usage exceeds the new plan
+    warnings = []
+    prov_count = db.query(Provider).filter_by(clinic_id=clinic.id, is_active=True).count()
+    loc_count = db.query(Location).filter_by(clinic_id=clinic.id, is_active=True).count()
+    if new.get("max_providers") is not None and prov_count > new["max_providers"]:
+        warnings.append(
+            f"{prov_count} providers exceed the {new['max_providers']} allowed on {new['name']} "
+            f"(existing kept; you can't add more until under the limit)."
+        )
+    if new.get("max_locations") is not None and loc_count > new["max_locations"]:
+        warnings.append(
+            f"{loc_count} locations exceed the {new['max_locations']} allowed on {new['name']} "
+            f"(existing kept; you can't add more until under the limit)."
+        )
+
+    crud.change_plan(db, slug, key)
+    invalidate_prompt(slug)
+    crud.write_audit_log(
+        db, actor="admin", action="clinic.plan_changed", target=slug,
+        detail=json.dumps({"from": old_plan, "to": key, "monthly_rate": PLAN_RATES[key]}),
+        ip=(request.client.host if request.client else ""),
+    )
+    return {
+        "slug": slug,
+        "previous_plan": old_plan,
+        "plan": key,
+        "monthly_rate": PLAN_RATES[key],
+        "warnings": warnings,
+    }
 
 
 class NotesRequest(BaseModel):

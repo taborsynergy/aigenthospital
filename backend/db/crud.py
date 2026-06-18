@@ -136,6 +136,24 @@ def update_clinic(db: Session, slug: str, data: dict) -> Optional[Clinic]:
     return clinic
 
 
+def change_plan(db: Session, slug: str, new_plan: str) -> Optional[Clinic]:
+    """
+    Switch a clinic's plan tier (upgrade OR downgrade) and sync monthly_rate from
+    PLAN_RATES. Feature gating follows clinic.plan automatically, so every tier
+    combination is honored immediately. Caller must validate new_plan first.
+    Returns the updated clinic, or None if the clinic doesn't exist.
+    """
+    from backend.plans import PLAN_RATES
+    clinic = get_clinic(db, slug)
+    if not clinic:
+        return None
+    clinic.plan = new_plan
+    clinic.monthly_rate = PLAN_RATES[new_plan]
+    db.commit()
+    db.refresh(clinic)
+    return clinic
+
+
 def activate_subscription(db: Session, slug: str) -> Optional[Clinic]:
     clinic = get_clinic(db, slug)
     if not clinic:
