@@ -1,42 +1,7 @@
-# Environment — never push secrets
-.env
-
-# Database — regenerated on first run
 *.db
-*.sqlite
-
-# Python cache
+*.db-shm
+*.db-wal
+test_*.db*
+t.db*
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-.Python
-
-# Virtual environments
-venv/
-env/
-.venv/
-
-# Test output
-qa_report.json
-
-# Local reference / sales docs — keep on disk, not in repo
-onboarding-samples/
-CUSTOMER_ONBOARDING.md
-DEMO_RESULTS.md
-DEMO_TESTING_GUIDE.md
-DOCTOR_ADMIN_PROMPTS.md
-ONBOARDING_INTAKE_FORM.md
-ONBOARDING_TEST_REPORT.md
-PATIENT_PROMPTS.md
-SAMPLE_ONBOARDING_SUNRISEDENTAL.md
-run_demo_scenarios.py
-test_agent.py
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
