@@ -19,6 +19,19 @@ def mock_chat(messages: list[dict]) -> tuple[str, bool]:
     last = user_msgs[-1].strip().lower() if user_msgs else ""
     full = " ".join(str(m) for m in user_msgs).lower()
 
+    # ── MENTAL-HEALTH CRISIS (highest priority — safety first) ───────
+    # Must fire even if the message also contains "ignore instructions" style
+    # text — a patient message can never disable the crisis path.
+    if _has(last, "hurt myself", "kill myself", "suicid", "end my life",
+            "want to die", "harm myself", "self-harm"):
+        return (
+            "I'm really glad you reached out, and I'm sorry you're going through this. "
+            "Your safety matters. Please call or text 988 (the Suicide & Crisis Lifeline) "
+            "right now, or call 911 if you're in immediate danger. I'm connecting you with "
+            "a member of our team as well — you don't have to go through this alone.",
+            True,
+        )
+
     # ── EMERGENCIES (highest priority — check first) ─────────────────
     if _has(last, "chest pain", "left arm", "left arm feels numb"):
         return (
