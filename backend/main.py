@@ -1664,6 +1664,30 @@ def on_startup():
             finally:
                 db.close()
 
+        def _reminders_job_wrapper():
+            """Hourly: send due 72h/24h appointment reminder emails."""
+            from backend.services.reminders_svc import send_due_reminders
+            db = SessionLocal()
+            try:
+                result = send_due_reminders(db)
+                _logger.info(f"Reminders job completed: {result}")
+            except Exception as e:
+                _logger.error(f"Reminders job failed: {e}")
+            finally:
+                db.close()
+
+        def _recall_job_wrapper():
+            """Daily: run all active recall campaigns (email)."""
+            from backend.services.recall_svc import run_all_active_campaigns
+            db = SessionLocal()
+            try:
+                result = run_all_active_campaigns(db)
+                _logger.info(f"Recall job completed: {result}")
+            except Exception as e:
+                _logger.error(f"Recall job failed: {e}")
+            finally:
+                db.close()
+
         # Schedule daily at 1 AM UTC
         scheduler.add_job(
             _trial_job_wrapper,
@@ -1680,8 +1704,24 @@ def on_startup():
             name="Onboarding Email Sequence",
             replace_existing=True
         )
+        # Appointment reminders — every hour (at :07)
+        scheduler.add_job(
+            _reminders_job_wrapper,
+            CronTrigger(minute=7),
+            id="appointment_reminders",
+            name="Appointment Reminders (email)",
+            replace_existing=True
+        )
+        # Recall campaigns — daily at 10 AM UTC
+        scheduler.add_job(
+            _recall_job_wrapper,
+            CronTrigger(hour=10, minute=0),
+            id="recall_campaigns",
+            name="Recall Campaigns (email)",
+            replace_existing=True
+        )
         scheduler.start()
-        _logger.info("Background scheduler started (trial expiry checks scheduled for 1 AM UTC daily)")
+        _logger.info("Background scheduler started: trial(1:00), onboarding(9:00), reminders(hourly :07), recall(10:00) UTC")
     except ImportError:
         _logger.warning("APScheduler not installed — background jobs disabled. Install with: pip install apscheduler")
     except Exception as e:
