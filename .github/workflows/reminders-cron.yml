@@ -1,0 +1,37 @@
+name: Reminders & Recall Cron
+
+# Fires the email reminder + recall triggers hourly. Also keeps the free-tier
+# Render app warm. Requires repo secret ADMIN_PASSWORD (Settings -> Secrets and
+# variables -> Actions) = the app's ADMIN_PASSWORD.
+on:
+  schedule:
+    - cron: "7 * * * *"   # every hour at :07 UTC
+  workflow_dispatch: {}     # allow manual run from the Actions tab
+
+jobs:
+  fire:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake the app (free tier cold start)
+        run: |
+          for i in $(seq 1 24); do
+            if curl -fsS -m 20 https://aifrontdesk.taborsynergy.com/api/health | grep -q '"ok"'; then
+              echo "app is awake"; exit 0
+            fi
+            echo "waiting for app to wake ($i)..."; sleep 5
+          done
+          echo "app did not wake in time"; exit 0   # don't fail the run
+
+      - name: Trigger appointment reminders (72h/24h emails)
+        run: |
+          code=$(curl -sS -m 90 -o /tmp/rem.txt -w "%{http_code}" -X POST \
+            -H "X-Admin-Password: ${{ secrets.ADMIN_PASSWORD }}" \
+            https://aifrontdesk.taborsynergy.com/api/reminders/trigger || echo 000)
+          echo "reminders HTTP $code"; cat /tmp/rem.txt || true
+
+      - name: Trigger recall campaigns (email; dedup makes hourly safe)
+        run: |
+          code=$(curl -sS -m 90 -o /tmp/rec.txt -w "%{http_code}" -X POST \
+            -H "X-Admin-Password: ${{ secrets.ADMIN_PASSWORD }}" \
+            https://aifrontdesk.taborsynergy.com/api/recall/trigger || echo 000)
+          echo "recall HTTP $code"; cat /tmp/rec.txt || true
