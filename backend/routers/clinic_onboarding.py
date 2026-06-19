@@ -54,6 +54,48 @@ class ValidateTwilioRequest(BaseModel):
     phone_number: str
 
 
+# Clinic profile fields a customer may set/edit for their own clinic.
+# All are free-text and drive the AI agent's answers + email branding.
+PROFILE_FIELDS = (
+    "specialty", "address", "phone", "city_state", "timezone",
+    "email", "website", "office_hours", "insurance_accepted",
+    "services_offered", "providers", "cancellation_policy",
+    "after_hours_protocol", "agent_name",
+)
+
+
+class ProfileUpdate(BaseModel):
+    specialty:            Optional[str] = None
+    address:              Optional[str] = None
+    phone:                Optional[str] = None
+    city_state:           Optional[str] = None
+    timezone:             Optional[str] = None
+    email:                Optional[str] = None
+    website:              Optional[str] = None
+    office_hours:         Optional[str] = None
+    insurance_accepted:   Optional[str] = None
+    services_offered:     Optional[str] = None
+    providers:            Optional[str] = None
+    cancellation_policy:  Optional[str] = None
+    after_hours_protocol: Optional[str] = None
+    agent_name:           Optional[str] = None
+
+
+def _apply_profile(clinic: Clinic, data: dict) -> list[str]:
+    """Write only provided, whitelisted profile fields onto the clinic. Returns updated keys."""
+    changed = []
+    for field in PROFILE_FIELDS:
+        if field in data and data[field] is not None:
+            value = data[field]
+            setattr(clinic, field, value.strip() if isinstance(value, str) else value)
+            changed.append(field)
+    return changed
+
+
+def _profile_dict(clinic: Clinic) -> dict:
+    return {f: getattr(clinic, f, "") for f in PROFILE_FIELDS}
+
+
 # ─── Endpoints ───────────────────────────────────────────────────────────
 def get_clinic_and_user(clinic_slug: str, user_id: int, db: Session):
     """Verify user belongs to clinic"""
@@ -174,11 +216,9 @@ async def update_onboarding_step(
     if step == "clinic_info":
         checklist.clinic_info_completed = True
         checklist.clinic_info_data = json.dumps(req.data)
-        # Update clinic with provided info
-        clinic.specialty = req.data.get("specialty", clinic.specialty)
-        clinic.address = req.data.get("address", clinic.address)
-        clinic.phone = req.data.get("phone", clinic.phone)
-        clinic.city_state = req.data.get("city_state", clinic.city_state)
+        # Persist the full clinic profile (address, hours, insurance, services,
+        # contact email, etc.) — whitelisted, scoped to this clinic only.
+        _apply_profile(clinic, req.data)
 
     elif step == "branding":
         checklist.branding_completed = True
@@ -213,6 +253,44 @@ async def update_onboarding_step(
         "detail": f"Step '{step}' completed",
         "completed": getattr(checklist, f"{step}_completed")
     }
+
+
+@router.get("/{clinic_slug}/profile")
+async def get_clinic_profile(
+    clinic_slug: str,
+    user_id: int = Depends(verify_access_token),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Read this clinic's editable profile (scoped to the caller's own clinic)."""
+    clinic, user = get_clinic_and_user(clinic_slug, user_id, db)
+    return {"clinic_slug": clinic.slug, "name": clinic.name, "profile": _profile_dict(clinic)}
+
+
+@router.patch("/{clinic_slug}/profile")
+async def update_clinic_profile(
+    clinic_slug: str,
+    req: ProfileUpdate,
+    user_id: int = Depends(verify_access_token),
+    db: Session = Depends(get_db)
+) -> dict:
+    """
+    Update this clinic's profile at any time (address, office hours, insurance,
+    services, contact email, etc.). Editable only by a user of this clinic, and
+    only their own clinic's record is touched.
+    """
+    clinic, user = get_clinic_and_user(clinic_slug, user_id, db)
+    changed = _apply_profile(clinic, req.model_dump(exclude_unset=True))
+    if not changed:
+        raise HTTPException(status_code=400, detail="No profile fields to update.")
+    db.commit()
+    db.refresh(clinic)
+    # Refresh the cached agent system prompt so changes take effect immediately.
+    try:
+        from backend.agent.aria import invalidate_prompt
+        invalidate_prompt(clinic.id)
+    except Exception:
+        pass
+    return {"detail": "Profile updated", "updated": changed, "profile": _profile_dict(clinic)}
 
 
 @router.post("/{clinic_slug}/validate-smtp")
