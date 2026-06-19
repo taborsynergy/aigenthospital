@@ -17,7 +17,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -27,11 +27,41 @@ from backend.db.crud import (
     get_clinic_by_token, get_recall_campaign,
     list_recall_campaigns, create_recall_campaign,
     update_recall_campaign, delete_recall_campaign,
-    get_recall_stats,
+    get_recall_stats, mark_recall_opted_out,
 )
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _unsub_page(title: str, msg: str, status: int = 200) -> HTMLResponse:
+    html = (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<title>Unsubscribe</title></head>"
+        "<body style='font-family:-apple-system,Segoe UI,sans-serif;background:#f6f8fa;margin:0'>"
+        "<div style='max-width:480px;margin:64px auto;background:#fff;border:1px solid #e2e8f0;"
+        "border-radius:12px;padding:36px;text-align:center'>"
+        f"<h2 style='color:#0f1f35;margin:0 0 10px'>{title}</h2>"
+        f"<p style='color:#475569;font-size:15px;line-height:1.5'>{msg}</p>"
+        "</div></body></html>"
+    )
+    return HTMLResponse(content=html, status_code=status)
+
+
+@router.get("/api/unsubscribe", include_in_schema=False)
+def unsubscribe(token: str = "", db: Session = Depends(get_db)):
+    """Public, no-auth endpoint patients click from a recall email to opt out."""
+    from backend.unsub import verify_unsub_token
+    data = verify_unsub_token(token)
+    if not data:
+        return _unsub_page("Invalid link",
+                           "This unsubscribe link is invalid or has expired.", status=400)
+    clinic_id, email = data
+    mark_recall_opted_out(db, clinic_id, email)
+    logger.info("Recall unsubscribe: clinic=%s email=%s", clinic_id, email)
+    return _unsub_page("You're unsubscribed",
+                       "You will no longer receive appointment recall emails from this clinic.")
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────

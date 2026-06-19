@@ -13,8 +13,8 @@ Entry points:
   preview_campaign(db, clinic_id, campaign) — patients due, no email sent
 
 Recall is gated to Growth/Enterprise plans. Patient contact key is the email
-address. NOTE: an email unsubscribe link/endpoint is still pending (see PENDING
-notes) — required for CAN-SPAM compliance before sending real recall email.
+address. Every recall email carries a signed unsubscribe link
+(GET /api/unsubscribe) for CAN-SPAM compliance; opted-out patients are skipped.
 """
 import logging
 from datetime import datetime, timedelta
@@ -41,7 +41,7 @@ def _render_message(template: str, patient_name: str, clinic_name: str,
     return msg
 
 
-def _email_body(message: str, clinic) -> str:
+def _email_body(message: str, clinic, unsub_url: str = "") -> str:
     from backend.config import settings
     lines = [message, ""]
     chat_url = f"{settings.base_url}/c/{clinic.slug}"
@@ -49,6 +49,9 @@ def _email_body(message: str, clinic) -> str:
     if getattr(clinic, "phone", ""):
         lines.append(f"Or call us at {clinic.phone}.")
     lines += ["", f"— {clinic.name}"]
+    if unsub_url:
+        lines += ["", "—" * 20,
+                  f"Don't want these reminders? Unsubscribe: {unsub_url}"]
     return "\n".join(lines)
 
 
@@ -105,7 +108,10 @@ def run_campaign(db: Session, clinic, campaign) -> dict:
             visit_type=campaign.visit_type, clinic_phone=getattr(clinic, "phone", "") or "",
         )
         subject = f"You may be due for your {campaign.visit_type} — {clinic.name}"
-        ok = send_email(to=email, subject=subject, body=_email_body(message, clinic))
+        from backend.unsub import make_unsub_token
+        from backend.config import settings
+        unsub_url = f"{settings.base_url}/api/unsubscribe?token={make_unsub_token(clinic.id, email)}"
+        ok = send_email(to=email, subject=subject, body=_email_body(message, clinic, unsub_url))
         log_recall_sent(db, campaign.id, clinic.id, name, email, "sent" if ok else "failed")
 
         if ok:
