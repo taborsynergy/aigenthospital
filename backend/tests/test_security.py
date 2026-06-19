@@ -141,3 +141,47 @@ def test_cross_tenant_appointments_blocked(client, db):
     r2 = client.get(f"/api/{b.slug}/appointments", headers={"x-clinic-token": b_tok})
     assert r2.status_code == 200
     assert "Jane PHI" in r2.text
+
+
+# ── Timing-safe admin password compare (security scan follow-up) ───────────────
+
+def test_verify_admin_password_constant_time():
+    from backend.auth import verify_admin_password
+    assert verify_admin_password("test-admin-secret") is True
+    assert verify_admin_password("test-admin-secret ") is True   # trailing space tolerated
+    assert verify_admin_password("wrong") is False
+    assert verify_admin_password("") is False
+    assert verify_admin_password(None) is False
+
+
+def test_verify_admin_password_rejects_when_unset(monkeypatch):
+    """An empty configured password must never authenticate anyone."""
+    from backend import auth
+    monkeypatch.setattr(auth.settings, "admin_password", "", raising=False)
+    assert auth.verify_admin_password("") is False
+    assert auth.verify_admin_password("anything") is False
+
+
+def test_admin_endpoints_require_password(client, db):
+    _make_clinic(db)
+    # No password and wrong password both blocked; correct password works.
+    assert client.get("/admin/api/clinics").status_code == 401
+    assert client.get("/admin/api/clinics",
+                      headers={"X-Admin-Password": "nope"}).status_code == 401
+    ok = client.get("/admin/api/clinics", headers=ADMIN)
+    assert ok.status_code == 200
+
+
+def test_admin_error_does_not_leak_password():
+    """The 401 body must not echo the configured admin password."""
+    c = TestClient(app, raise_server_exceptions=False)
+    r = c.get("/admin/api/clinics", headers={"X-Admin-Password": "nope"})
+    assert r.status_code == 401
+    assert "test-admin-secret" not in r.text
+
+
+def test_recall_and_reminders_triggers_require_admin(client):
+    for path in ("/api/recall/trigger", "/api/reminders/trigger"):
+        assert client.post(path).status_code == 401
+        assert client.post(path, headers={"X-Admin-Password": "nope"}).status_code == 401
+        assert client.post(path, headers=ADMIN).status_code == 200

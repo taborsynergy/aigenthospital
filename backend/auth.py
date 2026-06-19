@@ -1,6 +1,7 @@
 """
 JWT token management for clinic users.
 """
+import hmac
 from datetime import datetime, timedelta
 import jwt
 from typing import Optional
@@ -11,6 +12,19 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from backend.config import settings
 
 security = HTTPBearer()
+
+
+def verify_admin_password(provided: Optional[str]) -> bool:
+    """Constant-time check of the admin password.
+
+    Uses hmac.compare_digest so the comparison time does not depend on how many
+    leading characters match — closing a timing side-channel. An empty configured
+    password is always rejected.
+    """
+    expected = (settings.admin_password or "").strip()
+    if not expected:
+        return False
+    return hmac.compare_digest((provided or "").strip(), expected)
 
 
 def _signing_key() -> str:

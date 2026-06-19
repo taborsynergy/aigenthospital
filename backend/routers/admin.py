@@ -14,6 +14,7 @@ from backend.config import settings
 from backend.db.database import get_db
 from backend.db import crud
 from backend.agent.aria import invalidate_prompt
+from backend.auth import verify_admin_password
 
 router = APIRouter(prefix="/admin/api")
 logger = logging.getLogger(__name__)
@@ -22,9 +23,9 @@ logger = logging.getLogger(__name__)
 # ── Auth ─────────────────────────────────────────────────────────────────────
 
 def require_admin(x_admin_password: Optional[str] = Header(None)):
-    # .strip() both sides so a stray trailing space/newline in the ADMIN_PASSWORD
-    # env var (a common deploy gotcha) can't silently break login.
-    if (x_admin_password or "").strip() != (settings.admin_password or "").strip():
+    # Constant-time comparison (see auth.verify_admin_password) to avoid leaking
+    # the password length/prefix via response timing.
+    if not verify_admin_password(x_admin_password):
         raise HTTPException(status_code=401, detail="Invalid admin password")
 
 

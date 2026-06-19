@@ -85,7 +85,8 @@ class CampaignPatch(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _require_admin(x_admin_password: str = Header(None)):
-    if (x_admin_password or "").strip() != (settings.admin_password or "").strip():
+    from backend.auth import verify_admin_password
+    if not verify_admin_password(x_admin_password):
         raise HTTPException(401, "Unauthorized")
 
 
