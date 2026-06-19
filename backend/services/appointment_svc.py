@@ -250,6 +250,23 @@ def _select_provider(providers: list[str], preference: Optional[str]) -> str:
 
 # ── Booking ───────────────────────────────────────────────────────────────────
 
+def _invalid_date_reason(appt_ts: Optional[datetime]) -> Optional[str]:
+    """Return a human error if a parsed appointment time is unbookable, else None.
+
+    Guards against booking in the past or in an absurd year (e.g. 9999). Impossible
+    calendar dates like 'February 30' fail parsing and yield appt_ts=None, which is
+    handled by the caller separately.
+    """
+    if appt_ts is None:
+        return None
+    today = date.today()
+    if appt_ts.date() < today:
+        return "That date is in the past. Please choose an upcoming date."
+    if appt_ts.year > today.year + 2:
+        return "That date is too far in the future. Please choose a date within the next two years."
+    return None
+
+
 def book_appointment(
     clinic,
     db,
@@ -278,6 +295,11 @@ def book_appointment(
 
     # Parse datetime_str to a proper timestamp for conflict checking
     appt_ts = _parse_datetime_str(datetime_str)
+
+    # Reject clearly-invalid dates (past / absurd future) before persisting
+    reason = _invalid_date_reason(appt_ts)
+    if reason:
+        return {"success": False, "error": reason}
 
     # Persist to DB
     try:
@@ -364,6 +386,9 @@ def reschedule_appointment(
     )
 
     new_ts   = _parse_datetime_str(new_datetime)
+    reason = _invalid_date_reason(new_ts)
+    if reason:
+        return {"success": False, "error": reason}
     providers = _parse_providers(clinic)
 
     if appt:

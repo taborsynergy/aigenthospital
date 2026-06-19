@@ -1,4 +1,5 @@
 """White label configuration router — Enterprise feature for custom branding, domains, and reselling."""
+import re
 from datetime import datetime
 from fastapi import APIRouter, Depends, Header
 from fastapi.responses import JSONResponse
@@ -19,6 +20,24 @@ from backend.plans import (
 )
 
 router = APIRouter(prefix="/api", tags=["whitelabel"])
+
+# Hostname label: letters/digits/hyphen, no leading/trailing hyphen, 1-63 chars.
+# Punycode (xn--) IDN labels are valid ASCII and pass naturally.
+_DOMAIN_RE = re.compile(
+    r"^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$"
+)
+
+
+def _is_valid_domain(domain: str) -> bool:
+    """Validate a custom hostname. Accepts IDN by converting to punycode first;
+    rejects schemes, spaces, paths, and malformed labels."""
+    if not domain or len(domain) > 253:
+        return False
+    try:
+        ascii_domain = domain.encode("idna").decode("ascii")  # normalizes unicode IDN
+    except (UnicodeError, Exception):
+        return False
+    return bool(_DOMAIN_RE.match(ascii_domain))
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
@@ -135,7 +154,7 @@ def set_custom_domain(
         })
 
     domain = data.get("custom_domain", "").strip().lower()
-    if not domain or "." not in domain:
+    if not _is_valid_domain(domain):
         return JSONResponse(status_code=400, content={
             "error": "Valid custom domain required (e.g., clinic.yourdomain.com)"
         })
