@@ -84,12 +84,17 @@ def _sendgrid_send(to_list: List[str], subject: str, plain: str, html: str = "",
         content.append({"type": "text/html", "value": html})
     if not content:
         content = [{"type": "text/plain", "value": ""}]
+    # Strip CR/LF so a clinic-controlled name/email can't inject extra headers.
+    def _clean(v: str) -> str:
+        return (v or "").replace("\r", " ").replace("\n", " ").strip()
+
     payload = {
         "personalizations": [{"to": [{"email": a} for a in to_list]}],
-        "from": {"email": _email_from(), "name": from_name or "Tabor Synergy"},
-        "subject": subject or "(no subject)",
+        "from": {"email": _email_from(), "name": _clean(from_name) or "Tabor Synergy"},
+        "subject": _clean(subject) or "(no subject)",
         "content": content,
     }
+    reply_to = _clean(reply_to)
     if reply_to:
         payload["reply_to"] = {"email": reply_to}
     try:

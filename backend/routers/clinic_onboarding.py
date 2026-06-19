@@ -7,7 +7,7 @@ from typing import Optional
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.db.database import get_db
@@ -65,20 +65,22 @@ PROFILE_FIELDS = (
 
 
 class ProfileUpdate(BaseModel):
-    specialty:            Optional[str] = None
-    address:              Optional[str] = None
-    phone:                Optional[str] = None
-    city_state:           Optional[str] = None
-    timezone:             Optional[str] = None
-    email:                Optional[str] = None
-    website:              Optional[str] = None
-    office_hours:         Optional[str] = None
-    insurance_accepted:   Optional[str] = None
-    services_offered:     Optional[str] = None
-    providers:            Optional[str] = None
-    cancellation_policy:  Optional[str] = None
-    after_hours_protocol: Optional[str] = None
-    agent_name:           Optional[str] = None
+    # max_length caps block oversized-payload abuse and DB bloat. Long-form fields
+    # (hours/insurance/services/policy) get a larger cap than short identifiers.
+    specialty:            Optional[str] = Field(default=None, max_length=200)
+    address:              Optional[str] = Field(default=None, max_length=500)
+    phone:                Optional[str] = Field(default=None, max_length=50)
+    city_state:           Optional[str] = Field(default=None, max_length=200)
+    timezone:             Optional[str] = Field(default=None, max_length=100)
+    email:                Optional[str] = Field(default=None, max_length=320)
+    website:              Optional[str] = Field(default=None, max_length=300)
+    office_hours:         Optional[str] = Field(default=None, max_length=1000)
+    insurance_accepted:   Optional[str] = Field(default=None, max_length=2000)
+    services_offered:     Optional[str] = Field(default=None, max_length=2000)
+    providers:            Optional[str] = Field(default=None, max_length=2000)
+    cancellation_policy:  Optional[str] = Field(default=None, max_length=1000)
+    after_hours_protocol: Optional[str] = Field(default=None, max_length=1000)
+    agent_name:           Optional[str] = Field(default=None, max_length=100)
 
 
 def _apply_profile(clinic: Clinic, data: dict) -> list[str]:
