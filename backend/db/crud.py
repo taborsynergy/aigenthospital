@@ -115,6 +115,18 @@ def list_clinics(db: Session) -> list[Clinic]:
     return db.query(Clinic).filter(Clinic.is_active.is_(True)).order_by(Clinic.created_at.desc()).all()
 
 
+def list_clinics_paged(db: Session, limit: int = 100, offset: int = 0,
+                       status: Optional[str] = None) -> tuple[list[Clinic], int]:
+    """Active clinics, paginated, optionally filtered by subscription_status.
+    Returns (rows, total)."""
+    q = db.query(Clinic).filter(Clinic.is_active.is_(True))
+    if status:
+        q = q.filter(Clinic.subscription_status == status)
+    total = q.count()
+    rows = q.order_by(Clinic.created_at.desc()).limit(limit).offset(offset).all()
+    return rows, total
+
+
 def create_clinic(db: Session, data: dict) -> Clinic:
     if "trial_ends_at" not in data:
         data = {**data, "trial_ends_at": datetime.utcnow() + timedelta(days=14)}
@@ -241,12 +253,23 @@ def create_appointment(db: Session, data: dict) -> Appointment:
     return appt
 
 
-def list_appointments(db: Session, clinic_id: int, limit: int = 200) -> list[Appointment]:
+def count_appointments(db: Session, clinic_id: int, status: Optional[str] = None) -> int:
+    q = db.query(Appointment).filter(Appointment.clinic_id == clinic_id)
+    if status:
+        q = q.filter(Appointment.status == status)
+    return q.count()
+
+
+def list_appointments(db: Session, clinic_id: int, limit: int = 200, offset: int = 0,
+                      status: Optional[str] = None, sort: str = "desc") -> list[Appointment]:
+    q = db.query(Appointment).filter(Appointment.clinic_id == clinic_id)
+    if status:
+        q = q.filter(Appointment.status == status)
+    order = Appointment.created_at.asc() if sort == "asc" else Appointment.created_at.desc()
     return (
-        db.query(Appointment)
-        .filter(Appointment.clinic_id == clinic_id)
-        .order_by(Appointment.created_at.desc())
+        q.order_by(order)
         .limit(limit)
+        .offset(offset)
         .all()
     )
 

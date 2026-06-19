@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from backend.agent import aria
 from backend.db.database import get_db
 from backend.schemas import ClinicProfileUpdate
-from backend.db.crud import get_clinic, get_clinic_by_token, list_appointments
+from backend.db.crud import get_clinic, get_clinic_by_token, list_appointments, count_appointments
 from backend.models.schemas import ChatMessage, ChatResponse
 from backend.plans import get_plan, monthly_conversation_limit, can_use_monthly_reports
 
@@ -187,13 +187,29 @@ async def get_appointments(
     clinic_slug: str,
     db: Session = Depends(get_db),
     x_clinic_token: str = Header(None),
+    limit: str = "200",
+    offset: str = "0",
+    status: str = "",
+    sort: str = "desc",
 ):
-    """Return all appointments for a clinic. Requires clinic session token."""
+    """Return appointments for a clinic (paginated). Requires clinic session token.
+
+    Query params: limit (1-200), offset (>=0), status filter, sort (asc|desc).
+    Total row count is returned in the X-Total-Count header.
+    """
     clinic = get_clinic_by_token(db, x_clinic_token)
     if not clinic or clinic.slug != clinic_slug:
         return JSONResponse(status_code=403, content={"error": "Unauthorized"})
-    appts = list_appointments(db, clinic.id)
-    return [
+    # Clamp pagination so extreme/garbage values can't DoS or error
+    limit = max(1, min(int(limit) if str(limit).lstrip("-").isdigit() else 200, 200))
+    offset = max(0, int(offset) if str(offset).lstrip("-").isdigit() else 0)
+    sort = "asc" if str(sort).lower() == "asc" else "desc"
+    status_filter = status.strip() or None
+
+    total = count_appointments(db, clinic.id, status=status_filter)
+    appts = list_appointments(db, clinic.id, limit=limit, offset=offset,
+                              status=status_filter, sort=sort)
+    rows = [
         {
             "id":                   a.id,
             "confirmation_number":  a.confirmation_number,
@@ -212,6 +228,7 @@ async def get_appointments(
         }
         for a in appts
     ]
+    return JSONResponse(content=rows, headers={"X-Total-Count": str(total)})
 
 
 @router.get("/api/{clinic_slug}/analytics")

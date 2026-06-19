@@ -84,9 +84,16 @@ class ClinicPatch(BaseModel):
 # ── Clinic CRUD ───────────────────────────────────────────────────────────────
 
 @router.get("/clinics", dependencies=[Depends(require_admin)])
-def list_clinics(db: Session = Depends(get_db)):
-    clinics = crud.list_clinics(db)
-    return [_serialize(c) for c in clinics]
+def list_clinics(db: Session = Depends(get_db), limit: int = 100, offset: int = 0, status: str = ""):
+    """List clinics (paginated). Params: limit (1-500), offset (>=0), status filter.
+    Total count in X-Total-Count header. Default returns first 100 (unchanged shape)."""
+    from fastapi.responses import JSONResponse
+    limit = max(1, min(int(limit) if str(limit).lstrip("-").isdigit() else 100, 500))
+    offset = max(0, int(offset) if str(offset).lstrip("-").isdigit() else 0)
+    clinics, total = crud.list_clinics_paged(db, limit=limit, offset=offset,
+                                             status=(status.strip() or None))
+    return JSONResponse(content=[_serialize(c) for c in clinics],
+                        headers={"X-Total-Count": str(total)})
 
 
 @router.post("/clinics", dependencies=[Depends(require_admin)])
