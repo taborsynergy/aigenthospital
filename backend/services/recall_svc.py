@@ -93,34 +93,41 @@ def run_campaign(db: Session, clinic, campaign) -> dict:
     for patient in due:
         email = patient["patient_email"]
         name = patient["patient_name"]
+        # Isolate each recipient: one bad address / send error must not abort the
+        # rest of the batch.
+        try:
+            if is_opted_out(db, clinic.id, email):
+                stats["opted_out"] += 1
+                continue
 
-        if is_opted_out(db, clinic.id, email):
-            stats["opted_out"] += 1
-            continue
+            recent = get_recall_log(db, clinic.id, email, since=cutoff)
+            if any(r.campaign_id == campaign.id for r in recent if r.status in ("sent", "booked")):
+                stats["skipped"] += 1
+                continue
 
-        recent = get_recall_log(db, clinic.id, email, since=cutoff)
-        if any(r.campaign_id == campaign.id for r in recent if r.status in ("sent", "booked")):
-            stats["skipped"] += 1
-            continue
+            message = _render_message(
+                campaign.message_template, patient_name=name, clinic_name=clinic.name,
+                visit_type=campaign.visit_type, clinic_phone=getattr(clinic, "phone", "") or "",
+            )
+            subject = f"You may be due for your {campaign.visit_type} — {clinic.name}"
+            from backend.unsub import make_unsub_token
+            from backend.config import settings
+            unsub_url = f"{settings.base_url}/api/unsubscribe?token={make_unsub_token(clinic.id, email)}"
+            ok = send_email(to=email, subject=subject, body=_email_body(message, clinic, unsub_url),
+                            from_name=clinic.name, reply_to=(getattr(clinic, "email", "") or "").strip())
+            log_recall_sent(db, campaign.id, clinic.id, name, email, "sent" if ok else "failed")
 
-        message = _render_message(
-            campaign.message_template, patient_name=name, clinic_name=clinic.name,
-            visit_type=campaign.visit_type, clinic_phone=getattr(clinic, "phone", "") or "",
-        )
-        subject = f"You may be due for your {campaign.visit_type} — {clinic.name}"
-        from backend.unsub import make_unsub_token
-        from backend.config import settings
-        unsub_url = f"{settings.base_url}/api/unsubscribe?token={make_unsub_token(clinic.id, email)}"
-        ok = send_email(to=email, subject=subject, body=_email_body(message, clinic, unsub_url),
-                        from_name=clinic.name, reply_to=(getattr(clinic, "email", "") or "").strip())
-        log_recall_sent(db, campaign.id, clinic.id, name, email, "sent" if ok else "failed")
-
-        if ok:
-            stats["sent"] += 1
-            logger.info("Recall email sent: campaign=%s patient=%s to=%s", campaign.id, name, email)
-        else:
+            if ok:
+                stats["sent"] += 1
+                logger.info("Recall email sent: campaign=%s patient=%s to=%s", campaign.id, name, email)
+            else:
+                stats["errors"] += 1
+                logger.warning("Recall email failed: campaign=%s patient=%s", campaign.id, name)
+        except Exception as exc:
             stats["errors"] += 1
-            logger.warning("Recall email failed: campaign=%s patient=%s", campaign.id, name)
+            logger.error("Recall recipient error (continuing): campaign=%s patient=%s: %s",
+                         campaign.id, name, exc)
+            continue
 
     return stats
 

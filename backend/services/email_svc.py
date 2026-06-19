@@ -15,6 +15,7 @@ even if NOTIFY_EMAIL uses a domain without email hosting.
 import logging
 import smtplib
 import ssl
+import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import List
@@ -22,6 +23,10 @@ from typing import List
 from backend.config import settings
 
 logger = logging.getLogger(__name__)
+
+# SendGrid transient-failure retry (tests set _BACKOFF_BASE=0 to avoid real sleeps)
+_MAX_SEND_RETRIES = 3
+_BACKOFF_BASE = 0.5
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -97,21 +102,37 @@ def _sendgrid_send(to_list: List[str], subject: str, plain: str, html: str = "",
     reply_to = _clean(reply_to)
     if reply_to:
         payload["reply_to"] = {"email": reply_to}
-    try:
-        r = httpx.post(
-            "https://api.sendgrid.com/v3/mail/send",
-            headers={"Authorization": f"Bearer {settings.sendgrid_api_key}",
-                     "Content-Type": "application/json"},
-            json=payload, timeout=15,
-        )
-        if r.status_code in (200, 201, 202):
-            logger.info("Email sent via SendGrid to %s", to_list)
-            return True
-        logger.error("SendGrid send failed: HTTP %s: %s", r.status_code, r.text[:300])
-        return False
-    except Exception as exc:
-        logger.error("SendGrid send error to=%s: %s: %s", to_list, type(exc).__name__, exc)
-        return False
+
+    # Retry transient failures (429 / 5xx / transport errors) with exponential
+    # backoff; permanent failures (4xx other than 429) fail fast — no point retrying.
+    last_status = None
+    for attempt in range(1, _MAX_SEND_RETRIES + 1):
+        try:
+            r = httpx.post(
+                "https://api.sendgrid.com/v3/mail/send",
+                headers={"Authorization": f"Bearer {settings.sendgrid_api_key}",
+                         "Content-Type": "application/json"},
+                json=payload, timeout=15,
+            )
+            if r.status_code in (200, 201, 202):
+                logger.info("Email sent via SendGrid to %s", to_list)
+                return True
+            last_status = r.status_code
+            if r.status_code != 429 and r.status_code < 500:
+                logger.error("SendGrid send failed (permanent): HTTP %s: %s",
+                             r.status_code, r.text[:300])
+                return False
+            logger.warning("SendGrid transient HTTP %s (attempt %d/%d)",
+                           r.status_code, attempt, _MAX_SEND_RETRIES)
+        except Exception as exc:
+            last_status = f"{type(exc).__name__}"
+            logger.warning("SendGrid transport error (attempt %d/%d): %s",
+                           attempt, _MAX_SEND_RETRIES, exc)
+        if attempt < _MAX_SEND_RETRIES:
+            time.sleep(_BACKOFF_BASE * (2 ** (attempt - 1)))
+    logger.error("SendGrid send failed after %d attempts (last=%s) to=%s",
+                 _MAX_SEND_RETRIES, last_status, to_list)
+    return False
 
 
 def _send(msg: MIMEMultipart) -> bool:

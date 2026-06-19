@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 # cron fires hourly; a 90-min window guarantees no gaps and minimal doubles
 _WINDOW_MINUTES = 90
+# Backward catch-up so a missed hourly cron run is recovered on the next run.
+# Must stay < the 48h tier gap minus the window so 72h/24h tiers never overlap.
+_CATCHUP_MINUTES = 360  # 6h
 
 
 def _reminder_body(clinic, appt, hours: int) -> str:
@@ -83,11 +86,15 @@ def _find_due(db: Session, clinic, hours_before: int, sent_flag: str):
 
     target = clinic_local_now(clinic) + timedelta(hours=hours_before)
     window = timedelta(minutes=_WINDOW_MINUTES)
+    # Catch-up: extend the window backward so a missed cron run self-heals on the
+    # next run (the not-yet-reminded appt is still picked up). Bounded well under the
+    # 48h gap between the 72h/24h tiers so the tiers never overlap.
+    catchup = timedelta(minutes=_CATCHUP_MINUTES)
 
     q = db.query(Appointment).filter(
         Appointment.clinic_id == clinic.id,
         Appointment.appointment_ts.isnot(None),
-        Appointment.appointment_ts.between(target - window, target + window),
+        Appointment.appointment_ts.between(target - window - catchup, target + window),
         Appointment.status.in_(["scheduled", "confirmed"]),
         Appointment.patient_email != "",
         Appointment.patient_email.isnot(None),
