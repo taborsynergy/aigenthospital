@@ -690,6 +690,61 @@ def send_trial_expired_to_clinic(data: dict) -> bool:
     return _send(msg)
 
 
+def send_renewal_reminder_to_clinic(data: dict) -> bool:
+    """Remind an active paying clinic that their monthly subscription renews soon."""
+    if not settings.sendgrid_api_key and (not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass):
+        logger.warning("SMTP not configured — renewal reminder NOT emailed. Details: %s", data)
+        return False
+
+    clinic_name = data.get("clinic_name", "Your Clinic")
+    clinic_email = data.get("clinic_email", "")
+    days_remaining = data.get("days_remaining", 7)
+    renews_on = data.get("renews_on", "—")
+    plan = data.get("plan", "your plan")
+    amount = data.get("amount", "")
+    manage_url = data.get("manage_url", settings.base_url + "/clinic/billing")
+    amount_str = f" ({amount})" if amount else ""
+    subject = f"Your TaborSynergy subscription renews in {days_remaining} days"
+
+    plain = "\n".join([
+        f"Hi {clinic_name},",
+        "",
+        f"A quick heads-up: your {plan} subscription{amount_str} renews on {renews_on} "
+        f"({days_remaining} days from now).",
+        "",
+        "No action is needed if you'd like to continue — your AI front desk keeps running.",
+        "To update billing, change plan, or cancel, visit your billing page:",
+        f"  {manage_url}",
+        "",
+        "Thanks for being with us!",
+        "— The TaborSynergy Team",
+    ])
+
+    html = f"""<html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px">
+<div style="background:#0F3D91;padding:20px;border-radius:8px 8px 0 0">
+  <h2 style="color:#fff;margin:0">Subscription Renewal</h2>
+  <p style="color:#c7d2fe;margin:4px 0 0">Renews in {days_remaining} days</p>
+</div>
+<div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e0e0e0">
+  <p style="margin-top:0">Hi <strong>{clinic_name}</strong>,</p>
+  <p>Your <strong>{plan}</strong> subscription{amount_str} renews on
+     <strong>{renews_on}</strong> ({days_remaining} days from now).</p>
+  <p>No action is needed to continue — your AI front desk keeps running. You can update
+     billing, change plan, or cancel anytime.</p>
+  <div style="margin:20px 0;text-align:center">
+    <a href="{manage_url}" style="background:#0F3D91;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700">
+      Manage Billing →
+    </a>
+  </div>
+  <p style="margin-top:20px;font-size:12px;color:#999">TaborSynergy — automated notification</p>
+</div></body></html>"""
+
+    msg = _build_msg(subject, plain, html, reply_to=settings.notify_email)
+    if clinic_email:
+        msg.replace_header("To", clinic_email)
+    return _send(msg)
+
+
 # ── Onboarding Email Sequence ─────────────────────────────────────────────────
 
 def send_onboarding_day0(data: dict) -> bool:

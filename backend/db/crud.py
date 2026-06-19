@@ -162,6 +162,7 @@ def activate_subscription(db: Session, slug: str) -> Optional[Clinic]:
     clinic.subscription_status = "active"
     base = clinic.subscription_ends_at if (clinic.subscription_ends_at and clinic.subscription_ends_at > now) else now
     clinic.subscription_ends_at = base + timedelta(days=30)
+    clinic.renewal_reminder_day = None  # re-arm renewal reminders for the new cycle
     if not clinic.activated_at:
         clinic.activated_at = now
     db.commit()
@@ -921,6 +922,17 @@ def get_trials_expiring_soon(db: Session, days_until: int = 5) -> list[Clinic]:
     ).all()
 
 
+def get_active_subscriptions_ending_soon(db: Session, days_until: int = 7) -> list[Clinic]:
+    """Active (paid) clinics whose subscription_ends_at is within N days."""
+    cutoff = datetime.utcnow() + timedelta(days=days_until)
+    return db.query(Clinic).filter(
+        Clinic.subscription_status == "active",
+        Clinic.subscription_ends_at.isnot(None),
+        Clinic.subscription_ends_at <= cutoff,
+        Clinic.subscription_ends_at > datetime.utcnow(),  # Not already lapsed
+    ).all()
+
+
 def get_expired_trials(db: Session) -> list[Clinic]:
     """Get all trial clinics that have expired."""
     return db.query(Clinic).filter(
@@ -950,6 +962,7 @@ def convert_trial_to_paid(db: Session, clinic_id: int, plan: str = "starter") ->
     clinic.plan = plan
     clinic.subscription_ends_at = datetime.utcnow() + timedelta(days=30)
     clinic.trial_ends_at = None  # Clear trial
+    clinic.renewal_reminder_day = None  # arm renewal reminders for this cycle
 
     db.commit()
     db.refresh(clinic)

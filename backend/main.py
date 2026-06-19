@@ -1652,6 +1652,18 @@ def on_startup():
             finally:
                 db.close()
 
+        def _renewal_job_wrapper():
+            """Daily: remind active clinics 7/3/1 days before monthly renewal."""
+            from backend.jobs.billing_jobs import check_renewals_and_remind
+            db = SessionLocal()
+            try:
+                result = check_renewals_and_remind(db)
+                _logger.info(f"Renewal job completed: {result}")
+            except Exception as e:
+                _logger.error(f"Renewal job failed: {e}")
+            finally:
+                db.close()
+
         def _onboarding_job_wrapper():
             """Wrapper for onboarding email sequence."""
             from backend.jobs.onboarding_jobs import run_onboarding_email_sequence
@@ -1696,6 +1708,14 @@ def on_startup():
             name="Trial Expiry Check",
             replace_existing=True
         )
+        # Subscription renewal reminders — daily at 2 AM UTC
+        scheduler.add_job(
+            _renewal_job_wrapper,
+            CronTrigger(hour=2, minute=0),
+            id="renewal_reminders",
+            name="Subscription Renewal Reminders",
+            replace_existing=True
+        )
         # Schedule onboarding emails daily at 9 AM UTC
         scheduler.add_job(
             _onboarding_job_wrapper,
@@ -1721,7 +1741,7 @@ def on_startup():
             replace_existing=True
         )
         scheduler.start()
-        _logger.info("Background scheduler started: trial(1:00), onboarding(9:00), reminders(hourly :07), recall(10:00) UTC")
+        _logger.info("Background scheduler started: trial(1:00), renewal(2:00), onboarding(9:00), reminders(hourly :07), recall(10:00) UTC")
     except ImportError:
         _logger.warning("APScheduler not installed — background jobs disabled. Install with: pip install apscheduler")
     except Exception as e:

@@ -71,6 +71,8 @@ def migrate_db():
         ("clinics", "activated_at",           "TIMESTAMP", ""),
         ("clinics", "admin_notes",            "TEXT",      "DEFAULT ''"),
         ("clinics", "onboarding_emails_sent", "INTEGER",   "DEFAULT 0"),
+        ("clinics", "trial_reminder_day",     "INTEGER",   ""),
+        ("clinics", "renewal_reminder_day",   "INTEGER",   ""),
         ("clinics", "monthly_rate",           "FLOAT",     "DEFAULT 299.0"),
         ("clinics", "subscription_status",    "VARCHAR",   "DEFAULT 'trial'"),
         ("clinics", "stripe_customer_id",     "VARCHAR",   "DEFAULT ''"),

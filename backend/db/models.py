@@ -54,6 +54,11 @@ class Clinic(Base):
     # Stores highest day sent: 0=Day0, 1=Day1, 3=Day3, 7=Day7, 12=Day12, 99=complete
     onboarding_emails_sent  = Column(Integer, default=0)
 
+    # Expiry-reminder dedup. Stores the most-urgent threshold (7/3/1) already
+    # emailed, so each reminder fires once. None = none sent yet.
+    trial_reminder_day      = Column(Integer, nullable=True)
+    renewal_reminder_day    = Column(Integer, nullable=True)
+
     is_active   = Column(Boolean,  default=True)
     created_at  = Column(DateTime, default=datetime.utcnow)
     updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
