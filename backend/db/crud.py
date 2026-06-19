@@ -192,12 +192,25 @@ def deactivate_clinic(db: Session, slug: str) -> bool:
 def purge_clinic(db: Session, slug: str) -> bool:
     """
     Permanently delete a clinic and ALL its data (right-to-be-forgotten / GDPR/HIPAA
-    data minimization). Child rows are removed via ON DELETE CASCADE foreign keys.
-    Irreversible — use deactivate_clinic for the normal reversible soft-delete.
+    data minimization). Irreversible — use deactivate_clinic for the normal reversible
+    soft-delete.
+
+    Child rows are deleted explicitly by clinic_id rather than relying on ON DELETE
+    CASCADE: Postgres enforces the FK cascade, but SQLite does not enable foreign-key
+    enforcement by default, which would otherwise leave orphaned PHI behind. Explicit
+    deletion guarantees no orphans on either engine and auto-covers new child tables.
     """
+    from backend.db.database import Base
     clinic = get_clinic(db, slug)
     if not clinic:
         return False
+    cid = clinic.id
+    for mapper in Base.registry.mappers:
+        cls = mapper.class_
+        if cls is Clinic:
+            continue
+        if hasattr(cls, "clinic_id"):
+            db.query(cls).filter(cls.clinic_id == cid).delete(synchronize_session=False)
     db.delete(clinic)
     db.commit()
     return True
