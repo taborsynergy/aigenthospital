@@ -68,8 +68,14 @@ def _extract_parts(msg: MIMEMultipart) -> tuple:
     return plain, html
 
 
-def _sendgrid_send(to_list: List[str], subject: str, plain: str, html: str = "", reply_to: str = "") -> bool:
-    """Send email over HTTPS via the SendGrid API (used when SENDGRID_API_KEY is set)."""
+def _sendgrid_send(to_list: List[str], subject: str, plain: str, html: str = "",
+                   reply_to: str = "", from_name: str = "") -> bool:
+    """Send email over HTTPS via the SendGrid API (used when SENDGRID_API_KEY is set).
+
+    `from_name` sets the From display-name (e.g. the clinic's name) while the
+    actual From address stays the verified sender; `reply_to` routes replies
+    (e.g. to the clinic's inbox).
+    """
     import httpx
     content = []
     if plain:
@@ -80,7 +86,7 @@ def _sendgrid_send(to_list: List[str], subject: str, plain: str, html: str = "",
         content = [{"type": "text/plain", "value": ""}]
     payload = {
         "personalizations": [{"to": [{"email": a} for a in to_list]}],
-        "from": {"email": _email_from(), "name": "Tabor Synergy"},
+        "from": {"email": _email_from(), "name": from_name or "Tabor Synergy"},
         "subject": subject or "(no subject)",
         "content": content,
     }
@@ -144,14 +150,18 @@ def _send(msg: MIMEMultipart) -> bool:
     return False
 
 
-def send_email(to: str, subject: str, body: str) -> bool:
+def send_email(to: str, subject: str, body: str, from_name: str = "", reply_to: str = "") -> bool:
     """
     Generic plain-text email to an arbitrary recipient (clinic users, password resets).
     Uses SendGrid HTTP API if configured, else SMTP. Returns False gracefully if
     neither is configured — never raises, so callers never crash on email failure.
+
+    `from_name`/`reply_to` enable per-clinic branding: the email shows the clinic's
+    name as the sender and routes replies to the clinic, while the underlying
+    verified From address is unchanged.
     """
     if settings.sendgrid_api_key:
-        return _sendgrid_send([to], subject, body, "")
+        return _sendgrid_send([to], subject, body, "", reply_to=reply_to, from_name=from_name)
 
     if not settings.smtp_host or not settings.smtp_user:
         logger.warning("send_email skipped — email not configured (to=%s, subject=%s)", to, subject)
@@ -159,8 +169,10 @@ def send_email(to: str, subject: str, body: str) -> bool:
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"]    = f"Aria AI <{settings.smtp_user}>"
+    msg["From"]    = f"{from_name or 'Aria AI'} <{settings.smtp_user}>"
     msg["To"]      = to
+    if reply_to:
+        msg["Reply-To"] = reply_to
     msg.attach(MIMEText(body, "plain"))
 
     def _via_ssl() -> None:
@@ -224,7 +236,8 @@ def send_booking_confirmation_email(clinic, appt) -> bool:
     lines += ["", "See you then!", f"— {clinic_name}"]
 
     subject = f"Your appointment is confirmed — {clinic_name}"
-    return send_email(to=to, subject=subject, body="\n".join(lines))
+    return send_email(to=to, subject=subject, body="\n".join(lines),
+                      from_name=clinic_name, reply_to=(getattr(clinic, "email", "") or "").strip())
 
 
 # ── public API ────────────────────────────────────────────────────────────────

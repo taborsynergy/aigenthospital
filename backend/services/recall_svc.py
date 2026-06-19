@@ -111,7 +111,8 @@ def run_campaign(db: Session, clinic, campaign) -> dict:
         from backend.unsub import make_unsub_token
         from backend.config import settings
         unsub_url = f"{settings.base_url}/api/unsubscribe?token={make_unsub_token(clinic.id, email)}"
-        ok = send_email(to=email, subject=subject, body=_email_body(message, clinic, unsub_url))
+        ok = send_email(to=email, subject=subject, body=_email_body(message, clinic, unsub_url),
+                        from_name=clinic.name, reply_to=(getattr(clinic, "email", "") or "").strip())
         log_recall_sent(db, campaign.id, clinic.id, name, email, "sent" if ok else "failed")
 
         if ok:

@@ -98,7 +98,8 @@ def _send(clinic, appt, db: Session, hours: int, sent_flag: str) -> bool:
     from backend.db.crud import update_appointment
 
     subject = f"Reminder: your appointment {'in 3 days' if hours == 72 else 'tomorrow'} — {clinic.name}"
-    ok = send_email(to=appt.patient_email, subject=subject, body=_reminder_body(clinic, appt, hours))
+    ok = send_email(to=appt.patient_email, subject=subject, body=_reminder_body(clinic, appt, hours),
+                    from_name=clinic.name, reply_to=(getattr(clinic, "email", "") or "").strip())
     if ok:
         update_appointment(db, appt.confirmation_number, {sent_flag: True})
         logger.info("%dh email reminder sent: conf=%s to=%s", hours, appt.confirmation_number, appt.patient_email)
