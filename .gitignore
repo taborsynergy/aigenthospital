@@ -5,3 +5,13 @@ test_*.db*
 t.db*
 __pycache__/
 *.pyc
+
+# Secrets — never commit real credentials (.env.example is the safe template)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+secrets.json
+credentials.json
