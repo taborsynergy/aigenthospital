@@ -38,6 +38,9 @@ class Clinic(Base):
     monthly_rate            = Column(Float,  default=299.0)
     trial_ends_at           = Column(DateTime, nullable=True)
     subscription_ends_at    = Column(DateTime, nullable=True)
+    # Last payment reference applied (PayPal txn id / receipt). Used to reconcile
+    # activations 1:1 with payments and make activation idempotent per payment.
+    last_payment_reference  = Column(String, default="")
 
     # Customer portal auth
     customer_password_hash  = Column(String, default="")

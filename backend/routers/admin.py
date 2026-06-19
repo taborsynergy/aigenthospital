@@ -140,9 +140,14 @@ def deactivate_clinic(slug: str, hard: bool = False, db: Session = Depends(get_d
 
 
 @router.post("/clinics/{slug}/activate", dependencies=[Depends(require_admin)])
-def activate_subscription(slug: str, db: Session = Depends(get_db)):
-    """Manually activate a 30-day subscription after payment is confirmed."""
-    clinic = crud.activate_subscription(db, slug)
+def activate_subscription(slug: str, payment_reference: str = "", db: Session = Depends(get_db)):
+    """Manually activate a 30-day subscription after payment is confirmed.
+
+    Pass payment_reference (PayPal txn id / receipt) to reconcile the activation
+    with a specific payment — re-submitting the same reference is a safe no-op
+    (no double-credit), giving a 1:1 payment->activation mapping.
+    """
+    clinic = crud.activate_subscription(db, slug, payment_reference=payment_reference)
     if not clinic:
         raise HTTPException(404, "Clinic not found.")
     return _serialize(clinic)

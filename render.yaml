@@ -3,7 +3,10 @@ services:
     name: taborsynergy-agent
     runtime: python
     buildCommand: pip install --upgrade pip setuptools wheel && pip install --prefer-binary -r requirements.txt
-    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 30
+    # Workers scale with WEB_CONCURRENCY (default 1 on free tier). When raising it,
+    # set ENABLE_SCHEDULER=false here and run the schedule from one place (GitHub
+    # Actions cron) so background jobs don't fire once per worker.
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 30 --workers ${WEB_CONCURRENCY:-1}
     healthCheckPath: /api/health
     envVars:
       - key: ANTHROPIC_API_KEY

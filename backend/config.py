@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     base_url: str = "https://aifrontdesk.taborsynergy.com"
     debug_mode: bool = False   # Set DEBUG_MODE=true locally to enable /docs and /openapi.json
     sentry_dsn: str = ""       # Set SENTRY_DSN in Render env vars to enable error tracking
+    # Run the in-app APScheduler. When scaling the web service to multiple workers,
+    # set ENABLE_SCHEDULER=false on the web dynos so jobs don't fire once per worker;
+    # run the schedule from ONE place (a dedicated worker or the GitHub Actions cron).
+    enable_scheduler: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -154,11 +154,16 @@ def change_plan(db: Session, slug: str, new_plan: str) -> Optional[Clinic]:
     return clinic
 
 
-def activate_subscription(db: Session, slug: str) -> Optional[Clinic]:
+def activate_subscription(db: Session, slug: str, payment_reference: str = "") -> Optional[Clinic]:
     clinic = get_clinic(db, slug)
     if not clinic:
         return None
     now = datetime.utcnow()
+    # Payment reconciliation: if this exact payment reference was already applied,
+    # this is a duplicate webhook/click — do not credit a second month.
+    pref = (payment_reference or "").strip()
+    if pref and clinic.last_payment_reference == pref:
+        return clinic
     # Idempotency guard: if the clinic is already active with a nearly-full month
     # remaining, treat this as an accidental double-activation (e.g. admin double
     # click) and do NOT stack another 30 days. Real monthly renewals call this when
@@ -167,6 +172,8 @@ def activate_subscription(db: Session, slug: str) -> Optional[Clinic]:
             and clinic.subscription_ends_at
             and clinic.subscription_ends_at > now + timedelta(days=29)):
         return clinic
+    if pref:
+        clinic.last_payment_reference = pref
     clinic.subscription_status = "active"
     base = clinic.subscription_ends_at if (clinic.subscription_ends_at and clinic.subscription_ends_at > now) else now
     clinic.subscription_ends_at = base + timedelta(days=30)

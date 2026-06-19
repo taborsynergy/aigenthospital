@@ -9,12 +9,13 @@ python -m pytest backend/tests --collect-only -q
 
 | Track | Location | Count | Runner |
 |---|---|---:|---|
-| **Core suite** (unit/integration/security) | `backend/tests/` | **281** (280 pass + 1 skip*) | `pytest` |
+| **Core suite** (unit/integration/security) | `backend/tests/` | **289** (287 pass + 2 skip*) | `pytest` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
-| Performance (load/stress/spike/soak) | `perf/k6_load.js` | 4 scenarios | k6 |
+| Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
 
-\*The 1 skipped test (`test_supabase_rls_blocks_anonymous_reads`) runs only when
-`SUPABASE_ANON_TEST_URL` + `SUPABASE_ANON_KEY` are set.
+\*Skipped unless env provided: `test_supabase_rls_blocks_anonymous_reads` (live
+Supabase anon creds) and `test_pool_pre_ping_configured_for_postgres` (Postgres-only,
+skipped on SQLite).
 
 Run the core suite: `python -m pytest backend/tests -q`
 
@@ -39,6 +40,7 @@ Run the core suite: `python -m pytest backend/tests -q`
 | test_auth_hardening.py | 11 | Lockout, rate-limit, JWT expiry/tamper/alg-none, logout | SEC-001..010 |
 | test_api_contract.py | 10 | /api/plans schema, JSON errors, SendGrid failure handling | API |
 | test_db_integrity.py | 9 | Purge cascade, soft-delete, unique constraints, defaults | DB |
+| test_resilience_billing.py | 8 | Payment reconciliation, DB-restart 503, scheduler gate, perf harness | GAP2 H-PERF/PAY/REL |
 | test_safety.py | 8 | 911/988 emergency + mental-health crisis tripwire | SAFE |
 | test_headers_cors_boundary.py | 8 | Security headers, CORS, input boundaries, reliability | SEC-011/012/BVA/REL |
 | test_change_plan.py | 7 | Plan upgrade/downgrade transitions | — |

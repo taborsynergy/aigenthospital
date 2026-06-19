@@ -1,4 +1,6 @@
+from fastapi import HTTPException
 from sqlalchemy import create_engine, event
+from sqlalchemy.exc import OperationalError, DBAPIError
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from backend.config import settings
@@ -39,6 +41,14 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except (OperationalError, DBAPIError) as exc:
+        # DB unreachable mid-request (e.g. Supabase/Render restart). Convert to a
+        # clean 503 instead of a 500 stack trace; pool_pre_ping recycles the stale
+        # connection so the next request recovers automatically.
+        import logging
+        logging.getLogger(__name__).error("DB unavailable: %s: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=503,
+                            detail="Service temporarily unavailable. Please try again in a moment.")
     finally:
         db.close()
 
@@ -73,6 +83,7 @@ def migrate_db():
         ("clinics", "onboarding_emails_sent", "INTEGER",   "DEFAULT 0"),
         ("clinics", "trial_reminder_day",     "INTEGER",   ""),
         ("clinics", "renewal_reminder_day",   "INTEGER",   ""),
+        ("clinics", "last_payment_reference", "VARCHAR",   "DEFAULT ''"),
         ("clinics", "monthly_rate",           "FLOAT",     "DEFAULT 299.0"),
         ("clinics", "subscription_status",    "VARCHAR",   "DEFAULT 'trial'"),
         ("clinics", "stripe_customer_id",     "VARCHAR",   "DEFAULT ''"),

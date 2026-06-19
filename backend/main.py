@@ -210,6 +210,25 @@ class SecurityHeadersMiddleware:
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+async def _db_unavailable_handler(request, exc):
+    """Return a clean 503 (not a 500 stack trace) when the database is unreachable —
+    e.g. during a Supabase/Render restart. pool_pre_ping recycles stale connections,
+    so the next request recovers automatically."""
+    import logging
+    from fastapi.responses import JSONResponse
+    logging.getLogger("backend.main").error("Database unavailable: %s: %s", type(exc).__name__, exc)
+    return JSONResponse(
+        status_code=503,
+        content={"error": "Service temporarily unavailable. Please try again in a moment."},
+    )
+
+# Register for SQLAlchemy connectivity errors (DB restart / network blip).
+from sqlalchemy.exc import OperationalError as _SAOperationalError, DBAPIError as _SADBAPIError
+app.add_exception_handler(_SAOperationalError, _db_unavailable_handler)
+app.add_exception_handler(_SADBAPIError, _db_unavailable_handler)
+
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
@@ -1633,7 +1652,12 @@ def on_startup():
         _logger.exception("migrate_db failed — continuing anyway")
 
     # Schedule background jobs (trial expiry checks, etc.)
+    if not settings.enable_scheduler:
+        _logger.info("In-app scheduler disabled (ENABLE_SCHEDULER=false) — "
+                     "relying on external cron for reminders/recall.")
     try:
+        if not settings.enable_scheduler:
+            raise StopIteration  # skip scheduler setup cleanly
         from apscheduler.schedulers.background import BackgroundScheduler
         from apscheduler.triggers.cron import CronTrigger
         from backend.jobs.trial_jobs import check_trial_expiry_and_remind
@@ -1742,6 +1766,8 @@ def on_startup():
         )
         scheduler.start()
         _logger.info("Background scheduler started: trial(1:00), renewal(2:00), onboarding(9:00), reminders(hourly :07), recall(10:00) UTC")
+    except StopIteration:
+        pass  # scheduler intentionally disabled via ENABLE_SCHEDULER=false
     except ImportError:
         _logger.warning("APScheduler not installed — background jobs disabled. Install with: pip install apscheduler")
     except Exception as e:
