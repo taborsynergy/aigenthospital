@@ -60,9 +60,9 @@ def send_due_reminders(db: Session) -> dict:
     for clinic in list_clinics(db):
         if not can_use_reminders(clinic):
             continue  # plan gate — reminders are Growth/Enterprise only
-        for appt in _find_due(db, clinic.id, 72, "reminder_72h_sent"):
+        for appt in _find_due(db, clinic, 72, "reminder_72h_sent"):
             stats["sent_72h" if _send(clinic, appt, db, 72, "reminder_72h_sent") else "errors"] += 1
-        for appt in _find_due(db, clinic.id, 24, "reminder_24h_sent"):
+        for appt in _find_due(db, clinic, 24, "reminder_24h_sent"):
             stats["sent_24h" if _send(clinic, appt, db, 24, "reminder_24h_sent") else "errors"] += 1
 
     logger.info("Email reminders run complete: %s", stats)
@@ -71,15 +71,21 @@ def send_due_reminders(db: Session) -> dict:
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
-def _find_due(db: Session, clinic_id: int, hours_before: int, sent_flag: str):
-    """Appointments within the reminder window, with an email, not yet reminded."""
-    from backend.db.models import Appointment
+def _find_due(db: Session, clinic, hours_before: int, sent_flag: str):
+    """Appointments within the reminder window, with an email, not yet reminded.
 
-    target = datetime.utcnow() + timedelta(hours=hours_before)
+    The window is anchored to the clinic's LOCAL current time, because
+    appointment_ts is stored in clinic-local wall-clock time. Anchoring to UTC
+    would fire reminders offset by the clinic's UTC offset.
+    """
+    from backend.db.models import Appointment
+    from backend.timezones import clinic_local_now
+
+    target = clinic_local_now(clinic) + timedelta(hours=hours_before)
     window = timedelta(minutes=_WINDOW_MINUTES)
 
     q = db.query(Appointment).filter(
-        Appointment.clinic_id == clinic_id,
+        Appointment.clinic_id == clinic.id,
         Appointment.appointment_ts.isnot(None),
         Appointment.appointment_ts.between(target - window, target + window),
         Appointment.status.in_(["scheduled", "confirmed"]),

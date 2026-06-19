@@ -61,7 +61,7 @@ def _clinic(db, plan="professional"):
     global _n
     _n += 1
     c = Clinic(slug=f"em-{_n}", name=f"Email Clinic {_n}", specialty="FM",
-               plan=plan, phone="555-0100", address="1 Main St",
+               plan=plan, phone="555-0100", address="1 Main St", timezone="UTC",
                subscription_status="active", customer_password_hash="x", is_active=True)
     db.add(c)
     db.commit()

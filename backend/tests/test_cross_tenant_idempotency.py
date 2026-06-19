@@ -50,7 +50,7 @@ def _clinic(db, plan="professional"):
     global _n
     _n += 1
     c = Clinic(slug=f"xt-{_n}", name=f"XT {_n}", specialty="FM", email=f"xt{_n}@x.com",
-               phone="555", plan=plan, subscription_status="active",
+               phone="555", plan=plan, subscription_status="active", timezone="UTC",
                customer_password_hash=hash_password("testpass123"), is_active=True,
                subscription_ends_at=dt.datetime.utcnow() + dt.timedelta(days=30))
     db.add(c)

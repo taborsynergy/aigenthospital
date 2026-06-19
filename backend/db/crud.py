@@ -159,6 +159,14 @@ def activate_subscription(db: Session, slug: str) -> Optional[Clinic]:
     if not clinic:
         return None
     now = datetime.utcnow()
+    # Idempotency guard: if the clinic is already active with a nearly-full month
+    # remaining, treat this as an accidental double-activation (e.g. admin double
+    # click) and do NOT stack another 30 days. Real monthly renewals call this when
+    # the period is near/after expiry, so they still extend correctly.
+    if (clinic.subscription_status == "active"
+            and clinic.subscription_ends_at
+            and clinic.subscription_ends_at > now + timedelta(days=29)):
+        return clinic
     clinic.subscription_status = "active"
     base = clinic.subscription_ends_at if (clinic.subscription_ends_at and clinic.subscription_ends_at > now) else now
     clinic.subscription_ends_at = base + timedelta(days=30)
