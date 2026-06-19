@@ -107,6 +107,8 @@ def create_clinic(body: ClinicIn, db: Session = Depends(get_db)):
             raise HTTPException(400, "initial_password must be at least 6 characters.")
         data["customer_password_hash"] = hash_password(body.initial_password)
     clinic = crud.create_clinic(db, data)
+    crud.write_audit_log(db, actor="admin", action="clinic.create", target=clinic.slug,
+                         detail=f"plan={clinic.plan}")
     return _serialize(clinic)
 
 
@@ -139,10 +141,13 @@ def deactivate_clinic(slug: str, hard: bool = False, db: Session = Depends(get_d
         ok = crud.purge_clinic(db, slug)
         if not ok:
             raise HTTPException(404, "Clinic not found.")
+        crud.write_audit_log(db, actor="admin", action="clinic.purge", target=slug,
+                             detail="hard delete — all data removed")
         return {"purged": slug}
     ok = crud.deactivate_clinic(db, slug)
     if not ok:
         raise HTTPException(404, "Clinic not found.")
+    crud.write_audit_log(db, actor="admin", action="clinic.deactivate", target=slug)
     return {"deleted": slug}
 
 
@@ -157,6 +162,8 @@ def activate_subscription(slug: str, payment_reference: str = "", db: Session = 
     clinic = crud.activate_subscription(db, slug, payment_reference=payment_reference)
     if not clinic:
         raise HTTPException(404, "Clinic not found.")
+    crud.write_audit_log(db, actor="admin", action="clinic.activate", target=slug,
+                         detail=f"payment_reference={payment_reference or '-'}")
     return _serialize(clinic)
 
 
