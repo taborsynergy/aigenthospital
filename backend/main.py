@@ -1425,7 +1425,7 @@ function loadProviders() {{
         '<div class="provider-card-sub">'+(p.specialty?_xe(p.specialty):'')+(p.email?' &bull; '+_xe(p.email):'')+(p.npi_number?' &bull; NPI: '+_xe(p.npi_number):'')+'</div></div>'+
         '<div style="display:flex;gap:8px;">'+
           '<button onclick="editProvider('+p.id+')" style="background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">Edit</button>'+
-          '<button onclick="deleteProvider('+p.id+',\''+_xe(p.name)+'\')" style="background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">Remove</button>'+
+          '<button onclick="deleteProvider('+p.id+',\\''+_xe(p.name)+'\\')" style="background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">Remove</button>'+
         '</div></div>';
     }}).join("");
   }});
@@ -1566,7 +1566,7 @@ function loadAptTypes() {{
         '<div class="apt-card-sub">'+t.duration_minutes+' min'+(t.description?' &bull; '+_xe(t.description):'')+'</div></div>'+
         '<div style="display:flex;gap:8px;">'+
           '<button onclick="editAptType('+t.id+')" style="background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">Edit</button>'+
-          '<button onclick="deleteAptType('+t.id+',\''+_xe(t.name)+'\')" style="background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">Remove</button>'+
+          '<button onclick="deleteAptType('+t.id+',\\''+_xe(t.name)+'\\')" style="background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">Remove</button>'+
         '</div></div>';
     }}).join("");
   }});
