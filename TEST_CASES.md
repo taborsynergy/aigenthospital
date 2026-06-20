@@ -9,7 +9,7 @@ python -m pytest backend/tests --collect-only -q
 
 | Track | Location | Count | Runner |
 |---|---|---:|---|
-| **Core suite** (unit/integration/security) | `backend/tests/` | **429** (427 pass + 2 skip*) | `pytest` |
+| **Core suite** (unit/integration/security) | `backend/tests/` | **512** (510 pass + 2 skip*) | `pytest` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
 | Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
 
@@ -58,6 +58,7 @@ Run the core suite: `python -m pytest backend/tests -q`
 | test_clinic_setup_tab.py | 34 | Clinic Setup Tab PATCH /api/{slug}/profile: all fields save + appear in system prompt (phone→Aria prompt), cache invalidation, auth/tenant isolation, input validation (SQL injection, XSS, oversized, plan-gated agent_name) | REG-008 |
 | test_frontend_a11y.py | 4 | Static a11y guards (lang, contrast, widget aria, 911 banner) | L-1/L-2 |
 | test_landing_cta.py | 17 | Landing page CTA wiring: demo buttons open signup (not quote form), white-label entry points open quote form, pricing plan buttons, signup/quote modal presence | REG-009 |
+| test_landing_links.py | 83 | Landing page link integrity: section anchors, nav/footer hrefs, announcement bar, specialty tabs (6 IDs × 2), all 4 modals + close buttons, 10 JS functions defined, mailto correctness, bare-# onclick guard, external resource https, onclick→function coverage, 17 form element IDs | LNK-001..012 |
 
 ---
 
@@ -94,6 +95,19 @@ Test IDs from the QA gap analysis and where they live:
   - **REG-009b** Hero "Book a Live Demo" must call `openSignup()` → `test_hero_book_a_live_demo_calls_open_signup`
   - **REG-009c** Both demo buttons must default to `professional` plan → `test_demo_buttons_default_to_professional_plan`
   - **REG-009d–q** White-label entry points, pricing buttons, and modal presence (14 additional checks)
+- **LNK-001..012** (Landing page link integrity — every href, anchor, tab, modal, JS function, mailto, form element ID) → `test_landing_links.py` (83 tests)
+  - **LNK-001** Section anchor IDs exist (features, how-it-works, specialties, pricing, main-nav)
+  - **LNK-002** Nav link hrefs all point to existing section IDs + Enterprise has onclick
+  - **LNK-003** Footer link hrefs all point to existing section IDs + White Label has onclick
+  - **LNK-004** Announcement bar exists and references #pricing
+  - **LNK-005** All 6 specialty tab content divs + pills exist and are wired to switchTab()
+  - **LNK-006** All 4 modal overlays present, each has close button + overlay-click dismiss
+  - **LNK-007** All 10 JS functions defined + PLAN_LABELS/PLAN_AMOUNTS/PAYPAL_ME constants + IntersectionObserver + scroll listener
+  - **LNK-008** All mailto links use correct support address
+  - **LNK-009** No bare href="#" without onclick (JS-filled success modal links exempted)
+  - **LNK-010** Google Fonts preconnect, PayPal logo https, no insecure http:// links
+  - **LNK-011** Every onclick function call resolves to a defined function (no dangling references)
+  - **LNK-012** All 17 form element IDs referenced in JS exist in HTML
 - **GAP2-API-PAGE** (pagination limit/offset/status/sort) → `test_pagination.py`
 - **GAP2-BVA-PAGE** (boundary extremes: 0/huge/neg/garbage params) → `test_pagination.py`
 - **GAP2-DB-AUDIT** (audit trail on create/activate/plan-change/purge/deactivate) → `test_audit_migrate.py`
@@ -163,6 +177,7 @@ python -m pytest backend/tests --collect-only -q | grep ::
 | REG-006 — Portal JS SyntaxError (Python f-string `\'` → `''` adjacent string literals) | 3 | +3 | 374 |
 | REG-007 — Appointments "Session expired": cross-clinic token not rejected by `/verify`; portal init IIFE now compares d.slug vs SLUG | 2 | +2 | 376 |
 | REG-008 — Aria uses wrong phone: `update_profile` didn't call `invalidate_prompt()`; clinic Setup tab fields not reflected in Aria's answers | 34 | +34 | 412 |
-| REG-009 — Demo buttons wired to white-label quote form instead of trial signup; landing page CTA audit | 17 | +17 | **429** |
+| REG-009 — Demo buttons wired to white-label quote form instead of trial signup; landing page CTA audit | 17 | +17 | 429 |
+| LNK-001..012 — Landing page link integrity (anchors, tabs, modals, JS fns, mailto, form IDs, security) | 83 | +83 | **512** |
 | Wave D — Security (SEC-CSRF + SEC-LOGMON + SEC-MFA) | 3 | pending | — |
 | Wave E — A11y/Real-device (A11Y-KEYB + XBR-REAL) | 2 | pending | — |
