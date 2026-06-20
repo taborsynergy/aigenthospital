@@ -131,3 +131,25 @@ class TestPortalPageRender:
         assert r.status_code == 200
         # If encoding is wrong, .text would raise or produce garbled output
         assert len(r.text) > 1000, "Portal HTML suspiciously short"
+
+    def test_portal_js_no_adjacent_string_literals_in_onchnage(self, client, portal_clinic):
+        """REG-006: Python \\' escape in f-string must not collapse to '' (adjacent JS strings).
+
+        Regression: `\\'` in Python f-string source rendered as `'` (Python strips
+        the escape), producing `'' + day + ''` in JavaScript — two adjacent string
+        literals with no operator → 'Unexpected string' SyntaxError → ALL JS functions
+        undefined → login/portal completely broken.
+
+        Fix: use `\\\\'` in Python source so Python emits `\\'` → JS sees `\\'` as an
+        escaped quote inside a single-quoted string.
+        """
+        r = client.get(f"/c/{portal_clinic.slug}")
+        assert r.status_code == 200
+        # The broken pattern: adjacent empty-string literals around + day +
+        assert "'' + day + ''" not in r.text, (
+            "REG-006: portal JS contains '' + day + '' — "
+            "Python f-string escape \\' collapsed to ', producing adjacent JS string literals "
+            "which crash ALL script execution. Fix: use \\\\' in Python source."
+        )
+        # The hours-grid onchange handler must be present
+        assert "toggleDayRow" in r.text, "toggleDayRow function reference missing from portal JS"
