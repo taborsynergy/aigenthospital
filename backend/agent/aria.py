@@ -164,7 +164,7 @@ async def chat(
 
         total_input  += response.usage.input_tokens
         total_output += response.usage.output_tokens
-        assistant_content = [b.model_dump() for b in response.content]
+        assistant_content = [_serialize_block(b) for b in response.content]
         history.append({"role": "assistant", "content": assistant_content})
 
         if response.stop_reason == "end_turn":
@@ -257,7 +257,7 @@ async def chat_stream(
 
         total_input  += response.usage.input_tokens
         total_output += response.usage.output_tokens
-        assistant_content = [b.model_dump() for b in response.content]
+        assistant_content = [_serialize_block(b) for b in response.content]
         history.append({"role": "assistant", "content": assistant_content})
 
         if response.stop_reason == "end_turn":
@@ -295,6 +295,20 @@ async def chat_stream(
         _save_history(clinic.id, session_id, history, db, channel)
         yield ("done", (full_text or "I'm sorry, something went wrong. Please try again.", is_escalated))
         return
+
+
+def _serialize_block(block) -> dict:
+    """Convert a response content block to a dict safe for the messages API.
+
+    model_dump() in newer SDK versions includes extra None fields (e.g. citations)
+    that the API rejects when the history is passed back on the next turn.
+    """
+    if block.type == "text":
+        return {"type": "text", "text": block.text}
+    if block.type == "tool_use":
+        return {"type": "tool_use", "id": block.id, "name": block.name, "input": block.input}
+    # Unknown block type: strip Nones to avoid API validation errors
+    return block.model_dump(exclude_none=True)
 
 
 def _extract_text(response: anthropic.types.Message) -> str:
