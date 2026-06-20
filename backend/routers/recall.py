@@ -203,7 +203,7 @@ def preview_campaign_patients(
     db: Session = Depends(get_db),
     x_clinic_token: str = Header(None),
 ):
-    """Dry-run: show which patients would receive this campaign, without sending SMS."""
+    """Dry-run: show which patients would receive this campaign, without sending emails."""
     from backend.services.recall_svc import preview_campaign
 
     clinic   = _clinic_auth(clinic_slug, x_clinic_token, db)

@@ -181,14 +181,14 @@ TOOLS: list[dict] = [
     },
     {
         "name": "send_payment_link",
-        "description": "Send a secure payment link to the patient via SMS or email.",
+        "description": "Send a secure payment link to the patient via email.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "patient_name": {"type": "string"},
                 "amount":       {"type": "number"},
-                "channel":      {"type": "string", "enum": ["sms", "email"]},
-                "contact":      {"type": "string", "description": "Phone number or email address"},
+                "channel":      {"type": "string", "enum": ["email"]},
+                "contact":      {"type": "string", "description": "Patient email address"},
             },
             "required": ["patient_name", "amount", "channel", "contact"],
         },

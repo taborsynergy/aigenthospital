@@ -1,6 +1,6 @@
 """
 Clinic onboarding checklist endpoints.
-Tracks setup progress (Day 1-5): clinic info, branding, email, SMS, EMR, training.
+Tracks setup progress (Day 1-5): clinic info, branding, email reminders, EMR, training.
 """
 import json
 from typing import Optional

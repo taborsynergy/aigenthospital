@@ -26,7 +26,7 @@ def _require_admin(x_admin_password: str = Header(None)):
 def trigger_reminders(db: Session = Depends(get_db)):
     """
     Run the reminder check: find all appointments due for 72h or 24h reminders
-    and send SMS via Twilio. Marks each appointment so reminders aren't re-sent.
+    and send email reminders. Marks each appointment so reminders aren't re-sent.
 
     Called every hour by Render cron job.
     Also available manually from the admin panel for testing.
