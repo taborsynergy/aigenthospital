@@ -464,53 +464,53 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
     .appt-empty p {{ margin-top: 8px; }}
 
     /* setup tab */
-    .setup-lbl { display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px; }
-    .setup-inp { width:100%;padding:9px 12px;border:1px solid #E5E7EB;border-radius:8px;
-                 font-size:13px;outline:none;box-sizing:border-box;background:#fff; }
-    .setup-inp:focus { border-color:#1E40AF; }
-    textarea.setup-inp { resize:vertical;font-family:inherit; }
-    .setup-save-btn { background:#1E40AF;color:#fff;border:none;border-radius:8px;
-                      padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer; }
-    .setup-save-btn:hover { background:#1E3A8A; }
-    .setup-msg { font-size:12px;margin-left:10px;font-weight:600; }
-    .setup-msg.ok  { color:#059669; }
-    .setup-msg.err { color:#DC2626; }
-    .provider-card { background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;
-                     padding:12px 16px;display:flex;align-items:center;justify-content:space-between; }
-    .provider-card-name { font-weight:700;font-size:14px;color:#1F2937; }
-    .provider-card-sub  { font-size:12px;color:#6B7280;margin-top:2px; }
-    .hours-row { display:flex;align-items:center;gap:12px;flex-wrap:wrap; }
-    .hours-row .day-lbl { font-size:13px;color:#374151;font-weight:500;width:90px; }
-    .ins-check { display:flex;align-items:center;gap:7px;font-size:13px;color:#374151;
+    .setup-lbl {{ display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px; }}
+    .setup-inp {{ width:100%;padding:9px 12px;border:1px solid #E5E7EB;border-radius:8px;
+                 font-size:13px;outline:none;box-sizing:border-box;background:#fff; }}
+    .setup-inp:focus {{ border-color:#1E40AF; }}
+    textarea.setup-inp {{ resize:vertical;font-family:inherit; }}
+    .setup-save-btn {{ background:#1E40AF;color:#fff;border:none;border-radius:8px;
+                      padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer; }}
+    .setup-save-btn:hover {{ background:#1E3A8A; }}
+    .setup-msg {{ font-size:12px;margin-left:10px;font-weight:600; }}
+    .setup-msg.ok  {{ color:#059669; }}
+    .setup-msg.err {{ color:#DC2626; }}
+    .provider-card {{ background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;
+                     padding:12px 16px;display:flex;align-items:center;justify-content:space-between; }}
+    .provider-card-name {{ font-weight:700;font-size:14px;color:#1F2937; }}
+    .provider-card-sub  {{ font-size:12px;color:#6B7280;margin-top:2px; }}
+    .hours-row {{ display:flex;align-items:center;gap:12px;flex-wrap:wrap; }}
+    .hours-row .day-lbl {{ font-size:13px;color:#374151;font-weight:500;width:90px; }}
+    .ins-check {{ display:flex;align-items:center;gap:7px;font-size:13px;color:#374151;
                  background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;
-                 padding:8px 10px;cursor:pointer; }
-    .ins-check input { cursor:pointer; }
+                 padding:8px 10px;cursor:pointer; }}
+    .ins-check input {{ cursor:pointer; }}
 
 
     /* phase-2 setup */
-    .apt-card { background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;
-                padding:12px 16px;display:flex;align-items:center;justify-content:space-between; }
-    .apt-card-name { font-weight:700;font-size:14px;color:#1F2937; }
-    .apt-card-sub  { font-size:12px;color:#6B7280;margin-top:2px; }
-    .hol-tag { background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5;
+    .apt-card {{ background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;
+                padding:12px 16px;display:flex;align-items:center;justify-content:space-between; }}
+    .apt-card-name {{ font-weight:700;font-size:14px;color:#1F2937; }}
+    .apt-card-sub  {{ font-size:12px;color:#6B7280;margin-top:2px; }}
+    .hol-tag {{ background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5;
                border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;
-               display:inline-flex;align-items:center;gap:6px;margin:4px; }
-    .hol-tag button { background:none;border:none;color:#DC2626;cursor:pointer;
-                      font-size:14px;line-height:1;padding:0; }
-    .toggle-row { display:flex;align-items:center;justify-content:space-between;
-                  padding:10px 0;border-bottom:1px solid #F3F4F6; }
-    .toggle-row:last-child { border-bottom:none; }
-    .toggle-lbl { font-size:13px;color:#374151;font-weight:500; }
-    .toggle-sub  { font-size:11px;color:#9CA3AF;margin-top:2px; }
-    .toggle-sw { position:relative;width:44px;height:24px; }
-    .toggle-sw input { opacity:0;width:0;height:0; }
-    .toggle-sw .slider { position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;
-                         background:#D1D5DB;border-radius:24px;transition:.2s; }
-    .toggle-sw .slider:before { position:absolute;content:"";height:18px;width:18px;
+               display:inline-flex;align-items:center;gap:6px;margin:4px; }}
+    .hol-tag button {{ background:none;border:none;color:#DC2626;cursor:pointer;
+                      font-size:14px;line-height:1;padding:0; }}
+    .toggle-row {{ display:flex;align-items:center;justify-content:space-between;
+                  padding:10px 0;border-bottom:1px solid #F3F4F6; }}
+    .toggle-row:last-child {{ border-bottom:none; }}
+    .toggle-lbl {{ font-size:13px;color:#374151;font-weight:500; }}
+    .toggle-sub  {{ font-size:11px;color:#9CA3AF;margin-top:2px; }}
+    .toggle-sw {{ position:relative;width:44px;height:24px; }}
+    .toggle-sw input {{ opacity:0;width:0;height:0; }}
+    .toggle-sw .slider {{ position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;
+                         background:#D1D5DB;border-radius:24px;transition:.2s; }}
+    .toggle-sw .slider:before {{ position:absolute;content:"";height:18px;width:18px;
                                  left:3px;bottom:3px;background:#fff;border-radius:50%;
-                                 transition:.2s; }
-    .toggle-sw input:checked + .slider { background:#1E40AF; }
-    .toggle-sw input:checked + .slider:before { transform:translateX(20px); }
+                                 transition:.2s; }}
+    .toggle-sw input:checked + .slider {{ background:#1E40AF; }}
+    .toggle-sw input:checked + .slider:before {{ transform:translateX(20px); }}
 
   </style>
 </head>
