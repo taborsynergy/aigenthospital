@@ -62,6 +62,11 @@ class Clinic(Base):
     trial_reminder_day      = Column(Integer, nullable=True)
     renewal_reminder_day    = Column(Integer, nullable=True)
 
+    # Phase 2: notification preferences
+    reminder_72h_enabled    = Column(Boolean, default=True)
+    reminder_24h_enabled    = Column(Boolean, default=True)
+    custom_confirmation_msg = Column(Text,    default="")
+
     is_active   = Column(Boolean,  default=True)
     created_at  = Column(DateTime, default=datetime.utcnow)
     updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -486,3 +491,28 @@ class OnboardingChecklist(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 Index("ix_onboarding_checklist_clinic", OnboardingChecklist.clinic_id)
+
+
+class AppointmentType(Base):
+    """Visit types a clinic offers (New Patient, Follow-up, etc.) with durations."""
+    __tablename__ = "appointment_types"
+
+    id               = Column(Integer,  primary_key=True, index=True)
+    clinic_id        = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    name             = Column(String,   nullable=False)       # "New Patient Visit"
+    duration_minutes = Column(Integer,  default=30)           # 15 | 30 | 45 | 60
+    description      = Column(Text,     default="")           # shown to patients
+    is_active        = Column(Boolean,  default=True)
+    created_at       = Column(DateTime, default=datetime.utcnow)
+    updated_at       = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ClinicHoliday(Base):
+    """Specific dates when the clinic is closed; Aria never offers these slots."""
+    __tablename__ = "clinic_holidays"
+
+    id         = Column(Integer,  primary_key=True, index=True)
+    clinic_id  = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    date       = Column(String,   nullable=False)   # ISO: "2026-07-04"
+    reason     = Column(String,   default="")       # "Independence Day"
+    created_at = Column(DateTime, default=datetime.utcnow)

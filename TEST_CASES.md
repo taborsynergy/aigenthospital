@@ -9,7 +9,7 @@ python -m pytest backend/tests --collect-only -q
 
 | Track | Location | Count | Runner |
 |---|---|---:|---|
-| **Core suite** (unit/integration/security) | `backend/tests/` | **329** (327 pass + 2 skip*) | `pytest` |
+| **Core suite** (unit/integration/security) | `backend/tests/` | **351** (349 pass + 2 skip*) | `pytest` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
 | Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
 
@@ -52,6 +52,7 @@ Run the core suite: `python -m pytest backend/tests -q`
 | test_conversation_limits.py | 6 | Conversation tracking + limit enforcement | — |
 | test_email_branding.py | 6 | Per-clinic From-name / Reply-To branding | — |
 | test_unsubscribe.py | 5 | CAN-SPAM recall unsubscribe (signed token) | — |
+| test_phase2_setup.py | 22 | Appointment Types CRUD, Clinic Holidays CRUD, Notification Preferences, system prompt injection | P2 |
 | test_frontend_a11y.py | 4 | Static a11y guards (lang, contrast, widget aria, 911 banner) | L-1/L-2 |
 
 ---
@@ -134,6 +135,7 @@ python -m pytest backend/tests --collect-only -q | grep ::
 | REG-001 — Multi-turn chat serialization regression | 1 | +3 | 316 |
 | MT — Multi-turn conversation flows (SMS removal + 5 flow tests) | 1 | +6 | 322 |
 | REG-002 — Portal appointments visibility (is_active fix + r.ok check) | 1 | +4 | 326 |
-| REG-003 — Aria date reasoning (today's date injected into system prompt) | 1 | +3 | **329** |
+| REG-003 — Aria date reasoning (today's date injected into system prompt) | 1 | +3 | 329 |
+| Phase 2 — Appointment Types + Holidays + Notification Prefs | 3 | +22 | **351** |
 | Wave D — Security (SEC-CSRF + SEC-LOGMON + SEC-MFA) | 3 | pending | — |
 | Wave E — A11y/Real-device (A11Y-KEYB + XBR-REAL) | 2 | pending | — |

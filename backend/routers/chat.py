@@ -323,6 +323,7 @@ async def get_profile(
 
     return {
         "name":                clinic.name or "",
+        "agent_name":          clinic.agent_name or "Aria",
         "specialty":           clinic.specialty or "",
         "address":             clinic.address or "",
         "city_state":          clinic.city_state or "",
@@ -338,6 +339,10 @@ async def get_profile(
         "hipaa_verify_method": clinic.hipaa_verify_method or "",
         "escalation_contact":  clinic.escalation_contact or "",
         "pms_system":          clinic.pms_system or "",
+        # Phase 2: notification preferences
+        "reminder_72h_enabled":    getattr(clinic, "reminder_72h_enabled",    True),
+        "reminder_24h_enabled":    getattr(clinic, "reminder_24h_enabled",    True),
+        "custom_confirmation_msg": getattr(clinic, "custom_confirmation_msg", "") or "",
     }
 
 

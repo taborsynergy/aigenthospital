@@ -40,6 +40,56 @@ def _build_insurance_section(clinic) -> str:
     return base
 
 
+def _build_appointment_types_section(clinic) -> str:
+    """List appointment types + durations so Aria can tell patients what visit types exist."""
+    try:
+        if hasattr(clinic, "_db") and clinic._db:
+            from backend.db.models import AppointmentType
+            rows = (
+                clinic._db.query(AppointmentType)
+                .filter(
+                    AppointmentType.clinic_id == clinic.id,
+                    AppointmentType.is_active.is_(True),
+                )
+                .order_by(AppointmentType.created_at)
+                .all()
+            )
+            if rows:
+                lines = [f"- {r.name} ({r.duration_minutes} min)" +
+                         (f": {r.description}" if r.description else "")
+                         for r in rows]
+                return "\n\nAPPOINTMENT TYPES OFFERED:\n" + "\n".join(lines) + \
+                       "\nWhen a patient asks what kind of visits are available, list these."
+    except Exception:
+        pass
+    return ""
+
+
+def _build_holidays_section(clinic) -> str:
+    """Inject blocked dates so Aria never offers slots on closed days."""
+    try:
+        if hasattr(clinic, "_db") and clinic._db:
+            from backend.db.models import ClinicHoliday
+            rows = (
+                clinic._db.query(ClinicHoliday)
+                .filter(ClinicHoliday.clinic_id == clinic.id)
+                .order_by(ClinicHoliday.date)
+                .all()
+            )
+            if rows:
+                lines = [f"- {r.date}" + (f" ({r.reason})" if r.reason else "") for r in rows]
+                return (
+                    "\n\nCLINIC CLOSED DATES (holidays / blocked days):\n"
+                    + "\n".join(lines)
+                    + "\nNEVER offer appointment slots on these dates. "
+                    "If a patient requests one of these dates, inform them the clinic is "
+                    "closed that day and offer the nearest available alternative."
+                )
+    except Exception:
+        pass
+    return ""
+
+
 def _build_custom_training_section(clinic) -> str:
     """Append custom AI training data to system prompt if available."""
     try:
@@ -100,8 +150,10 @@ def build_system_prompt(clinic, db=None) -> str:
     hipaa_method        = _safe(clinic.hipaa_verify_method, 200)
     escalation_contact  = _safe(clinic.escalation_contact,  100)
     pms_system          = _safe(clinic.pms_system,           50)
-    custom_training     = _build_custom_training_section(clinic)
-    location_section    = _build_location_section(clinic)
+    custom_training       = _build_custom_training_section(clinic)
+    location_section      = _build_location_section(clinic)
+    appt_types_section    = _build_appointment_types_section(clinic)
+    holidays_section      = _build_holidays_section(clinic)
 
     from datetime import date as _date
     _today_str = _date.today().strftime("%A, %B %d, %Y")
@@ -140,6 +192,7 @@ that at your appointment."
 - Services: {services_offered}
 - Insurance accepted: {insurance_accepted}
 - Cancellation policy: {cancellation_policy}
+{appt_types_section}{holidays_section}
 
 ## CAPABILITY 1 — APPOINTMENT SCHEDULING
 Use check_appointment_availability to find open slots; always show 3–5 options.

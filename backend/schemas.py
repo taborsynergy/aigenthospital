@@ -27,6 +27,10 @@ class ClinicProfileUpdate(BaseModel):
     hipaa_verify_method: Optional[str] = None
     escalation_contact: Optional[str] = None
     pms_system: Optional[str] = None
+    # Phase 2: notification preferences
+    reminder_72h_enabled:    Optional[bool] = None
+    reminder_24h_enabled:    Optional[bool] = None
+    custom_confirmation_msg: Optional[str]  = None
 
     @field_validator("name")
     @classmethod

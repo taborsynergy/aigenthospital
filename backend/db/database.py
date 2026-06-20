@@ -187,6 +187,23 @@ def migrate_db():
         ("whitelabel_configs", "self_host_enabled",     "BOOLEAN",   "DEFAULT FALSE"),
         ("whitelabel_configs", "created_at",            "TIMESTAMP", ""),
         ("whitelabel_configs", "updated_at",            "TIMESTAMP", ""),
+        # Phase 2: notification preferences on clinic
+        ("clinics", "reminder_72h_enabled",    "BOOLEAN", "DEFAULT TRUE"),
+        ("clinics", "reminder_24h_enabled",    "BOOLEAN", "DEFAULT TRUE"),
+        ("clinics", "custom_confirmation_msg", "TEXT",    "DEFAULT ''"),
+        # Phase 2: appointment types table columns
+        ("appointment_types", "clinic_id",        "INTEGER", ""),
+        ("appointment_types", "name",             "VARCHAR", ""),
+        ("appointment_types", "duration_minutes", "INTEGER", "DEFAULT 30"),
+        ("appointment_types", "description",      "TEXT",    "DEFAULT ''"),
+        ("appointment_types", "is_active",        "BOOLEAN", "DEFAULT TRUE"),
+        ("appointment_types", "created_at",       "TIMESTAMP", ""),
+        ("appointment_types", "updated_at",       "TIMESTAMP", ""),
+        # Phase 2: clinic holidays table columns
+        ("clinic_holidays", "clinic_id",  "INTEGER",   ""),
+        ("clinic_holidays", "date",       "VARCHAR",   ""),
+        ("clinic_holidays", "reason",     "VARCHAR",   "DEFAULT ''"),
+        ("clinic_holidays", "created_at", "TIMESTAMP", ""),
     ]
 
     inspector = inspect(engine)
