@@ -9,7 +9,7 @@ python -m pytest backend/tests --collect-only -q
 
 | Track | Location | Count | Runner |
 |---|---|---:|---|
-| **Core suite** (unit/integration/security) | `backend/tests/` | **512** (510 pass + 2 skip*) | `pytest` |
+| **Core suite** (unit/integration/security) | `backend/tests/` | **517** (515 pass + 2 skip*) | `pytest` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
 | Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
 
@@ -178,6 +178,6 @@ python -m pytest backend/tests --collect-only -q | grep ::
 | REG-007 — Appointments "Session expired": cross-clinic token not rejected by `/verify`; portal init IIFE now compares d.slug vs SLUG | 2 | +2 | 376 |
 | REG-008 — Aria uses wrong phone: `update_profile` didn't call `invalidate_prompt()`; clinic Setup tab fields not reflected in Aria's answers | 34 | +34 | 412 |
 | REG-009 — Demo buttons wired to white-label quote form instead of trial signup; landing page CTA audit | 17 | +17 | 429 |
-| LNK-001..012 — Landing page link integrity (anchors, tabs, modals, JS fns, mailto, form IDs, security) | 83 | +83 | **512** |
+| LNK-001..012 — Landing page link integrity (anchors, tabs, modals, JS fns, footer behavior, form IDs, security) | 88 | +88 | **517** |
 | Wave D — Security (SEC-CSRF + SEC-LOGMON + SEC-MFA) | 3 | pending | — |
 | Wave E — A11y/Real-device (A11Y-KEYB + XBR-REAL) | 2 | pending | — |

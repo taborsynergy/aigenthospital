@@ -287,26 +287,91 @@ class TestJSFunctionsDefined:
         assert "window.addEventListener('scroll'" in html
 
 
-# ── LNK-008: Mailto links are correctly formed ───────────────────────────────
+# ── LNK-008: Footer link behavior — each link must do something visible ──────
 
-class TestMailtoLinks:
+class TestFooterLinkBehavior:
+
+    def _footer(self, html):
+        return html[html.index("<footer"):]
+
+    # Enterprise column
+    def test_white_label_opens_quote_form(self, html):
+        """LNK-008: Footer 'White Label' must open the quote form."""
+        footer = self._footer(html)
+        assert re.search(r'>White Label<.*?openQuoteForm|openQuoteForm.*?>White Label<', footer, re.DOTALL), (
+            "Footer 'White Label' link must call openQuoteForm()."
+        )
+
+    def test_licensing_faq_opens_quote_form(self, html):
+        """LNK-008: Footer 'Licensing FAQ' must open the quote form (not a dead mailto)."""
+        footer = self._footer(html)
+        idx = footer.index(">Licensing FAQ<")
+        a_start = footer.rfind("<a", 0, idx)
+        snippet = footer[a_start: idx + 15]
+        assert "openQuoteForm" in snippet, (
+            "LNK-008: 'Licensing FAQ' must call openQuoteForm(). "
+            "A raw mailto: link won't open if no email client is configured."
+        )
+        assert "mailto:" not in snippet, (
+            "LNK-008: 'Licensing FAQ' must not be a bare mailto: link."
+        )
+
+    def test_enterprise_sales_opens_quote_form(self, html):
+        """LNK-008: Footer 'Enterprise Sales' must open the quote form (not a dead mailto)."""
+        footer = self._footer(html)
+        idx = footer.index(">Enterprise Sales<")
+        a_start = footer.rfind("<a", 0, idx)
+        snippet = footer[a_start: idx + 20]
+        assert "openQuoteForm" in snippet, (
+            "LNK-008: 'Enterprise Sales' must call openQuoteForm(). "
+            "A raw mailto: link won't open if no email client is configured."
+        )
+        assert "mailto:" not in snippet, (
+            "LNK-008: 'Enterprise Sales' must not be a bare mailto: link."
+        )
+
+    # Support column
+    def test_contact_us_is_mailto(self, html):
+        """LNK-008: 'Contact Us' may be a mailto link (standard for contact)."""
+        footer = self._footer(html)
+        idx = footer.index(">Contact Us<")
+        a_start = footer.rfind("<a", 0, idx)
+        snippet = footer[a_start: idx + 15]
+        assert f"mailto:{ALLOWED_MAILTO}" in snippet, (
+            f"LNK-008: 'Contact Us' must use mailto:{ALLOWED_MAILTO}."
+        )
+
+    def test_onboarding_opens_signup(self, html):
+        """LNK-008: Footer 'Onboarding' must open the signup modal (not a dead mailto)."""
+        footer = self._footer(html)
+        idx = footer.index(">Onboarding<")
+        a_start = footer.rfind("<a", 0, idx)
+        snippet = footer[a_start: idx + 15]
+        assert "openSignup" in snippet, (
+            "LNK-008: 'Onboarding' must call openSignup() — clicking it should start "
+            "the trial, not silently try to open an email client."
+        )
+        assert "mailto:" not in snippet, (
+            "LNK-008: 'Onboarding' must not be a bare mailto: link."
+        )
+
+    def test_billing_help_is_mailto(self, html):
+        """LNK-008: 'Billing Help' may be a mailto link (billing needs email)."""
+        footer = self._footer(html)
+        idx = footer.index(">Billing Help<")
+        a_start = footer.rfind("<a", 0, idx)
+        snippet = footer[a_start: idx + 15]
+        assert f"mailto:{ALLOWED_MAILTO}" in snippet, (
+            f"LNK-008: 'Billing Help' must use mailto:{ALLOWED_MAILTO}."
+        )
 
     def test_all_mailto_links_use_correct_address(self, html):
-        """LNK-008: Every mailto: link must use the official support email."""
+        """LNK-008: Every mailto: link that exists must use the official support email."""
         mailto_links = re.findall(r'href="mailto:([^"]+)"', html)
-        assert len(mailto_links) >= 5, (
-            f"LNK-008: Expected at least 5 mailto links, found {len(mailto_links)}."
-        )
         for address in mailto_links:
             assert address == ALLOWED_MAILTO, (
                 f"LNK-008: Found mailto:{address} — expected {ALLOWED_MAILTO}."
             )
-
-    def test_contact_us_mailto_present(self, html):
-        """LNK-008: 'Contact Us' footer link must be a mailto."""
-        footer_idx = html.index("<footer")
-        footer_html = html[footer_idx:]
-        assert f'href="mailto:{ALLOWED_MAILTO}"' in footer_html
 
 
 # ── LNK-009: Bare href="#" links always have onclick handlers ────────────────
