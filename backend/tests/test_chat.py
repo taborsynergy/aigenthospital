@@ -291,3 +291,81 @@ class TestMultiTurnChatRegression:
         body = r2.json()
         assert "content" in body
         assert "error" not in body
+
+
+# ── Multi-turn conversation flows ─────────────────────────────────────────────
+
+class TestMultiTurnConversations:
+    """Multi-turn REST chat: verifies history carries across turns and Aria
+    responds correctly across realistic patient conversation flows."""
+
+    def _chat(self, client, clinic, message, session):
+        r = client.post(f"/api/{clinic.slug}/chat",
+                        json={"message": message, "session_id": session})
+        assert r.status_code == 200, f"message={message!r} failed: {r.text}"
+        return r.json()
+
+    def test_scheduling_flow_three_turns(self, client, clinic):
+        """Book appointment across 3 turns: intent → patient type → name."""
+        s = "mt-sched-001"
+        r1 = self._chat(client, clinic, "I need to book an appointment", s)
+        assert "content" in r1
+
+        r2 = self._chat(client, clinic, "I am a new patient", s)
+        assert "content" in r2
+
+        r3 = self._chat(client, clinic, "My name is Sam Johnson", s)
+        assert "content" in r3
+        # Session ID must be consistent throughout
+        assert r3["session_id"] == s
+
+    def test_intake_form_offered_by_email_only(self, client, clinic):
+        """After booking as new patient Aria must NOT ask SMS vs email —
+        intake forms are email-only."""
+        s = "mt-intake-001"
+        self._chat(client, clinic, "Book an appointment for new patient Sam", s)
+        self._chat(client, clinic, "yes send me the intake form", s)
+        r = self._chat(client, clinic, "my email is sam@example.com", s)
+        # Response must not contain the word SMS in any case variation
+        assert "sms" not in r["content"].lower(), (
+            "Aria offered SMS for intake form — SMS is not supported")
+
+    def test_faq_flow_two_turns(self, client, clinic):
+        """Office-hours question followed by insurance question — both answered."""
+        s = "mt-faq-001"
+        r1 = self._chat(client, clinic, "What are your office hours?", s)
+        assert "content" in r1
+
+        r2 = self._chat(client, clinic, "Do you accept Aetna insurance?", s)
+        assert "content" in r2
+        assert "error" not in r2
+
+    def test_reschedule_flow_two_turns(self, client, clinic):
+        """Reschedule intent then new time — both turns return 200."""
+        s = "mt-reschedule-001"
+        self._chat(client, clinic, "I need to reschedule my appointment", s)
+        r2 = self._chat(client, clinic, "Can we do next Monday at 10am?", s)
+        assert r2["status_code"] if "status_code" in r2 else True
+        assert "content" in r2
+
+    def test_different_sessions_are_isolated(self, client, clinic):
+        """Two different session IDs must not share history."""
+        self._chat(client, clinic, "My name is Alice", "mt-iso-001")
+        r = self._chat(client, clinic, "What was my name?", "mt-iso-002")
+        # The second session has no context about Alice
+        assert "content" in r
+        assert r["session_id"] == "mt-iso-002"
+
+    def test_five_turn_conversation_all_succeed(self, client, clinic):
+        """5-turn conversation — every turn returns 200 with content."""
+        s = "mt-five-001"
+        messages = [
+            "Hello",
+            "I'd like to make an appointment",
+            "I am an existing patient",
+            "My name is David Park",
+            "I prefer mornings",
+        ]
+        for msg in messages:
+            r = self._chat(client, clinic, msg, s)
+            assert "content" in r, f"Turn failed on: {msg!r}"

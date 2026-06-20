@@ -195,16 +195,15 @@ TOOLS: list[dict] = [
     },
     {
         "name": "send_intake_form",
-        "description": "Send a new patient intake form package via a secure link (SMS or email).",
+        "description": "Send a new patient intake form package via a secure link by email.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "patient_name":  {"type": "string"},
-                "channel":       {"type": "string", "enum": ["sms", "email"]},
+                "channel":       {"type": "string", "enum": ["email"]},
                 "patient_email": {"type": "string"},
-                "patient_phone": {"type": "string"},
             },
-            "required": ["patient_name", "channel"],
+            "required": ["patient_name", "channel", "patient_email"],
         },
     },
     {

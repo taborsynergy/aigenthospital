@@ -9,7 +9,7 @@ python -m pytest backend/tests --collect-only -q
 
 | Track | Location | Count | Runner |
 |---|---|---:|---|
-| **Core suite** (unit/integration/security) | `backend/tests/` | **316** (314 pass + 2 skip*) | `pytest` |
+| **Core suite** (unit/integration/security) | `backend/tests/` | **322** (320 pass + 2 skip*) | `pytest` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
 | Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
 
@@ -25,7 +25,7 @@ Run the core suite: `python -m pytest backend/tests -q`
 
 | File | Cases | Area | Gap-IDs |
 |---|---:|---|---|
-| test_chat.py | 24 | Chat/agent REST, config, analytics, profile, multi-turn regression | REG-001 |
+| test_chat.py | 30 | Chat/agent REST, config, analytics, profile, multi-turn regression + conversation flows | REG-001/MT |
 | test_whitelabel.py | 21 | Branding, custom domain, reseller, source-code access | — |
 | test_appointments.py | 20 | Appointment list/update, status transitions, isolation | — |
 | test_edge_cases.py | 19 | Invalid dates, neg/garbage IDs, IDN domains, volume, indexes | L-3/L-4/L-5 |
@@ -129,6 +129,7 @@ python -m pytest backend/tests --collect-only -q | grep ::
 | Wave A — Pagination (API-PAGE + BVA-PAGE) | 2 | +10 | 299 |
 | Wave B — Audit + Migrate (DB-AUDIT + DB-MIGRATE) | 2 | +7 | 306 |
 | Wave C — Resilience (API-RETRY + REL-SCHED + REL-BATCH) | 3 | +7 | 313 |
-| REG-001 — Multi-turn chat serialization regression | 1 | +3 | **316** |
+| REG-001 — Multi-turn chat serialization regression | 1 | +3 | 316 |
+| MT — Multi-turn conversation flows (SMS removal + 5 flow tests) | 1 | +6 | **322** |
 | Wave D — Security (SEC-CSRF + SEC-LOGMON + SEC-MFA) | 3 | pending | — |
 | Wave E — A11y/Real-device (A11Y-KEYB + XBR-REAL) | 2 | pending | — |
