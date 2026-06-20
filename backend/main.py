@@ -1315,7 +1315,7 @@ function _buildHoursGrid(hoursStr) {{
     row.className = "hours-row";
     row.innerHTML =
       '<input type="checkbox" id="h-chk-' + day + '"' + (info.open ? " checked" : "") +
-      ' onchange="toggleDayRow(this,\'' + day + '\')">' +
+      ' onchange="toggleDayRow(this,\\'' + day + '\\')">' +
       '<label class="day-lbl" for="h-chk-' + day + '">' + day + '</label>' +
       '<input type="time" id="h-s-' + day + '" value="' + info.start + '" class="setup-inp" style="width:120px;"' +
       (info.open ? "" : " disabled") + '>' +
