@@ -231,3 +231,63 @@ class TestAnalyticsEndpoint:
         r = client.get(f"/api/{clinic.slug}/analytics?report=today",
                        headers={"X-Clinic-Token": token})
         assert r.status_code == 200
+
+
+# ── Regression: multi-turn chat history serialization ────────────────────────
+# Bug: anthropic SDK >= 0.40 model_dump() adds citations:null on TextBlock.
+# When history is passed back on the 2nd turn the API rejected it (BadRequestError).
+# Fix: _serialize_block() builds explicit clean dicts — no extra None fields.
+
+class TestMultiTurnChatRegression:
+
+    def test_serialize_text_block_excludes_none_fields(self):
+        """_serialize_block must never include None fields on a text block."""
+        from backend.agent.aria import _serialize_block
+
+        class _FakeTextBlock:
+            type = "text"
+            text = "Hello, how can I help?"
+            citations = None          # field added by newer anthropic SDK
+
+        result = _serialize_block(_FakeTextBlock())
+        assert result == {"type": "text", "text": "Hello, how can I help?"}
+        assert "citations" not in result
+
+    def test_serialize_tool_use_block_correct_format(self):
+        """_serialize_block returns id/name/input for tool_use blocks."""
+        from backend.agent.aria import _serialize_block
+
+        class _FakeToolUseBlock:
+            type = "tool_use"
+            id = "toolu_01abc"
+            name = "book_appointment"
+            input = {"patient_name": "Jane Doe", "appointment_type": "checkup"}
+
+        result = _serialize_block(_FakeToolUseBlock())
+        assert result == {
+            "type":  "tool_use",
+            "id":    "toolu_01abc",
+            "name":  "book_appointment",
+            "input": {"patient_name": "Jane Doe", "appointment_type": "checkup"},
+        }
+        assert "citations" not in result
+
+    def test_multiturn_chat_second_message_succeeds(self, client, clinic):
+        """Second turn on same session must not return an error.
+
+        Regression for: BadRequestError caused by citations:null in saved
+        assistant content being passed back to the Anthropic API on turn 2.
+        """
+        session = "regr-multiturn-001"
+        r1 = client.post(f"/api/{clinic.slug}/chat",
+                         json={"message": "Schedule an appointment",
+                               "session_id": session})
+        assert r1.status_code == 200, f"Turn 1 failed: {r1.text}"
+
+        r2 = client.post(f"/api/{clinic.slug}/chat",
+                         json={"message": "first time",
+                               "session_id": session})
+        assert r2.status_code == 200, f"Turn 2 failed: {r2.text}"
+        body = r2.json()
+        assert "content" in body
+        assert "error" not in body
