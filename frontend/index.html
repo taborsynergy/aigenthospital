@@ -1,1059 +1,1660 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Tabor Synergy — Universal AI Front Desk Agent for medical practices. Schedule appointments, verify insurance, handle billing across every specialty, 24/7." />
-  <title>Tabor Synergy — Universal Medical Front Desk Agent</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <style>
-    /* ── Reset & Tokens ────────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --primary:       #0F3D91;
-      --primary-light: #1A56CC;
-      --teal:          #14B8A6;
-      --violet:        #7C3AED;
-      --violet-dark:   #6D28D9;
-      --bg:            #F8FAFC;
-      --bg-dark:       #0F172A;
-      --bg-card:       #FFFFFF;
-      --text:          #0F172A;
-      --text-muted:    #64748B;
-      --success:       #10B981;
-      --border:        #E2E8F0;
-      --border-focus:  #0F3D91;
-      --shadow-sm:     0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
-      --shadow-md:     0 4px 16px rgba(0,0,0,.08),0 2px 6px rgba(0,0,0,.05);
-      --shadow-lg:     0 20px 48px rgba(0,0,0,.12),0 8px 16px rgba(0,0,0,.06);
-      --radius:        12px;
-      --radius-lg:     20px;
-    }
-    html { scroll-behavior: smooth; }
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Front Desk for Healthcare — Tabor Synergy</title>
+<meta name="description" content="Aria answers calls, books appointments, and handles patient inquiries 24/7 — so your front desk staff can focus on care. HIPAA-compliant AI receptionist for healthcare practices." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+/* ═══════════════════════════════════════════════
+   TOKENS
+   ═══════════════════════════════════════════════ */
+:root {
+  --bg:         #06090F;
+  --bg2:        #0D1117;
+  --bg3:        #111827;
+  --border:     rgba(255,255,255,0.08);
+  --border2:    rgba(6,229,213,0.2);
+  --teal:       #06E5D5;
+  --teal2:      #00C4B4;
+  --indigo:     #6366F1;
+  --violet:     #8B5CF6;
+  --text:       #F1F5F9;
+  --text2:      #94A3B8;
+  --text3:      #64748B;
+  --card-bg:    rgba(255,255,255,0.04);
+  --card-hover: rgba(255,255,255,0.07);
+  --glow-teal:  rgba(6,229,213,0.15);
+  --glow-ind:   rgba(99,102,241,0.15);
+  --radius:     14px;
+  --radius-lg:  22px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
 
-    /* ── Scrollbar ──────────────────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+/* ═══════════════════════════════════════════════
+   ANNOUNCEMENT BAR
+   ═══════════════════════════════════════════════ */
+.announce-bar {
+  background: linear-gradient(90deg, var(--indigo), var(--teal2), var(--indigo));
+  background-size: 200% 100%;
+  animation: gradshift 6s linear infinite;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 16px;
+  color: #fff;
+  letter-spacing: .02em;
+}
+.announce-bar a { color:#fff; text-decoration:underline; opacity:.9; }
+@keyframes gradshift { 0%{background-position:0%} 100%{background-position:200%} }
 
-    /* ── Utility ────────────────────────────────────────────────────── */
-    .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
-    .section-label {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 12px; font-weight: 700; letter-spacing: .08em;
-      text-transform: uppercase; color: var(--teal);
-      background: rgba(20,184,166,.08); border: 1px solid rgba(20,184,166,.2);
-      border-radius: 20px; padding: 4px 14px; margin-bottom: 16px;
-    }
-    .section-title {
-      font-size: clamp(28px,4vw,40px);
-      font-weight: 800; color: var(--text);
-      line-height: 1.2; margin-bottom: 16px;
-    }
-    .section-sub {
-      font-size: 17px; color: var(--text-muted);
-      max-width: 560px; line-height: 1.7;
-    }
+/* ═══════════════════════════════════════════════
+   NAV
+   ═══════════════════════════════════════════════ */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  padding: 0 40px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(6,9,15,0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  transition: background .3s;
+}
+nav.scrolled { background: rgba(6,9,15,0.9); }
+.nav-logo {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -.5px;
+  background: linear-gradient(135deg, var(--teal) 0%, var(--indigo) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.nav-logo span { -webkit-text-fill-color: var(--text2); font-weight: 400; }
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  list-style: none;
+}
+.nav-links a {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text2);
+  transition: color .2s;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-ctas { display: flex; gap: 10px; align-items: center; }
+.btn-nav-demo {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color .2s, color .2s;
+}
+.btn-nav-demo:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+.btn-nav-trial {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--teal);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: background .2s, transform .1s;
+}
+.btn-nav-trial:hover { background: #00d4c4; transform: translateY(-1px); }
 
-    /* ── Navbar ─────────────────────────────────────────────────────── */
-    nav {
-      position: sticky; top: 0; z-index: 1000;
-      height: 68px;
-      display: flex; align-items: center;
-      padding: 0 32px;
-      background: rgba(15,29,57,.92);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border-bottom: 1px solid rgba(255,255,255,.06);
-      transition: background .3s, box-shadow .3s;
-    }
-    nav.scrolled {
-      background: rgba(15,29,57,.97);
-      box-shadow: 0 4px 24px rgba(0,0,0,.3);
-    }
-    .nav-inner {
-      display: flex; align-items: center;
-      justify-content: space-between;
-      width: 100%; max-width: 1120px; margin: 0 auto;
-    }
-    .nav-brand {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 18px; font-weight: 800; color: #fff;
-      text-decoration: none; letter-spacing: -.3px;
-    }
-    .nav-brand-icon {
-      width: 34px; height: 34px;
-      background: linear-gradient(135deg,var(--teal),var(--primary-light));
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-    }
-    .nav-badge {
-      font-size: 10px; font-weight: 600; letter-spacing: .04em;
-      background: rgba(20,184,166,.15); color: #5eead4;  /* WCAG AA on dark nav */
-      border: 1px solid rgba(20,184,166,.3);
-      border-radius: 20px; padding: 2px 10px;
-    }
-    .nav-links {
-      display: flex; align-items: center; gap: 8px;
-    }
-    .nav-links a {
-      color: rgba(255,255,255,.7); text-decoration: none;
-      font-size: 14px; font-weight: 500;
-      padding: 6px 14px; border-radius: 8px;
-      transition: color .2s, background .2s;
-    }
-    .nav-links a:hover { color: #fff; background: rgba(255,255,255,.08); }
-    .nav-cta {
-      background: linear-gradient(135deg,var(--teal),#0EA5E9);
-      color: #fff !important; font-weight: 600 !important;
-      padding: 8px 18px !important; border-radius: 8px !important;
-      box-shadow: 0 2px 10px rgba(20,184,166,.35);
-      transition: opacity .2s, transform .1s !important;
-    }
-    .nav-cta:hover { opacity: .9; transform: translateY(-1px); background: none !important; }
+/* ═══════════════════════════════════════════════
+   HERO
+   ═══════════════════════════════════════════════ */
+.hero {
+  position: relative;
+  min-height: 92vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 80px 40px 60px;
+}
+.hero-glow-1 {
+  position: absolute;
+  top: -120px; left: -180px;
+  width: 700px; height: 700px;
+  background: radial-gradient(circle, rgba(6,229,213,0.12) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.hero-glow-2 {
+  position: absolute;
+  bottom: -80px; right: -100px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.hero-grid-lines {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+}
+.hero-inner {
+  position: relative;
+  z-index: 2;
+  max-width: 900px;
+  text-align: center;
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(6,229,213,0.08);
+  border: 1px solid var(--border2);
+  border-radius: 100px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--teal);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+}
+.hero-badge-dot {
+  width: 6px; height: 6px;
+  background: var(--teal);
+  border-radius: 50%;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,100%{ opacity:1; transform:scale(1); }
+  50%{ opacity:.4; transform:scale(.7); }
+}
+.hero h1 {
+  font-size: clamp(40px, 7vw, 72px);
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: -.03em;
+  margin-bottom: 24px;
+}
+.hero h1 .grad {
+  background: linear-gradient(135deg, var(--teal) 0%, var(--indigo) 60%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-sub {
+  font-size: clamp(16px, 2.5vw, 20px);
+  color: var(--text2);
+  max-width: 620px;
+  margin: 0 auto 40px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+.hero-ctas {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 56px;
+}
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--teal);
+  color: #06090F;
+  font-weight: 800;
+  font-size: 15px;
+  padding: 14px 28px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: background .2s, transform .15s, box-shadow .2s;
+  box-shadow: 0 0 30px rgba(6,229,213,0.3);
+}
+.btn-primary:hover { background: #00d4c4; transform: translateY(-2px); box-shadow: 0 0 50px rgba(6,229,213,0.4); }
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 15px;
+  padding: 14px 28px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .2s, border-color .2s, transform .15s;
+}
+.btn-secondary:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
 
-    /* ── Support bar ────────────────────────────────────────────────── */
-    .support-bar {
-      background: rgba(15,61,145,.05);
-      border-bottom: 1px solid var(--border);
-      text-align: center; padding: 8px 16px;
-      font-size: 13px; color: #475569;  /* WCAG AA on light support bar */
-    }
-    .support-bar a {
-      color: var(--primary); font-weight: 600;
-      text-decoration: none; transition: color .2s;
-    }
-    .support-bar a:hover { color: var(--primary-light); text-decoration: underline; }
+/* Hero chat mockup */
+.hero-mockup {
+  max-width: 560px;
+  margin: 0 auto;
+  background: rgba(13,17,23,0.8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 40px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(6,229,213,0.1);
+}
+.mockup-header {
+  background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mockup-avatar {
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg, var(--teal), var(--indigo));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+}
+.mockup-name { font-size: 14px; font-weight: 600; }
+.mockup-status { font-size: 11px; color: var(--teal); font-weight: 500; }
+.mockup-online { display: flex; align-items: center; gap: 5px; }
+.mockup-dot { width: 7px; height: 7px; background: #22C55E; border-radius: 50%; }
+.mockup-body { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.bubble {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  animation: fadeup .4s ease both;
+}
+.bubble-ai {
+  background: rgba(6,229,213,0.1);
+  border: 1px solid rgba(6,229,213,0.2);
+  color: var(--text);
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+.bubble-user {
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.2);
+  color: var(--text);
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+@keyframes fadeup {
+  from { opacity:0; transform:translateY(8px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.bubble:nth-child(1){ animation-delay:.1s }
+.bubble:nth-child(2){ animation-delay:.5s }
+.bubble:nth-child(3){ animation-delay:.9s }
+.bubble:nth-child(4){ animation-delay:1.3s }
 
-    /* ── Hero ───────────────────────────────────────────────────────── */
-    .hero {
-      position: relative; overflow: hidden;
-      background: linear-gradient(145deg,#0A1628 0%,#0F3D91 50%,#0B2454 100%);
-      padding: 100px 24px 80px;
-      text-align: center;
-    }
-    .hero::before {
-      content: '';
-      position: absolute; inset: 0;
-      background:
-        radial-gradient(ellipse 80% 60% at 50% 0%,rgba(20,184,166,.18) 0%,transparent 70%),
-        radial-gradient(ellipse 50% 50% at 80% 80%,rgba(124,58,237,.12) 0%,transparent 60%);
-      pointer-events: none;
-    }
-    .hero-grid {
-      position: absolute; inset: 0; opacity: .04;
-      background-image:
-        linear-gradient(rgba(255,255,255,.5) 1px,transparent 1px),
-        linear-gradient(90deg,rgba(255,255,255,.5) 1px,transparent 1px);
-      background-size: 48px 48px;
-      pointer-events: none;
-    }
-    .hero-content { position: relative; max-width: 760px; margin: 0 auto; }
-    .hero-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: rgba(20,184,166,.12); border: 1px solid rgba(20,184,166,.3);
-      color: #5EEAD4; border-radius: 20px;
-      padding: 6px 16px; font-size: 13px; font-weight: 600;
-      margin-bottom: 28px; backdrop-filter: blur(8px);
-      animation: fadeDown .6s ease both;
-    }
-    .hero h1 {
-      font-size: clamp(36px,6vw,64px);
-      font-weight: 900; color: #fff;
-      line-height: 1.1; letter-spacing: -1.5px;
-      margin-bottom: 20px;
-      animation: fadeUp .6s .1s ease both;
-    }
-    .hero h1 .grad {
-      background: linear-gradient(135deg,#5EEAD4,#38BDF8,#A78BFA);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .hero p {
-      font-size: 19px; color: rgba(255,255,255,.72);
-      max-width: 580px; margin: 0 auto 40px;
-      line-height: 1.65; font-weight: 400;
-      animation: fadeUp .6s .2s ease both;
-    }
-    .hero-ctas {
-      display: flex; align-items: center; justify-content: center;
-      gap: 14px; flex-wrap: wrap;
-      animation: fadeUp .6s .3s ease both;
-    }
-    .cta-btn {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: linear-gradient(135deg,var(--teal),#0EA5E9);
-      color: #fff; border: none; border-radius: 10px;
-      padding: 15px 30px; font-size: 16px; font-weight: 700;
-      cursor: pointer; letter-spacing: -.2px;
-      box-shadow: 0 4px 20px rgba(20,184,166,.4);
-      transition: transform .15s, box-shadow .15s, opacity .15s;
-      text-decoration: none;
-    }
-    .cta-btn:hover  { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(20,184,166,.45); }
-    .cta-btn:active { transform: scale(.97); }
-    .cta-btn-secondary {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(255,255,255,.08);
-      border: 1px solid rgba(255,255,255,.18);
-      color: #fff; border-radius: 10px;
-      padding: 15px 30px; font-size: 16px; font-weight: 600;
-      cursor: pointer; backdrop-filter: blur(8px);
-      transition: background .2s, transform .15s;
-      text-decoration: none;
-    }
-    .cta-btn-secondary:hover { background: rgba(255,255,255,.14); transform: translateY(-1px); }
+/* ═══════════════════════════════════════════════
+   TICKER
+   ═══════════════════════════════════════════════ */
+.ticker-section {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 18px 0;
+  overflow: hidden;
+  position: relative;
+}
+.ticker-label {
+  position: absolute;
+  left: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 2;
+}
+.ticker-fade-l {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 160px;
+  background: linear-gradient(90deg, var(--bg) 40%, transparent);
+  z-index: 1;
+}
+.ticker-fade-r {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 160px;
+  background: linear-gradient(-90deg, var(--bg) 40%, transparent);
+  z-index: 1;
+}
+.ticker-track {
+  display: flex;
+  gap: 0;
+  white-space: nowrap;
+  animation: ticker 30s linear infinite;
+  width: max-content;
+}
+.ticker-track:hover { animation-play-state: paused; }
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 28px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+}
+.ticker-item::before {
+  content: '';
+  width: 6px; height: 6px;
+  background: var(--teal);
+  border-radius: 50%;
+  opacity: .5;
+}
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
 
-    /* Trust badges */
-    .trust-badges {
-      display: flex; align-items: center; justify-content: center;
-      gap: 24px; flex-wrap: wrap;
-      margin-top: 56px; padding-top: 40px;
-      border-top: 1px solid rgba(255,255,255,.08);
-      animation: fadeUp .6s .4s ease both;
-    }
-    .trust-badge {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 13px; font-weight: 500; color: rgba(255,255,255,.6);
-    }
-    .trust-badge-icon {
-      width: 28px; height: 28px; border-radius: 7px;
-      background: rgba(255,255,255,.08);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px;
-    }
+/* ═══════════════════════════════════════════════
+   SECTION COMMON
+   ═══════════════════════════════════════════════ */
+.section { padding: 100px 40px; max-width: 1160px; margin: 0 auto; }
+.section-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin-bottom: 14px;
+}
+.section-h2 {
+  font-size: clamp(28px, 4.5vw, 48px);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -.02em;
+  margin-bottom: 18px;
+}
+.section-sub {
+  font-size: 17px;
+  color: var(--text2);
+  max-width: 560px;
+  line-height: 1.65;
+  margin-bottom: 48px;
+}
+.text-center { text-align: center; }
+.text-center .section-sub { margin-left: auto; margin-right: auto; }
+.grad-text {
+  background: linear-gradient(135deg, var(--teal) 0%, var(--indigo) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 
-    /* ── Floating stats (hero bottom) ───────────────────────────────── */
-    .hero-stats {
-      display: flex; justify-content: center; gap: 0;
-      max-width: 680px; margin: 0 auto;
-      margin-top: -1px;
-      animation: fadeUp .6s .5s ease both;
-    }
-    .hero-stat {
-      flex: 1; padding: 20px;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.08);
-      text-align: center;
-    }
-    .hero-stat:first-child { border-radius: 12px 0 0 12px; }
-    .hero-stat:last-child  { border-radius: 0 12px 12px 0; }
-    .hero-stat-num {
-      font-size: 26px; font-weight: 800; color: #fff;
-      letter-spacing: -1px;
-    }
-    .hero-stat-num span { color: var(--teal); }
-    .hero-stat-label { font-size: 11px; color: rgba(255,255,255,.5); margin-top: 2px; font-weight: 500; letter-spacing: .03em; }
+/* reveal animation */
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; }
+.reveal.visible { opacity: 1; transform: none; }
 
-    /* ── Specialties ────────────────────────────────────────────────── */
-    #specialties {
-      padding: 80px 24px;
-      text-align: center;
-    }
-    .specialty-grid {
-      display: flex; flex-wrap: wrap;
-      justify-content: center; gap: 10px;
-      max-width: 780px; margin: 32px auto 0;
-    }
-    .tag {
-      display: flex; align-items: center; gap: 7px;
-      background: var(--bg-card); border: 1px solid var(--border);
-      color: var(--text); border-radius: 40px;
-      padding: 10px 20px; font-size: 14px; font-weight: 500;
-      box-shadow: var(--shadow-sm);
-      transition: all .2s; cursor: default;
-    }
-    .tag:hover {
-      border-color: var(--primary);
-      color: var(--primary);
-      box-shadow: 0 4px 16px rgba(15,61,145,.12);
-      transform: translateY(-2px);
-    }
+/* ═══════════════════════════════════════════════
+   STATS
+   ═══════════════════════════════════════════════ */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 80px;
+}
+.stat-card {
+  background: var(--bg2);
+  padding: 36px 28px;
+  text-align: center;
+}
+.stat-num {
+  font-size: clamp(32px, 4vw, 48px);
+  font-weight: 900;
+  letter-spacing: -.03em;
+  background: linear-gradient(135deg, var(--teal), var(--indigo));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.stat-label { font-size: 13px; color: var(--text2); margin-top: 6px; font-weight: 500; }
 
-    /* ── Features ───────────────────────────────────────────────────── */
-    #features {
-      padding: 0 24px 100px;
-    }
-    .features-header { text-align: center; margin-bottom: 56px; }
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 20px;
-      max-width: 1000px; margin: 0 auto;
-    }
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 32px 28px;
-      box-shadow: var(--shadow-sm);
-      transition: box-shadow .25s, transform .25s, border-color .25s;
-      position: relative; overflow: hidden;
-    }
-    .card::before {
-      content: '';
-      position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      background: linear-gradient(90deg,var(--primary),var(--teal));
-      opacity: 0; transition: opacity .25s;
-    }
-    .card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); border-color: rgba(15,61,145,.15); }
-    .card:hover::before { opacity: 1; }
-    .card-icon {
-      width: 52px; height: 52px; border-radius: 14px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 24px; margin-bottom: 18px;
-      background: linear-gradient(135deg,rgba(15,61,145,.08),rgba(20,184,166,.08));
-      border: 1px solid rgba(15,61,145,.1);
-    }
-    .card h3 { font-size: 17px; font-weight: 700; margin-bottom: 10px; color: var(--text); letter-spacing: -.2px; }
-    .card p  { font-size: 14px; color: var(--text-muted); line-height: 1.65; }
+/* ═══════════════════════════════════════════════
+   PROBLEM / SOLUTION
+   ═══════════════════════════════════════════════ */
+.prob-sol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+.prob-card, .sol-card {
+  border-radius: var(--radius-lg);
+  padding: 36px;
+}
+.prob-card {
+  background: rgba(239,68,68,0.05);
+  border: 1px solid rgba(239,68,68,0.15);
+}
+.sol-card {
+  background: rgba(6,229,213,0.05);
+  border: 1px solid rgba(6,229,213,0.15);
+}
+.ps-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.prob-card .ps-label { color: #EF4444; }
+.sol-card .ps-label { color: var(--teal); }
+.ps-h { font-size: 20px; font-weight: 700; margin-bottom: 20px; }
+.ps-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.ps-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.5;
+}
+.ps-icon {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.prob-card .ps-icon { background: rgba(239,68,68,0.15); color: #EF4444; }
+.sol-card .ps-icon  { background: rgba(6,229,213,0.15); color: var(--teal); }
 
-    /* ── Metrics strip ──────────────────────────────────────────────── */
-    .metrics-strip {
-      background: linear-gradient(135deg,var(--bg-dark),#162447);
-      padding: 72px 24px;
-      text-align: center;
-    }
-    .metrics-grid {
-      display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr));
-      gap: 40px; max-width: 900px; margin: 0 auto;
-    }
-    .metric { position: relative; }
-    .metric-num {
-      font-size: 52px; font-weight: 900; letter-spacing: -2px;
-      background: linear-gradient(135deg,#fff,rgba(255,255,255,.7));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text; line-height: 1;
-    }
-    .metric-num .accent { -webkit-text-fill-color: var(--teal); }
-    .metric-label {
-      margin-top: 8px; font-size: 14px; font-weight: 500;
-      color: rgba(255,255,255,.5); letter-spacing: .02em;
-    }
-    .metric-divider {
-      width: 1px; background: rgba(255,255,255,.08);
-      margin: 0 auto;
-    }
+/* ═══════════════════════════════════════════════
+   FEATURE HUB
+   ═══════════════════════════════════════════════ */
+.feature-hub-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+}
+.hub-center {
+  position: relative;
+  z-index: 2;
+  width: 120px; height: 120px;
+  background: linear-gradient(135deg, var(--teal), var(--indigo));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  box-shadow: 0 0 60px rgba(6,229,213,0.3);
+}
+.hub-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(6,229,213,0.12);
+  animation: spin-slow 30s linear infinite;
+}
+.hub-ring-1 { width: 280px; height: 280px; }
+.hub-ring-2 { width: 420px; height: 420px; animation-direction: reverse; }
+.hub-ring-3 { width: 560px; height: 560px; }
+@keyframes spin-slow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+.hub-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 48px;
+}
+.hub-feat {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  transition: background .2s, border-color .2s, transform .2s;
+}
+.hub-feat:hover {
+  background: var(--card-hover);
+  border-color: var(--border2);
+  transform: translateY(-3px);
+}
+.hub-feat-icon {
+  width: 44px; height: 44px;
+  background: rgba(6,229,213,0.1);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  margin-bottom: 14px;
+}
+.hub-feat h4 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.hub-feat p { font-size: 13px; color: var(--text2); line-height: 1.55; }
 
-    /* ── Config section ─────────────────────────────────────────────── */
-    .config-section {
-      max-width: 820px; margin: 0 auto;
-      padding: 0 24px 100px;
-    }
-    .config-header { text-align: center; margin-bottom: 28px; }
-    .config-title {
-      font-size: 28px; font-weight: 800; color: var(--text);
-      margin-bottom: 8px; letter-spacing: -.4px;
-    }
-    .config-subtitle { font-size: 15px; color: var(--text-muted); }
-    .config-subtitle code {
-      background: rgba(15,61,145,.08); color: var(--primary);
-      padding: 1px 6px; border-radius: 4px;
-      font-family: 'Courier New', monospace; font-size: 13px;
-    }
-    .config-box {
-      background: #0D1117; color: #E6EDF3;
-      border-radius: 16px; padding: 28px 32px;
-      font-family: 'Courier New', monospace;
-      font-size: 13px; line-height: 1.9; overflow-x: auto;
-      border: 1px solid rgba(255,255,255,.06);
-      box-shadow: 0 20px 48px rgba(0,0,0,.2);
-      position: relative;
-    }
-    .config-box::before {
-      content: ''; position: absolute;
-      top: 16px; left: 20px;
-      width: 10px; height: 10px; border-radius: 50%;
-      background: #FF5F57;
-      box-shadow: 18px 0 #FEBC2E, 36px 0 #28C840;
-    }
-    .config-box-inner { padding-top: 8px; }
-    .config-box .key     { color: #79C0FF; }
-    .config-box .val     { color: #56D364; }
-    .config-box .comment { color: #8B949E; font-style: italic; }
+/* ═══════════════════════════════════════════════
+   PROCESS STEPS
+   ═══════════════════════════════════════════════ */
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  position: relative;
+}
+.steps-grid::before {
+  content: '';
+  position: absolute;
+  top: 28px;
+  left: calc(12.5% + 28px);
+  right: calc(12.5% + 28px);
+  height: 1px;
+  background: linear-gradient(90deg, var(--teal), var(--indigo));
+  opacity: .3;
+}
+.step-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 20px;
+  text-align: center;
+  position: relative;
+}
+.step-num {
+  width: 56px; height: 56px;
+  background: linear-gradient(135deg, var(--teal), var(--indigo));
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  font-weight: 900;
+  color: #fff;
+  margin: 0 auto 18px;
+  position: relative;
+  z-index: 1;
+}
+.step-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.step-card p { font-size: 13px; color: var(--text2); line-height: 1.55; }
 
-    /* ── Demo/CTA section ───────────────────────────────────────────── */
-    .demo-section {
-      background: linear-gradient(135deg,rgba(15,61,145,.05) 0%,rgba(20,184,166,.05) 100%);
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-      padding: 88px 24px; text-align: center;
-    }
-    .demo-section h2 { font-size: 38px; font-weight: 800; color: var(--text); margin-bottom: 14px; letter-spacing: -.6px; }
-    .demo-section p  { font-size: 17px; color: var(--text-muted); margin-bottom: 36px; max-width: 500px; margin-left: auto; margin-right: auto; }
-    .demo-hint {
-      display: inline-flex; align-items: center; gap: 10px;
-      background: rgba(16,185,129,.06); border: 1px solid rgba(16,185,129,.2);
-      border-radius: 10px; padding: 12px 20px;
-      font-size: 13px; color: #059669; margin-top: 28px;
-      max-width: 600px;
-    }
+/* ═══════════════════════════════════════════════
+   SPECIALTY TABS
+   ═══════════════════════════════════════════════ */
+.tabs-wrap { }
+.tab-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+.tab-pill {
+  padding: 8px 18px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .2s;
+}
+.tab-pill.active, .tab-pill:hover {
+  background: rgba(6,229,213,0.1);
+  border-color: var(--border2);
+  color: var(--teal);
+}
+.tab-content { display: none; }
+.tab-content.active { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.specialty-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+.specialty-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+.specialty-card ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.specialty-card ul li {
+  font-size: 13px;
+  color: var(--text2);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.specialty-card ul li::before { content: '→'; color: var(--teal); flex-shrink: 0; }
 
-    /* ── Pricing ────────────────────────────────────────────────────── */
-    #pricing {
-      padding: 100px 24px;
-      text-align: center;
-    }
-    .pricing-header { margin-bottom: 56px; }
-    .pricing-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 20px;
-      max-width: 1000px; margin: 0 auto;
-      align-items: start;
-    }
-    .pricing-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 32px 28px;
-      box-shadow: var(--shadow-sm);
-      position: relative;
-      transition: box-shadow .25s, transform .25s;
-      text-align: left;
-    }
-    .pricing-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); }
-    .pricing-card.popular {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 1px var(--primary), var(--shadow-md);
-      transform: scale(1.02);
-    }
-    .pricing-card.popular:hover { transform: scale(1.02) translateY(-4px); }
-    .pricing-card.whitelabel {
-      border-color: var(--violet);
-      background: linear-gradient(145deg,#FAF5FF,#F3E8FF);
-      box-shadow: 0 0 0 1px rgba(124,58,237,.2), var(--shadow-sm);
-    }
-    .pricing-card.whitelabel:hover { box-shadow: 0 0 0 1px var(--violet), var(--shadow-lg); }
-    .badge-pop {
-      position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
-      background: var(--primary); color: #fff;
-      border-radius: 20px; padding: 3px 16px;
-      font-size: 11px; font-weight: 700; letter-spacing: .04em;
-      white-space: nowrap;
-      box-shadow: 0 2px 8px rgba(15,61,145,.3);
-    }
-    .pricing-card.whitelabel .badge-pop { background: var(--violet); box-shadow: 0 2px 8px rgba(124,58,237,.3); }
-    .pricing-card h3 {
-      font-size: 15px; font-weight: 700; color: var(--text-muted);
-      letter-spacing: .04em; text-transform: uppercase;
-      margin-bottom: 16px;
-    }
-    .pricing-card.whitelabel h3 { color: var(--violet-dark); }
-    .pricing-card .price {
-      font-size: 44px; font-weight: 900; color: var(--text);
-      letter-spacing: -2px; line-height: 1; margin-bottom: 4px;
-    }
-    .pricing-card .price span { font-size: 16px; font-weight: 500; color: var(--text-muted); letter-spacing: 0; }
-    .pricing-card.whitelabel .price { color: var(--violet-dark); }
-    .trial-tag {
-      font-size: 12px; color: var(--success); font-weight: 600;
-      margin-bottom: 20px; margin-top: 4px;
-    }
-    .pricing-card ul {
-      list-style: none; margin: 20px 0 0;
-      font-size: 14px; color: var(--text-muted);
-    }
-    .pricing-card ul li {
-      padding: 7px 0; display: flex; align-items: flex-start; gap: 9px;
-      border-bottom: 1px solid rgba(0,0,0,.04);
-    }
-    .pricing-card ul li:last-child { border-bottom: none; }
-    .pricing-card ul li::before { content: none; }
-    .li-check {
-      width: 16px; height: 16px; border-radius: 50%;
-      background: rgba(16,185,129,.12); color: var(--success);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 10px; font-weight: 800; flex-shrink: 0; margin-top: 1px;
-    }
-    .wl-note {
-      margin-top: 16px; font-size: 12px; font-weight: 600;
-      color: var(--violet); background: rgba(124,58,237,.08);
-      border: 1px solid rgba(124,58,237,.15);
-      border-radius: 8px; padding: 7px 12px; text-align: center;
-    }
+/* ═══════════════════════════════════════════════
+   TESTIMONIALS
+   ═══════════════════════════════════════════════ */
+.testimonials-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.testi-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: border-color .2s, transform .2s;
+}
+.testi-card:hover { border-color: var(--border2); transform: translateY(-3px); }
+.testi-stars { color: #F59E0B; font-size: 14px; margin-bottom: 16px; letter-spacing: 1px; }
+.testi-quote { font-size: 14px; color: var(--text2); line-height: 1.65; margin-bottom: 20px; font-style: italic; }
+.testi-quote strong { color: var(--teal); font-style: normal; }
+.testi-author { display: flex; align-items: center; gap: 12px; }
+.testi-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--indigo), var(--violet));
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  flex-shrink: 0;
+}
+.testi-name { font-size: 14px; font-weight: 700; }
+.testi-role { font-size: 12px; color: var(--text3); }
 
-    /* ── Trial / license buttons ────────────────────────────────────── */
-    .btn-trial {
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-      width: 100%; margin-top: 22px;
-      background: var(--primary); color: #fff;
-      border: none; border-radius: 10px;
-      padding: 13px; font-size: 14px; font-weight: 700;
-      cursor: pointer; letter-spacing: -.1px;
-      transition: background .2s, transform .15s, box-shadow .15s;
-      box-shadow: 0 2px 10px rgba(15,61,145,.25);
-    }
-    .btn-trial:hover {
-      background: var(--primary-light);
-      box-shadow: 0 4px 18px rgba(15,61,145,.35);
-      transform: translateY(-1px);
-    }
-    .pricing-card.popular .btn-trial {
-      background: linear-gradient(135deg,var(--primary),var(--teal));
-      box-shadow: 0 4px 18px rgba(15,61,145,.3);
-    }
-    .pricing-card.popular .btn-trial:hover { opacity: .92; }
-    .btn-license {
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-      width: 100%; margin-top: 22px;
-      background: var(--violet); color: #fff;
-      border: none; border-radius: 10px;
-      padding: 13px; font-size: 14px; font-weight: 700;
-      cursor: pointer;
-      transition: background .2s, transform .15s;
-      text-decoration: none; text-align: center;
-      box-shadow: 0 2px 10px rgba(124,58,237,.25);
-    }
-    .btn-license:hover {
-      background: var(--violet-dark);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 18px rgba(124,58,237,.35);
-    }
+/* ═══════════════════════════════════════════════
+   TRUST / HIPAA
+   ═══════════════════════════════════════════════ */
+.trust-section-wrap {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 60px 40px;
+}
+.trust-badges {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 40px;
+}
+.trust-badge {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 28px;
+  text-align: center;
+  min-width: 160px;
+}
+.trust-badge-icon { font-size: 28px; margin-bottom: 10px; }
+.trust-badge-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.trust-badge-sub { font-size: 11px; color: var(--text3); }
 
-    /* ── Contact ────────────────────────────────────────────────────── */
-    #contact {
-      background: linear-gradient(145deg,#0A1628,#0F3D91);
-      padding: 100px 24px; text-align: center; color: #fff;
-      position: relative; overflow: hidden;
-    }
-    #contact::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: radial-gradient(ellipse 70% 60% at 50% 100%,rgba(20,184,166,.12),transparent 70%);
-      pointer-events: none;
-    }
-    #contact h2 { font-size: 40px; font-weight: 800; margin-bottom: 14px; letter-spacing: -.6px; }
-    #contact p  { font-size: 17px; color: rgba(255,255,255,.65); margin-bottom: 0; max-width: 520px; margin: 0 auto 40px; }
-    .contact-card {
-      max-width: 440px; margin: 0 auto 40px;
-      background: rgba(255,255,255,.07);
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 16px; padding: 28px 32px;
-      backdrop-filter: blur(10px);
-    }
-    .contact-card-label {
-      font-size: 11px; font-weight: 700; letter-spacing: .08em;
-      text-transform: uppercase; color: var(--teal);
-      margin-bottom: 10px;
-    }
-    .contact-email-link {
-      display: block; font-size: 19px; font-weight: 700; color: #fff;
-      text-decoration: none; margin-bottom: 6px;
-      transition: color .2s;
-    }
-    .contact-email-link:hover { color: #5EEAD4; }
-    .contact-topics { font-size: 12px; color: rgba(255,255,255,.4); }
-    .contact-links {
-      display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;
-    }
-    .contact-links a {
-      color: rgba(255,255,255,.7); text-decoration: none; font-size: 14px; font-weight: 500;
-      padding: 10px 22px; border-radius: 8px;
-      border: 1px solid rgba(255,255,255,.15);
-      transition: all .2s;
-    }
-    .contact-links a:hover { background: rgba(255,255,255,.1); color: #fff; }
+/* ═══════════════════════════════════════════════
+   INTEGRATIONS
+   ═══════════════════════════════════════════════ */
+.integrations-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 40px;
+}
+.integ-pill {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.integ-pill-dot { width: 8px; height: 8px; background: var(--teal); border-radius: 50%; }
 
-    /* ── Footer ─────────────────────────────────────────────────────── */
-    footer {
-      background: #060D1A;
-      color: rgba(255,255,255,.4);
-      padding: 48px 24px 32px;
-    }
-    .footer-inner {
-      max-width: 1120px; margin: 0 auto;
-      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
-      gap: 40px; margin-bottom: 48px;
-    }
-    .footer-brand-col {}
-    .footer-brand {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 17px; font-weight: 800; color: #fff;
-      margin-bottom: 12px;
-    }
-    .footer-brand-icon {
-      width: 30px; height: 30px; border-radius: 7px;
-      background: linear-gradient(135deg,var(--teal),var(--primary-light));
-      display: flex; align-items: center; justify-content: center; font-size: 16px;
-    }
-    .footer-desc { font-size: 13px; line-height: 1.65; max-width: 240px; color: #9ca3af; }
-    .footer-compliance {
-      display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px;
-    }
-    .compliance-badge {
-      font-size: 10px; font-weight: 700; letter-spacing: .05em;
-      padding: 4px 10px; border-radius: 5px;
-      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
-      color: rgba(255,255,255,.5);
-    }
-    .footer-col h4 {
-      font-size: 12px; font-weight: 700; letter-spacing: .06em;
-      text-transform: uppercase; color: rgba(255,255,255,.5);
-      margin-bottom: 16px;
-    }
-    .footer-col a {
-      display: block; font-size: 13px; color: #9ca3af;  /* WCAG AA on dark footer */
-      text-decoration: none; margin-bottom: 10px;
-      transition: color .2s;
-    }
-    .footer-col a:hover { color: rgba(255,255,255,.8); }
-    .footer-bottom {
-      max-width: 1120px; margin: 0 auto;
-      padding-top: 24px; border-top: 1px solid rgba(255,255,255,.05);
-      display: flex; align-items: center; justify-content: space-between;
-      flex-wrap: wrap; gap: 12px; font-size: 12px; color: #9ca3af;  /* WCAG AA */
-    }
-    .footer-bottom strong { color: rgba(255,255,255,.75); }
-    .footer-bottom a { color: #9ca3af; text-decoration: underline; }
+/* ═══════════════════════════════════════════════
+   PRICING
+   ═══════════════════════════════════════════════ */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.price-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px 22px;
+  position: relative;
+  transition: transform .2s, border-color .2s;
+}
+.price-card:hover { transform: translateY(-4px); border-color: var(--border2); }
+.price-card.popular {
+  background: linear-gradient(160deg, rgba(6,229,213,0.08), rgba(99,102,241,0.06));
+  border-color: rgba(6,229,213,0.3);
+  transform: scale(1.02);
+}
+.popular-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--teal);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 14px;
+  border-radius: 100px;
+  white-space: nowrap;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.plan-name { font-size: 13px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.plan-price { font-size: 36px; font-weight: 900; letter-spacing: -.02em; margin-bottom: 4px; }
+.plan-price span { font-size: 16px; font-weight: 500; color: var(--text3); }
+.plan-desc { font-size: 12px; color: var(--text3); margin-bottom: 20px; }
+.plan-features { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+.plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text2);
+}
+.plan-check { color: var(--teal); flex-shrink: 0; font-size: 14px; }
+.plan-x { color: var(--text3); flex-shrink: 0; font-size: 14px; }
+.btn-plan {
+  width: 100%;
+  padding: 12px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+  transition: all .2s;
+}
+.btn-plan:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+.btn-plan.teal {
+  background: var(--teal);
+  color: var(--bg);
+  border-color: transparent;
+  box-shadow: 0 0 20px rgba(6,229,213,0.25);
+}
+.btn-plan.teal:hover { background: #00d4c4; box-shadow: 0 0 30px rgba(6,229,213,0.4); }
+.price-cta-note { text-align: center; margin-top: 24px; font-size: 13px; color: var(--text3); }
 
-    /* ── Modal overlay ──────────────────────────────────────────────── */
-    .modal-overlay {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,.6);
-      backdrop-filter: blur(4px);
-      z-index: 9000;
-      align-items: center; justify-content: center;
-      padding: 16px;
-    }
-    .modal-overlay.open { display: flex; }
-    .modal-box {
-      background: #fff; border-radius: 20px;
-      padding: 36px 32px; max-width: 480px; width: 100%;
-      box-shadow: 0 32px 80px rgba(0,0,0,.25);
-      position: relative; max-height: 92vh; overflow-y: auto;
-    }
-    .modal-box h2 {
-      font-size: 22px; font-weight: 800; color: var(--text);
-      margin-bottom: 6px; letter-spacing: -.3px;
-    }
-    .modal-box .plan-tag {
-      display: inline-block;
-      background: #EFF6FF; color: var(--primary);
-      border: 1px solid #BFDBFE;
-      border-radius: 20px; padding: 3px 12px;
-      font-size: 12px; font-weight: 700; margin-bottom: 22px;
-    }
-    .modal-close {
-      position: absolute; top: 16px; right: 18px;
-      width: 32px; height: 32px; border-radius: 8px;
-      font-size: 18px; cursor: pointer; color: var(--text-muted);
-      background: var(--bg); border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      transition: all .15s;
-    }
-    .modal-close:hover { background: #F1F5F9; color: var(--text); }
-    .form-group { margin-bottom: 16px; }
-    .form-group label {
-      display: block; font-size: 13px; font-weight: 600;
-      color: var(--text); margin-bottom: 5px;
-    }
-    .form-group input, .form-group select {
-      width: 100%; border: 1px solid var(--border);
-      border-radius: 9px; padding: 11px 13px;
-      font-size: 14px; outline: none; font-family: inherit;
-      color: var(--text); background: #fff;
-      transition: border-color .2s, box-shadow .2s;
-    }
-    .form-group input:focus, .form-group select:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(15,61,145,.1);
-    }
-    .form-group .hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
-    .btn-submit {
-      width: 100%; background: var(--primary); color: #fff; border: none;
-      border-radius: 10px; padding: 13px; font-size: 15px; font-weight: 700;
-      cursor: pointer; margin-top: 4px;
-      transition: background .2s, transform .15s, box-shadow .15s;
-      box-shadow: 0 2px 10px rgba(15,61,145,.25);
-    }
-    .btn-submit:hover { background: var(--primary-light); transform: translateY(-1px); box-shadow: 0 4px 18px rgba(15,61,145,.35); }
-    .btn-submit:disabled { background: #93C5FD; cursor: not-allowed; transform: none; box-shadow: none; }
-    .trial-note {
-      text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 12px;
-    }
+/* ═══════════════════════════════════════════════
+   BOTTOM CTA BANNER
+   ═══════════════════════════════════════════════ */
+.cta-banner {
+  margin: 0 40px 80px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(6,229,213,0.1) 0%, rgba(99,102,241,0.1) 100%);
+  border: 1px solid rgba(6,229,213,0.2);
+  padding: 60px 40px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.cta-banner::before {
+  content: '';
+  position: absolute;
+  top: -80px; left: 50%;
+  transform: translateX(-50%);
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(6,229,213,0.12), transparent 70%);
+  pointer-events: none;
+}
+.cta-banner h2 { font-size: clamp(26px, 4vw, 42px); font-weight: 800; margin-bottom: 14px; letter-spacing: -.02em; }
+.cta-banner p { font-size: 16px; color: var(--text2); margin-bottom: 32px; }
+.cta-banner-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 
-    /* ── Success modal ──────────────────────────────────────────────── */
-    .success-icon { font-size: 52px; text-align: center; margin-bottom: 12px; }
-    .success-url {
-      background: #F0FDF4; border: 1px solid #BBF7D0;
-      border-radius: 10px; padding: 12px 16px;
-      font-family: monospace; font-size: 12px; color: #166534;
-      word-break: break-all; margin: 16px 0;
-    }
-    .btn-open-aria {
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      background: linear-gradient(135deg,var(--success),#059669);
-      color: #fff; border-radius: 10px; padding: 13px;
-      font-size: 15px; font-weight: 700; text-decoration: none;
-      margin-bottom: 10px; transition: opacity .2s, transform .15s;
-      box-shadow: 0 4px 14px rgba(16,185,129,.3);
-    }
-    .btn-open-aria:hover { opacity: .92; transform: translateY(-1px); }
-    .btn-paypal {
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      background: #FFC439; color: #003087;
-      border-radius: 10px; padding: 13px;
-      font-size: 14px; font-weight: 700; text-decoration: none;
-      transition: background .2s; box-shadow: 0 2px 10px rgba(255,196,57,.3);
-    }
-    .btn-paypal:hover { background: #FFB319; }
-    .success-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; text-align: center; }
-    .divider {
-      text-align: center; font-size: 12px; color: #CBD5E1; margin: 14px 0;
-      display: flex; align-items: center; gap: 10px;
-    }
-    .divider::before, .divider::after {
-      content: ''; flex: 1; height: 1px; background: var(--border);
-    }
+/* ═══════════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════════ */
+footer {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 56px 40px 32px;
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 40px;
+  max-width: 1160px;
+  margin: 0 auto 48px;
+}
+.footer-brand p { font-size: 13px; color: var(--text3); margin-top: 12px; line-height: 1.6; max-width: 280px; }
+.footer-col h5 { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin-bottom: 14px; }
+.footer-col a { display: block; font-size: 13px; color: var(--text2); margin-bottom: 10px; transition: color .2s; }
+.footer-col a:hover { color: var(--teal); }
+.footer-bottom {
+  max-width: 1160px;
+  margin: 0 auto;
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text3);
+}
+.footer-bottom a { color: var(--text3); }
+.footer-bottom a:hover { color: var(--teal); }
 
-    /* ── Animations ─────────────────────────────────────────────────── */
-    @keyframes fadeUp   { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-    @keyframes fadeDown { from { opacity:0; transform:translateY(-12px); } to { opacity:1; transform:translateY(0); } }
-    .reveal {
-      opacity: 0; transform: translateY(24px);
-      transition: opacity .6s ease, transform .6s ease;
-    }
-    .reveal.visible { opacity: 1; transform: translateY(0); }
+/* ═══════════════════════════════════════════════
+   MODALS
+   ═══════════════════════════════════════════════ */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.75);
+  z-index: 9000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(6px);
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: #111827;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-lg);
+  padding: 36px;
+  max-width: 480px;
+  width: 100%;
+  position: relative;
+  box-shadow: 0 30px 80px rgba(0,0,0,.6);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-close {
+  position: absolute;
+  top: 14px; right: 18px;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: var(--text2);
+  font-size: 20px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+  transition: background .2s;
+}
+.modal-close:hover { background: rgba(255,255,255,0.15); }
+.modal-box h2 { font-size: 22px; font-weight: 800; margin-bottom: 12px; }
+.plan-tag {
+  display: inline-block;
+  background: rgba(6,229,213,0.1);
+  border: 1px solid var(--border2);
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 100px;
+  margin-bottom: 16px;
+}
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.form-group input::placeholder,
+.form-group textarea::placeholder { color: var(--text3); }
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(6,229,213,0.12);
+}
+.form-group select { appearance: none; cursor: pointer; }
+.form-group select option { background: #111827; color: var(--text); }
+.hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.btn-submit {
+  width: 100%;
+  background: var(--teal);
+  color: var(--bg);
+  font-weight: 800;
+  font-size: 15px;
+  padding: 13px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: background .2s, transform .1s;
+}
+.btn-submit:hover { background: #00d4c4; transform: translateY(-1px); }
+.btn-submit:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+.trial-note { font-size: 12px; color: var(--text3); text-align: center; margin-top: 14px; }
+.success-icon { font-size: 40px; margin-bottom: 14px; }
+.success-url {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--teal);
+  word-break: break-all;
+  margin-bottom: 14px;
+}
+.btn-open-aria {
+  display: block;
+  background: var(--teal);
+  color: var(--bg);
+  font-weight: 800;
+  font-size: 15px;
+  padding: 13px;
+  border-radius: 10px;
+  text-align: center;
+  margin-bottom: 20px;
+  transition: background .2s;
+}
+.btn-open-aria:hover { background: #00d4c4; }
+.divider {
+  font-size: 12px;
+  color: var(--text3);
+  text-align: center;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-bottom: 12px;
+}
+.success-sub { font-size: 13px; color: var(--text2); margin-bottom: 12px; }
+.btn-paypal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  background: #003087;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 12px;
+  border-radius: 9px;
+  transition: background .2s;
+}
+.btn-paypal:hover { background: #002470; }
 
-    /* ── Responsive ─────────────────────────────────────────────────── */
-    @media (max-width: 768px) {
-      nav { padding: 0 16px; }
-      .nav-badge { display: none; }
-      .nav-links { gap: 2px; }
-      .nav-links a { padding: 5px 10px; font-size: 13px; }
-      .hero { padding: 72px 20px 56px; }
-      .hero h1 { letter-spacing: -.8px; }
-      .hero-stats { flex-direction: column; gap: 1px; }
-      .hero-stat { border-radius: 0; }
-      .hero-stat:first-child { border-radius: 12px 12px 0 0; }
-      .hero-stat:last-child  { border-radius: 0 0 12px 12px; }
-      .trust-badges { gap: 16px; }
-      .features-grid { grid-template-columns: 1fr; }
-      .pricing-cards { grid-template-columns: 1fr; }
-      .pricing-card.popular { transform: none; }
-      .footer-inner { grid-template-columns: 1fr 1fr; gap: 32px; }
-      .footer-brand-col { grid-column: 1/-1; }
-      .hero-ctas { flex-direction: column; align-items: stretch; text-align: center; }
-    }
-    @media (max-width: 480px) {
-      .footer-inner { grid-template-columns: 1fr; }
-      .footer-bottom { flex-direction: column; text-align: center; }
-    }
-  </style>
+/* ═══════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  nav { padding: 0 20px; }
+  .nav-links { display: none; }
+  .section { padding: 60px 20px; }
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .prob-sol { grid-template-columns: 1fr; }
+  .hub-features-grid { grid-template-columns: 1fr 1fr; }
+  .steps-grid { grid-template-columns: 1fr 1fr; }
+  .steps-grid::before { display: none; }
+  .testimonials-grid { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr 1fr; }
+  .price-card.popular { transform: none; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .footer-bottom { flex-direction: column; gap: 10px; text-align: center; }
+  .cta-banner { margin: 0 20px 60px; }
+  .tab-content.active { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .stats-row { grid-template-columns: 1fr; }
+  .hub-features-grid { grid-template-columns: 1fr; }
+  .steps-grid { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .price-card.popular { transform: none; }
+  .hero-ctas { flex-direction: column; align-items: center; }
+  .footer-grid { grid-template-columns: 1fr; }
+  .hero { padding: 60px 20px 40px; }
+}
+</style>
 </head>
 <body>
 
-<!-- ── Sticky Nav ─────────────────────────────────────────────────── -->
+<!-- ── Announcement bar ──────────────────────────────────────────────── -->
+<div class="announce-bar">
+  New: Aria now supports appointment reminders via SMS &amp; email &mdash;
+  <a href="#pricing" onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'});return false;">See plans →</a>
+</div>
+
+<!-- ── Nav ──────────────────────────────────────────────────────────── -->
 <nav id="main-nav">
-  <div class="nav-inner">
-    <a href="/" class="nav-brand">
-      <div class="nav-brand-icon">🏥</div>
-      Tabor Synergy
-      <span class="nav-badge">Universal Medical AI</span>
-    </a>
-    <div class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#specialties">Specialties</a>
-      <a href="#pricing">Pricing</a>
-      <a href="#contact">Contact</a>
-      <a href="#pricing" class="nav-cta" onclick="openSignup('professional'); return false;">Start Free Trial</a>
-    </div>
+  <div class="nav-logo">Tabor<span>Synergy</span></div>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how-it-works">How It Works</a></li>
+    <li><a href="#specialties">Specialties</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#" onclick="openQuoteForm();return false;">Enterprise</a></li>
+  </ul>
+  <div class="nav-ctas">
+    <button class="btn-nav-demo" onclick="openQuoteForm()">Book a Demo</button>
+    <button class="btn-nav-trial" onclick="openSignup('professional')">Start Free Trial</button>
   </div>
 </nav>
 
-<!-- ── Support bar ────────────────────────────────────────────────── -->
-<div class="support-bar">
-  Questions or support? Email us at <a href="mailto:admin@tabor.taborsynergy.com">admin@tabor.taborsynergy.com</a>
-</div>
-
-<!-- ── Hero ──────────────────────────────────────────────────────── -->
+<!-- ── Hero ─────────────────────────────────────────────────────────── -->
 <section class="hero">
-  <div class="hero-grid"></div>
-  <div class="hero-content">
-    <div class="hero-badge">✦ AI-Powered · HIPAA Ready · Enterprise Grade</div>
-    <h1>Your AI Front Desk.<br><span class="grad">Always On. Every Specialty.</span></h1>
-    <p>Schedule appointments, verify insurance, handle billing, and onboard patients — across every specialty, every channel, 24 hours a day.</p>
+  <div class="hero-glow-1"></div>
+  <div class="hero-glow-2"></div>
+  <div class="hero-grid-lines"></div>
+  <div class="hero-inner">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      HIPAA-Compliant AI Receptionist
+    </div>
+    <h1>
+      Your front desk,<br>
+      <span class="grad">reimagined by AI</span>
+    </h1>
+    <p class="hero-sub">
+      Aria answers every patient call, books appointments, and handles inquiries
+      24/7 — so your staff can focus on delivering exceptional care.
+    </p>
     <div class="hero-ctas">
-      <button class="cta-btn" onclick="openSignup('professional')">
-        Start 14-Day Free Trial →
+      <button class="btn-primary" onclick="openSignup('professional')">
+        Start Free 14-Day Trial
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </button>
-      <a class="cta-btn-secondary" href="#features">
-        ▶ See How It Works
-      </a>
+      <button class="btn-secondary" onclick="openQuoteForm()">
+        Book a Live Demo
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.069A1 1 0 0121 8.845v6.31a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+      </button>
     </div>
-
-    <div class="trust-badges">
-      <div class="trust-badge"><div class="trust-badge-icon">🔒</div>HIPAA Ready</div>
-      <div class="trust-badge"><div class="trust-badge-icon">🛡️</div>Secure by Design</div>
-      <div class="trust-badge"><div class="trust-badge-icon">🌐</div>24/7 Patient Support</div>
-      <div class="trust-badge"><div class="trust-badge-icon">🏢</div>Enterprise Security</div>
-      <div class="trust-badge"><div class="trust-badge-icon">⚡</div>Live in Minutes</div>
+    <!-- Chat mockup -->
+    <div class="hero-mockup reveal">
+      <div class="mockup-header">
+        <div class="mockup-avatar">A</div>
+        <div>
+          <div class="mockup-name">Aria — AI Front Desk</div>
+          <div class="mockup-online">
+            <div class="mockup-dot"></div>
+            <span class="mockup-status">Online 24/7</span>
+          </div>
+        </div>
+      </div>
+      <div class="mockup-body">
+        <div class="bubble bubble-ai">Hi! Thank you for calling Sunrise Pediatrics. I'm Aria, your virtual assistant. How can I help you today?</div>
+        <div class="bubble bubble-user">Hi, I need to schedule a well-child visit for my 4-year-old.</div>
+        <div class="bubble bubble-ai">Of course! I can help with that. Dr. Chen has availability this Thursday at 2:00 PM or Friday at 10:30 AM. Which works best for you?</div>
+        <div class="bubble bubble-user">Thursday at 2 PM works great!</div>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- ── Metrics strip ─────────────────────────────────────────────── -->
-<div class="metrics-strip reveal">
-  <div class="metrics-grid">
-    <div class="metric">
-      <div class="metric-num">500<span class="accent">+</span></div>
-      <div class="metric-label">Clinics Automated</div>
+<!-- ── Specialty ticker ──────────────────────────────────────────────── -->
+<div class="ticker-section">
+  <div class="ticker-label">Works for</div>
+  <div class="ticker-fade-l"></div>
+  <div class="ticker-fade-r"></div>
+  <div class="ticker-track" id="ticker-track">
+    <span class="ticker-item">Family Medicine</span>
+    <span class="ticker-item">Dental</span>
+    <span class="ticker-item">Pediatrics</span>
+    <span class="ticker-item">Dermatology</span>
+    <span class="ticker-item">Orthopedics</span>
+    <span class="ticker-item">OB-GYN</span>
+    <span class="ticker-item">Urgent Care</span>
+    <span class="ticker-item">Cardiology</span>
+    <span class="ticker-item">ENT</span>
+    <span class="ticker-item">Ophthalmology</span>
+    <span class="ticker-item">Neurology</span>
+    <span class="ticker-item">Physical Therapy</span>
+    <span class="ticker-item">Psychiatry</span>
+    <span class="ticker-item">Optometry</span>
+    <!-- duplicate for seamless scroll -->
+    <span class="ticker-item">Family Medicine</span>
+    <span class="ticker-item">Dental</span>
+    <span class="ticker-item">Pediatrics</span>
+    <span class="ticker-item">Dermatology</span>
+    <span class="ticker-item">Orthopedics</span>
+    <span class="ticker-item">OB-GYN</span>
+    <span class="ticker-item">Urgent Care</span>
+    <span class="ticker-item">Cardiology</span>
+    <span class="ticker-item">ENT</span>
+    <span class="ticker-item">Ophthalmology</span>
+    <span class="ticker-item">Neurology</span>
+    <span class="ticker-item">Physical Therapy</span>
+    <span class="ticker-item">Psychiatry</span>
+    <span class="ticker-item">Optometry</span>
+  </div>
+</div>
+
+<!-- ── Stats ─────────────────────────────────────────────────────────── -->
+<div style="max-width:1160px;margin:0 auto;padding:60px 40px 0">
+  <div class="stats-row reveal">
+    <div class="stat-card">
+      <div class="stat-num">24/7</div>
+      <div class="stat-label">Always-on availability</div>
     </div>
-    <div class="metric">
-      <div class="metric-num">2M<span class="accent">+</span></div>
-      <div class="metric-label">Patient Conversations</div>
+    <div class="stat-card">
+      <div class="stat-num">&lt;2s</div>
+      <div class="stat-label">Average response time</div>
     </div>
-    <div class="metric">
-      <div class="metric-num">99.9<span class="accent">%</span></div>
-      <div class="metric-label">Uptime SLA</div>
+    <div class="stat-card">
+      <div class="stat-num">97%</div>
+      <div class="stat-label">Patient satisfaction score</div>
     </div>
-    <div class="metric">
-      <div class="metric-num">12<span class="accent">+</span></div>
-      <div class="metric-label">Medical Specialties</div>
+    <div class="stat-card">
+      <div class="stat-num">3hrs</div>
+      <div class="stat-label">Staff time saved daily</div>
     </div>
   </div>
 </div>
 
-<!-- ── Specialties ────────────────────────────────────────────────── -->
-<section id="specialties" class="reveal">
-  <div class="container" style="text-align:center">
-    <div class="section-label">✦ Coverage</div>
-    <h2 class="section-title">Built for every outpatient specialty</h2>
-    <p class="section-sub" style="margin:0 auto">One platform. Infinitely configurable. Deploy for any practice in under a minute.</p>
-    <div class="specialty-grid">
-      <span class="tag">🦷 Dental</span>
-      <span class="tag">🔬 Dermatology</span>
-      <span class="tag">👶 Pediatrics</span>
-      <span class="tag">🩺 Family Medicine</span>
-      <span class="tag">🦴 Orthopedics</span>
-      <span class="tag">👁️ Ophthalmology</span>
-      <span class="tag">🤰 OB-GYN</span>
-      <span class="tag">🦻 ENT</span>
-      <span class="tag">🚑 Urgent Care</span>
-    </div>
+<!-- ── Problem / Solution ────────────────────────────────────────────── -->
+<div class="section" id="features">
+  <div class="text-center reveal" style="margin-bottom:48px">
+    <div class="section-badge">The Problem</div>
+    <h2 class="section-h2">Your front desk is overwhelmed.<br><span class="grad-text">Aria fixes that.</span></h2>
+    <p class="section-sub">Every missed call is a missed appointment. Every hold time is a frustrated patient. Your staff deserves better tools.</p>
   </div>
-</section>
-
-<!-- ── Features ───────────────────────────────────────────────────── -->
-<section id="features" style="padding:100px 24px">
-  <div class="features-header reveal">
-    <div class="section-label">✦ Capabilities</div>
-    <h2 class="section-title">Everything your front desk handles — automated</h2>
-    <p class="section-sub" style="margin:0 auto">From first contact to payment — Aria handles it all, 24/7, with medical-grade precision.</p>
-  </div>
-  <div class="features-grid">
-    <div class="card reveal">
-      <div class="card-icon">📅</div>
-      <h3>Intelligent Scheduling</h3>
-      <p>Books, reschedules, and cancels appointments directly in your PMS — any specialty, any visit type, any time of day.</p>
+  <div class="prob-sol reveal">
+    <div class="prob-card">
+      <div class="ps-label">Before Aria</div>
+      <div class="ps-h">The daily front desk struggle</div>
+      <ul class="ps-list">
+        <li><div class="ps-icon">✗</div>Phones ringing during lunch &amp; after hours — patients hang up</li>
+        <li><div class="ps-icon">✗</div>Staff spending 2+ hours per day on scheduling calls</li>
+        <li><div class="ps-icon">✗</div>Patients on hold for 10–15 minutes just to book an appointment</li>
+        <li><div class="ps-icon">✗</div>Missed new-patient inquiries = direct revenue loss</li>
+        <li><div class="ps-icon">✗</div>Inconsistent answers to common patient questions</li>
+        <li><div class="ps-icon">✗</div>No-show rates climb without automated reminders</li>
+      </ul>
     </div>
-    <div class="card reveal">
-      <div class="card-icon">🔍</div>
-      <h3>Insurance Verification</h3>
-      <p>Real-time benefit checks with plain-language explanations, co-pay estimates, and prior authorization flags.</p>
-    </div>
-    <div class="card reveal">
-      <div class="card-icon">💳</div>
-      <h3>Billing & Payments</h3>
-      <p>Balance inquiries and secure payment links sent to phone or email instantly — no hold music.</p>
-    </div>
-    <div class="card reveal">
-      <div class="card-icon">📋</div>
-      <h3>Digital Patient Intake</h3>
-      <p>Specialty-adaptive intake forms sent securely before the first visit — no clipboards, no delays, no paper.</p>
-    </div>
-    <div class="card reveal">
-      <div class="card-icon">🔔</div>
-      <h3>Reminders & Recall</h3>
-      <p>Automated appointment confirmations, recall campaigns, and reactivation messages tuned to your specialty protocol.</p>
-    </div>
-    <div class="card reveal">
-      <div class="card-icon">🤝</div>
-      <h3>Smart Human Escalation</h3>
-      <p>Instantly and gracefully hands off to staff for emergencies, complex situations, or frustrated patients — zero drop-off.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ── Config callout ─────────────────────────────────────────────── -->
-<div class="config-section reveal">
-  <div class="config-header">
-    <div class="section-label" style="justify-content:center;display:flex">✦ Developer Ready</div>
-    <h2 class="config-title">One config block — infinite specialties</h2>
-    <p class="config-subtitle">Change your <code>.env</code> to deploy for any practice in minutes.</p>
-  </div>
-  <div class="config-box">
-    <div class="config-box-inner">
-      <span class="comment"># Dermatology example</span><br>
-      <span class="key">CLINIC_NAME</span>=<span class="val">Sunshine Dermatology</span><br>
-      <span class="key">SPECIALTY</span>=<span class="val">Dermatology</span><br>
-      <span class="key">AGENT_NAME</span>=<span class="val">Nova</span><br>
-      <span class="key">SERVICES_OFFERED</span>=<span class="val">Skin checks, acne treatment, Botox, mole removal</span><br>
-      <span class="key">PMS_SYSTEM</span>=<span class="val">Modernizing Medicine (EMA)</span><br>
-      <span class="key">PROVIDERS</span>=<span class="val">Dr. Priya Mehta (MD), Dr. James Osei (PA)</span><br>
-      <span class="key">INSURANCE_ACCEPTED</span>=<span class="val">Aetna, BCBS, United, Cigna, Medicare</span><br>
-      <br>
-      <span class="comment"># Pediatrics example</span><br>
-      <span class="key">CLINIC_NAME</span>=<span class="val">Little Stars Pediatrics</span><br>
-      <span class="key">SPECIALTY</span>=<span class="val">Pediatrics</span><br>
-      <span class="key">AGENT_NAME</span>=<span class="val">Max</span><br>
-      <span class="key">SERVICES_OFFERED</span>=<span class="val">Well-child visits, sick visits, vaccinations, developmental screenings</span><br>
-      <span class="key">PMS_SYSTEM</span>=<span class="val">eClinicalWorks</span>
+    <div class="sol-card">
+      <div class="ps-label">With Aria</div>
+      <div class="ps-h">AI handles it — instantly, every time</div>
+      <ul class="ps-list">
+        <li><div class="ps-icon">✓</div>Every call answered in under 2 seconds, any time of day</li>
+        <li><div class="ps-icon">✓</div>Appointments booked, confirmed, and rescheduled automatically</li>
+        <li><div class="ps-icon">✓</div>Consistent, accurate answers from your clinic's own knowledge base</li>
+        <li><div class="ps-icon">✓</div>Automated 72h and 24h reminders cut no-shows by up to 40%</li>
+        <li><div class="ps-icon">✓</div>Staff freed to focus on patients in the room — not the phone</li>
+        <li><div class="ps-icon">✓</div>HIPAA-compliant from day one, no technical setup required</li>
+      </ul>
     </div>
   </div>
 </div>
 
-<!-- ── Demo / CTA ─────────────────────────────────────────────────── -->
-<section class="demo-section reveal">
-  <div class="section-label" style="display:inline-flex">✦ Get Started</div>
-  <h2>Start your free 14-day trial</h2>
-  <p>Sign up in under a minute — Aria is live for your practice immediately. No credit card needed.</p>
-  <button class="cta-btn" onclick="openSignup('professional')" style="background:linear-gradient(135deg,#10B981,#059669);box-shadow:0 4px 20px rgba(16,185,129,.35);margin:0 auto">
-    Get Started Free — It's Free for 14 Days →
-  </button>
-  <div class="demo-hint">
-    <span>💡</span>
-    <span>Once signed up, Aria handles scheduling, insurance, billing — any specialty, any hour.</span>
+<!-- ── Feature Hub ───────────────────────────────────────────────────── -->
+<div style="background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="section" style="padding-top:80px;padding-bottom:80px">
+    <div class="text-center reveal" style="margin-bottom:0">
+      <div class="section-badge">Core Capabilities</div>
+      <h2 class="section-h2">Everything your front desk does,<br><span class="grad-text">done better by AI</span></h2>
+      <p class="section-sub">Aria is trained on your clinic's specific information — services, providers, hours, and policies.</p>
+    </div>
+    <div class="hub-features-grid reveal">
+      <div class="hub-feat">
+        <div class="hub-feat-icon">📅</div>
+        <h4>Appointment Scheduling</h4>
+        <p>Books, confirms, and reschedules appointments with real-time availability from your practice management system.</p>
+      </div>
+      <div class="hub-feat">
+        <div class="hub-feat-icon">🔔</div>
+        <h4>Automated Reminders</h4>
+        <p>Sends 72h and 24h reminders via SMS and email. Patients can confirm or cancel with a single reply.</p>
+      </div>
+      <div class="hub-feat">
+        <div class="hub-feat-icon">💬</div>
+        <h4>Patient Q&amp;A</h4>
+        <p>Answers questions about services, insurance, directions, prep instructions, and providers — all from your data.</p>
+      </div>
+      <div class="hub-feat">
+        <div class="hub-feat-icon">🔒</div>
+        <h4>HIPAA Compliance</h4>
+        <p>End-to-end encrypted, Business Associate Agreement included, no PHI stored unnecessarily.</p>
+      </div>
+      <div class="hub-feat">
+        <div class="hub-feat-icon">📊</div>
+        <h4>Analytics Dashboard</h4>
+        <p>See conversation volumes, booking rates, peak hours, and patient satisfaction metrics at a glance.</p>
+      </div>
+      <div class="hub-feat">
+        <div class="hub-feat-icon">🎨</div>
+        <h4>White Label Ready</h4>
+        <p>Full source code license for enterprises. Deploy as your own branded AI assistant with your logo and domain.</p>
+      </div>
+    </div>
   </div>
-</section>
+</div>
 
-<!-- ── Pricing ────────────────────────────────────────────────────── -->
-<section id="pricing">
-  <div class="pricing-header reveal">
-    <div class="section-label" style="display:inline-flex">✦ Pricing</div>
-    <h2 class="section-title">Simple, transparent pricing</h2>
-    <p class="section-sub" style="margin:0 auto">One flat monthly fee per clinic — no per-message fees, no surprises.<br>
-    <strong style="color:var(--success);font-weight:700">✓ All plans include a 14-day free trial. No credit card required.</strong></p>
+<!-- ── How It Works ──────────────────────────────────────────────────── -->
+<div class="section" id="how-it-works">
+  <div class="text-center reveal" style="margin-bottom:56px">
+    <div class="section-badge">How It Works</div>
+    <h2 class="section-h2">Up and running in <span class="grad-text">under 30 minutes</span></h2>
+    <p class="section-sub">No technical team required. No EHR integration complexity. Just fill out your clinic profile and you're live.</p>
   </div>
-  <div class="pricing-cards">
-    <!-- Starter -->
-    <div class="pricing-card reveal">
-      <h3>Starter</h3>
-      <div class="price">$297<span>/mo</span></div>
-      <div class="trial-tag">✓ 14-day free trial included</div>
-      <ul>
-        <li><span class="li-check">✓</span>Solo practice, 1 location</li>
-        <li><span class="li-check">✓</span>Appointment booking chat</li>
-        <li><span class="li-check">✓</span>Basic insurance Q&A</li>
-        <li><span class="li-check">✓</span>Email support</li>
-      </ul>
-      <button class="btn-trial" onclick="openSignup('starter')">Start Free Trial →</button>
+  <div class="steps-grid reveal">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <h4>Sign Up &amp; Configure</h4>
+      <p>Enter your practice name, specialty, providers, hours, and services. Aria learns your clinic immediately.</p>
     </div>
-    <!-- Growth -->
-    <div class="pricing-card popular reveal">
-      <div class="badge-pop">Most Popular</div>
-      <h3>Growth</h3>
-      <div class="price">$597<span>/mo</span></div>
-      <div class="trial-tag">✓ 14-day free trial included</div>
-      <ul>
-        <li><span class="li-check">✓</span>2–5 doctor group practice</li>
-        <li><span class="li-check">✓</span>Email reminders &amp; recall</li>
-        <li><span class="li-check">✓</span>All Starter features</li>
-        <li><span class="li-check">✓</span>Custom insurance knowledge</li>
-        <li><span class="li-check">✓</span>Monthly performance report</li>
-        <li><span class="li-check">✓</span>Priority support</li>
-      </ul>
-      <button class="btn-trial" onclick="openSignup('professional')">Start Free Trial →</button>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <h4>Customize Aria</h4>
+      <p>Set your clinic phone, working hours, appointment types, and how Aria should handle edge cases.</p>
     </div>
-    <!-- Pro -->
-    <div class="pricing-card reveal">
-      <h3>Pro</h3>
-      <div class="price">$997<span>/mo</span></div>
-      <div class="trial-tag">✓ 14-day free trial included</div>
-      <ul>
-        <li><span class="li-check">✓</span>Multi-location practices</li>
-        <li><span class="li-check">✓</span>All Growth features</li>
-        <li><span class="li-check">✓</span>Multi-location routing</li>
-        <li><span class="li-check">✓</span>EHR system integration</li>
-        <li><span class="li-check">✓</span>Custom AI training</li>
-        <li><span class="li-check">✓</span>Dedicated onboarding</li>
-      </ul>
-      <button class="btn-trial" onclick="openSignup('enterprise')">Start Free Trial →</button>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <h4>Share Your Link</h4>
+      <p>Your unique chat URL is ready instantly. Add it to your website, Google My Business, and email signatures.</p>
     </div>
-    <!-- White Label -->
-    <div class="pricing-card whitelabel reveal">
-      <div class="badge-pop">White Label</div>
-      <h3>White Label License</h3>
-      <div class="price">$2,999<span> one-time</span></div>
-      <div class="trial-tag" style="color:var(--violet)">&nbsp;</div>
-      <ul>
-        <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Full source code transfer</li>
-        <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Your brand, your domain</li>
-        <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Remove all Tabor branding</li>
-        <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Deploy on your own servers</li>
-        <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>Resell to your own clients</li>
-        <li><span class="li-check" style="background:rgba(124,58,237,.1);color:var(--violet)">✓</span>6 months of email support</li>
-      </ul>
-      <div class="wl-note">You own the code outright</div>
-      <button class="btn-license" onclick="openQuoteForm()">Get a Quote →</button>
+    <div class="step-card">
+      <div class="step-num">4</div>
+      <h4>Watch It Work</h4>
+      <p>Aria handles patient inquiries around the clock. You review your dashboard — bookings handled, staff hours saved.</p>
     </div>
   </div>
-</section>
+</div>
 
-<!-- ── Contact ────────────────────────────────────────────────────── -->
-<section id="contact">
-  <div style="position:relative;z-index:1">
-    <div class="section-label" style="display:inline-flex;margin-bottom:20px">✦ Contact</div>
-    <h2>Have questions? We're here.</h2>
-    <p>Whether you're evaluating the platform, need help setting up, or want to discuss White Label licensing — just email us.</p>
-    <div class="contact-card">
-      <div class="contact-card-label">Support &amp; Sales</div>
-      <a href="mailto:admin@tabor.taborsynergy.com" class="contact-email-link">
-        📧 admin@tabor.taborsynergy.com
-      </a>
-      <div class="contact-topics">Pricing · Onboarding · Renewals · White Label</div>
+<!-- ── Specialties ───────────────────────────────────────────────────── -->
+<div style="background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="section" id="specialties">
+    <div class="reveal" style="margin-bottom:40px">
+      <div class="section-badge">By Specialty</div>
+      <h2 class="section-h2">Built for how your specialty <span class="grad-text">actually works</span></h2>
+      <p class="section-sub">Aria speaks the language of each specialty — from dental recall reminders to pediatric well-visit scheduling.</p>
     </div>
-    <div class="contact-links">
-      <a href="mailto:admin@tabor.taborsynergy.com">Email us →</a>
-      <a href="#pricing" onclick="openSignup('professional'); return false;">Start Free Trial →</a>
+    <div class="tabs-wrap reveal">
+      <div class="tab-pills">
+        <button class="tab-pill active" onclick="switchTab(this,'dental')">Dental</button>
+        <button class="tab-pill" onclick="switchTab(this,'pediatrics')">Pediatrics</button>
+        <button class="tab-pill" onclick="switchTab(this,'familymed')">Family Medicine</button>
+        <button class="tab-pill" onclick="switchTab(this,'derm')">Dermatology</button>
+        <button class="tab-pill" onclick="switchTab(this,'urgentcare')">Urgent Care</button>
+        <button class="tab-pill" onclick="switchTab(this,'obgyn')">OB-GYN</button>
+      </div>
+      <div id="tab-dental" class="tab-content active">
+        <div class="specialty-card">
+          <h4>Dental Practice Scenarios</h4>
+          <ul>
+            <li>Book cleaning, whitening, crown, and emergency visits</li>
+            <li>Handle insurance verification questions</li>
+            <li>Send recall reminders for 6-month checkups</li>
+            <li>Answer pre-op prep instructions for procedures</li>
+          </ul>
+        </div>
+        <div class="specialty-card">
+          <h4>What Patients Ask</h4>
+          <ul>
+            <li>"Do you accept Delta Dental?"</li>
+            <li>"My tooth is hurting — can I come in today?"</li>
+            <li>"How much does a crown cost without insurance?"</li>
+            <li>"Can I reschedule my cleaning to next week?"</li>
+          </ul>
+        </div>
+      </div>
+      <div id="tab-pediatrics" class="tab-content">
+        <div class="specialty-card">
+          <h4>Pediatrics Scenarios</h4>
+          <ul>
+            <li>Well-child visit scheduling (2 week, 2 month, 1 year, etc.)</li>
+            <li>Sick-child same-day appointment requests</li>
+            <li>Vaccine questions and schedules</li>
+            <li>After-hours triage guidance to ER or urgent care</li>
+          </ul>
+        </div>
+        <div class="specialty-card">
+          <h4>What Parents Ask</h4>
+          <ul>
+            <li>"My 2-year-old has a 103°F fever — should I come in?"</li>
+            <li>"When is the next opening for a well visit?"</li>
+            <li>"Do you carry the flu vaccine?"</li>
+            <li>"What insurance do you accept for newborns?"</li>
+          </ul>
+        </div>
+      </div>
+      <div id="tab-familymed" class="tab-content">
+        <div class="specialty-card">
+          <h4>Family Medicine Scenarios</h4>
+          <ul>
+            <li>Annual wellness exams and chronic care follow-ups</li>
+            <li>Prescription refill request routing</li>
+            <li>Lab result inquiry guidance</li>
+            <li>Referral request coordination</li>
+          </ul>
+        </div>
+        <div class="specialty-card">
+          <h4>What Patients Ask</h4>
+          <ul>
+            <li>"I need a physical for work — how soon can I get in?"</li>
+            <li>"Can I get my blood pressure meds refilled?"</li>
+            <li>"My lab results came in — what do they mean?"</li>
+            <li>"Do you do DOT physicals?"</li>
+          </ul>
+        </div>
+      </div>
+      <div id="tab-derm" class="tab-content">
+        <div class="specialty-card">
+          <h4>Dermatology Scenarios</h4>
+          <ul>
+            <li>Mole check and skin cancer screening scheduling</li>
+            <li>Cosmetic vs. medical visit routing</li>
+            <li>Acne treatment program inquiries</li>
+            <li>Insurance pre-authorization guidance</li>
+          </ul>
+        </div>
+        <div class="specialty-card">
+          <h4>What Patients Ask</h4>
+          <ul>
+            <li>"I have a suspicious mole — how soon can I be seen?"</li>
+            <li>"Do you do Botox? Is that covered by insurance?"</li>
+            <li>"My rash isn't going away — is this urgent?"</li>
+            <li>"What should I bring to my first appointment?"</li>
+          </ul>
+        </div>
+      </div>
+      <div id="tab-urgentcare" class="tab-content">
+        <div class="specialty-card">
+          <h4>Urgent Care Scenarios</h4>
+          <ul>
+            <li>Real-time wait time and capacity info</li>
+            <li>ER vs. urgent care triage guidance</li>
+            <li>Walk-in vs. appointment options</li>
+            <li>Insurance and self-pay cost estimates</li>
+          </ul>
+        </div>
+        <div class="specialty-card">
+          <h4>What Patients Ask</h4>
+          <ul>
+            <li>"How long is the wait right now?"</li>
+            <li>"Do I need stitches or can this wait?"</li>
+            <li>"Can you do X-rays on site?"</li>
+            <li>"Do you accept Medicaid?"</li>
+          </ul>
+        </div>
+      </div>
+      <div id="tab-obgyn" class="tab-content">
+        <div class="specialty-card">
+          <h4>OB-GYN Scenarios</h4>
+          <ul>
+            <li>OB new patient and prenatal visit scheduling</li>
+            <li>Annual exam and pap smear scheduling</li>
+            <li>Birth control consultation routing</li>
+            <li>Sensitive inquiry handling with empathy</li>
+          </ul>
+        </div>
+        <div class="specialty-card">
+          <h4>What Patients Ask</h4>
+          <ul>
+            <li>"I think I might be pregnant — what do I do first?"</li>
+            <li>"I need my annual — do you have evening appointments?"</li>
+            <li>"I'm new to the area. Are you accepting new OB patients?"</li>
+            <li>"Can I speak to someone about my birth control options?"</li>
+          </ul>
+        </div>
+      </div>
     </div>
   </div>
-</section>
+</div>
 
-<!-- ── Footer ─────────────────────────────────────────────────────── -->
+<!-- ── Testimonials ──────────────────────────────────────────────────── -->
+<div class="section">
+  <div class="text-center reveal" style="margin-bottom:48px">
+    <div class="section-badge">Social Proof</div>
+    <h2 class="section-h2">Practices that switched to Aria <span class="grad-text">never looked back</span></h2>
+  </div>
+  <div class="testimonials-grid reveal">
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-quote">"We were skeptical an AI could handle our patients' questions. Within the first week, Aria had booked <strong>23 appointments without a single staff member involved</strong>. Our front desk team finally has breathing room."</p>
+      <div class="testi-author">
+        <div class="testi-avatar">SM</div>
+        <div>
+          <div class="testi-name">Dr. Sarah M.</div>
+          <div class="testi-role">Family Medicine · Houston, TX</div>
+        </div>
+      </div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-quote">"Our no-show rate dropped from 22% to <strong>under 9%</strong> in 6 weeks. The automated reminders pay for the entire subscription on their own. Setup took literally 20 minutes."</p>
+      <div class="testi-author">
+        <div class="testi-avatar">RK</div>
+        <div>
+          <div class="testi-name">Dr. Raj K., DDS</div>
+          <div class="testi-role">Dental Group · Miami, FL</div>
+        </div>
+      </div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-quote">"We answer patient chats at 2 AM now. Not our staff — Aria. Parents calling about sick kids after hours get real answers instantly. That's a <strong>game changer for our reputation</strong> in the community."</p>
+      <div class="testi-author">
+        <div class="testi-avatar">LC</div>
+        <div>
+          <div class="testi-name">Dr. Linda C.</div>
+          <div class="testi-role">Pediatrics · Austin, TX</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Trust / HIPAA ─────────────────────────────────────────────────── -->
+<div class="trust-section-wrap">
+  <div style="max-width:1160px;margin:0 auto;text-align:center">
+    <div class="section-badge">Enterprise-Grade Security</div>
+    <h2 class="section-h2 reveal">HIPAA-compliant from day one.</h2>
+    <p class="section-sub reveal" style="margin:0 auto">We built Aria for healthcare first. Security and compliance are not afterthoughts — they're the foundation.</p>
+    <div class="trust-badges reveal">
+      <div class="trust-badge">
+        <div class="trust-badge-icon">🔒</div>
+        <div class="trust-badge-name">HIPAA Compliant</div>
+        <div class="trust-badge-sub">BAA available</div>
+      </div>
+      <div class="trust-badge">
+        <div class="trust-badge-icon">🛡️</div>
+        <div class="trust-badge-name">End-to-End Encrypted</div>
+        <div class="trust-badge-sub">TLS 1.3 in transit</div>
+      </div>
+      <div class="trust-badge">
+        <div class="trust-badge-icon">🏥</div>
+        <div class="trust-badge-name">No PHI Stored</div>
+        <div class="trust-badge-sub">Minimal data retention</div>
+      </div>
+      <div class="trust-badge">
+        <div class="trust-badge-icon">🔑</div>
+        <div class="trust-badge-name">Role-Based Access</div>
+        <div class="trust-badge-sub">Admin + staff roles</div>
+      </div>
+      <div class="trust-badge">
+        <div class="trust-badge-icon">📋</div>
+        <div class="trust-badge-name">Audit Logs</div>
+        <div class="trust-badge-sub">Full access trail</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Integrations ──────────────────────────────────────────────────── -->
+<div class="section" style="text-align:center">
+  <div class="section-badge reveal">Works With Your Stack</div>
+  <h2 class="section-h2 reveal">No rip-and-replace required</h2>
+  <p class="section-sub reveal" style="margin:0 auto 0">Aria works alongside your existing tools. No mandatory EHR integration needed to get started.</p>
+  <div class="integrations-grid reveal">
+    <div class="integ-pill"><span class="integ-pill-dot"></span>Epic</div>
+    <div class="integ-pill"><span class="integ-pill-dot"></span>Athenahealth</div>
+    <div class="integ-pill"><span class="integ-pill-dot"></span>Kareo</div>
+    <div class="integ-pill"><span class="integ-pill-dot"></span>DrChrono</div>
+    <div class="integ-pill"><span class="integ-pill-dot"></span>Jane App</div>
+    <div class="integ-pill"><span class="integ-pill-dot"></span>Dentrix</div>
+    <div class="integ-pill"><span class="integ-pill-dot"></span>Eaglesoft</div>
+    <div class="integ-pill"><span class="integ-pill-dot"></span>Google My Business</div>
+    <div class="integ-pill"><span class="integ-pill-dot"></span>Twilio SMS</div>
+    <div class="integ-pill"><span class="integ-pill-dot"></span>SendGrid</div>
+    <div class="integ-pill"><span class="integ-pill-dot"></span>Zapier</div>
+    <div class="integ-pill"><span class="integ-pill-dot"></span>+ Your Website</div>
+  </div>
+  <p style="font-size:12px;color:var(--text3);margin-top:20px">*Direct API integrations available on Growth and Pro plans. All plans work via manual configuration.</p>
+</div>
+
+<!-- ── Pricing ───────────────────────────────────────────────────────── -->
+<div style="background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="section" id="pricing">
+    <div class="text-center reveal" style="margin-bottom:48px">
+      <div class="section-badge">Pricing</div>
+      <h2 class="section-h2">Simple pricing, <span class="grad-text">no surprises</span></h2>
+      <p class="section-sub">All plans include a 14-day free trial. No credit card required to start.</p>
+    </div>
+    <div class="pricing-grid reveal">
+      <!-- Starter -->
+      <div class="price-card">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">$297<span>/mo</span></div>
+        <div class="plan-desc">For solo providers &amp; small practices</div>
+        <ul class="plan-features">
+          <li><span class="plan-check">✓</span>Aria AI chat (1 location)</li>
+          <li><span class="plan-check">✓</span>500 conversations/mo</li>
+          <li><span class="plan-check">✓</span>Appointment scheduling</li>
+          <li><span class="plan-check">✓</span>Email reminders</li>
+          <li><span class="plan-check">✓</span>Basic analytics</li>
+          <li><span class="plan-x">–</span>SMS reminders</li>
+          <li><span class="plan-x">–</span>Custom agent name</li>
+          <li><span class="plan-x">–</span>Priority support</li>
+        </ul>
+        <button class="btn-plan" onclick="openSignup('starter')">Start Free Trial</button>
+      </div>
+      <!-- Growth -->
+      <div class="price-card popular">
+        <div class="popular-badge">Most Popular</div>
+        <div class="plan-name">Growth</div>
+        <div class="plan-price">$597<span>/mo</span></div>
+        <div class="plan-desc">For established practices scaling fast</div>
+        <ul class="plan-features">
+          <li><span class="plan-check">✓</span>Aria AI chat (up to 3 locations)</li>
+          <li><span class="plan-check">✓</span>2,000 conversations/mo</li>
+          <li><span class="plan-check">✓</span>Appointment scheduling</li>
+          <li><span class="plan-check">✓</span>Email + SMS reminders</li>
+          <li><span class="plan-check">✓</span>Advanced analytics</li>
+          <li><span class="plan-check">✓</span>Custom agent name</li>
+          <li><span class="plan-check">✓</span>Priority support</li>
+          <li><span class="plan-x">–</span>White label</li>
+        </ul>
+        <button class="btn-plan teal" onclick="openSignup('professional')">Start Free Trial</button>
+      </div>
+      <!-- Pro -->
+      <div class="price-card">
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">$997<span>/mo</span></div>
+        <div class="plan-desc">For multi-location groups</div>
+        <ul class="plan-features">
+          <li><span class="plan-check">✓</span>Aria AI chat (unlimited locations)</li>
+          <li><span class="plan-check">✓</span>Unlimited conversations</li>
+          <li><span class="plan-check">✓</span>Appointment scheduling</li>
+          <li><span class="plan-check">✓</span>Email + SMS reminders</li>
+          <li><span class="plan-check">✓</span>Full analytics + exports</li>
+          <li><span class="plan-check">✓</span>Custom agent name &amp; branding</li>
+          <li><span class="plan-check">✓</span>Dedicated support</li>
+          <li><span class="plan-check">✓</span>API access</li>
+        </ul>
+        <button class="btn-plan" onclick="openSignup('enterprise')">Start Free Trial</button>
+      </div>
+      <!-- White Label -->
+      <div class="price-card">
+        <div class="plan-name">White Label</div>
+        <div class="plan-price">$2,999<span> one-time</span></div>
+        <div class="plan-desc">Full source code license for resellers</div>
+        <ul class="plan-features">
+          <li><span class="plan-check">✓</span>Complete source code</li>
+          <li><span class="plan-check">✓</span>Your branding &amp; domain</li>
+          <li><span class="plan-check">✓</span>Sell to your own clients</li>
+          <li><span class="plan-check">✓</span>Unlimited deployments</li>
+          <li><span class="plan-check">✓</span>6 months of support</li>
+          <li><span class="plan-check">✓</span>Onboarding call included</li>
+          <li><span class="plan-check">✓</span>Future updates included</li>
+          <li><span class="plan-check">✓</span>No per-seat fees</li>
+        </ul>
+        <button class="btn-plan" onclick="openQuoteForm()">Get a Quote</button>
+      </div>
+    </div>
+    <p class="price-cta-note reveal">All plans include HIPAA compliance &amp; BAA · No credit card to start · Cancel anytime</p>
+  </div>
+</div>
+
+<!-- ── Bottom CTA ─────────────────────────────────────────────────────── -->
+<div class="cta-banner reveal">
+  <h2>Ready to give your patients a better experience?</h2>
+  <p>Set up Aria in under 30 minutes. Your first 14 days are completely free.</p>
+  <div class="cta-banner-btns">
+    <button class="btn-primary" onclick="openSignup('professional')">
+      Start Free Trial — No Card Required
+    </button>
+    <button class="btn-secondary" onclick="openQuoteForm()">
+      Talk to Sales
+    </button>
+  </div>
+</div>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────── -->
 <footer>
-  <div class="footer-inner">
-    <div class="footer-brand-col">
-      <div class="footer-brand">
-        <div class="footer-brand-icon">🏥</div>
-        Tabor Synergy
-      </div>
-      <p class="footer-desc">Universal Medical Front Desk Agent — intelligent AI that works for any outpatient specialty, 24/7.</p>
-      <div class="footer-compliance">
-        <span class="compliance-badge">HIPAA Ready</span>
-        <span class="compliance-badge">SOC 2</span>
-        <span class="compliance-badge">256-bit TLS</span>
-        <span class="compliance-badge">AI Powered</span>
-      </div>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="nav-logo" style="font-size:20px">Tabor<span style="-webkit-text-fill-color:var(--text3)">Synergy</span></div>
+      <p>AI-powered front desk solutions for healthcare practices. HIPAA-compliant, enterprise-ready, and built by practitioners — for practitioners.</p>
     </div>
     <div class="footer-col">
-      <h4>Product</h4>
+      <h5>Product</h5>
       <a href="#features">Features</a>
+      <a href="#how-it-works">How It Works</a>
       <a href="#specialties">Specialties</a>
       <a href="#pricing">Pricing</a>
-      <a href="#pricing" onclick="openSignup('professional');return false;">Start Free Trial</a>
     </div>
     <div class="footer-col">
-      <h4>White Label</h4>
-      <a href="#" onclick="openQuoteForm();return false;">Get a Quote</a>
+      <h5>Enterprise</h5>
+      <a href="#" onclick="openQuoteForm();return false;">White Label</a>
       <a href="mailto:admin@tabor.taborsynergy.com">Licensing FAQ</a>
       <a href="mailto:admin@tabor.taborsynergy.com">Enterprise Sales</a>
     </div>
     <div class="footer-col">
-      <h4>Support</h4>
+      <h5>Support</h5>
       <a href="mailto:admin@tabor.taborsynergy.com">Contact Us</a>
       <a href="mailto:admin@tabor.taborsynergy.com">Onboarding</a>
       <a href="mailto:admin@tabor.taborsynergy.com">Billing Help</a>
@@ -1061,21 +1662,21 @@
   </div>
   <div class="footer-bottom">
     <div>&copy; 2026 Tabor Synergy. All rights reserved.</div>
-    <div>Powered by <strong>Claude claude-sonnet-4-6</strong> · <a href="mailto:admin@tabor.taborsynergy.com" style="color:#9ca3af;text-decoration:underline">admin@tabor.taborsynergy.com</a></div>
+    <div>Powered by Claude AI · <a href="mailto:admin@tabor.taborsynergy.com">admin@tabor.taborsynergy.com</a></div>
   </div>
 </footer>
 
 <!-- ════════════════════════════════════════════════════════
-     MODALS — all IDs, logic, and JS preserved exactly
+     MODALS
      ════════════════════════════════════════════════════════ -->
 
-<!-- ── White Label Quote Modal ──────────────────────────────────── -->
+<!-- White Label Quote Modal -->
 <div id="quote-modal" class="modal-overlay" onclick="if(event.target===this)closeQuoteForm()">
   <div class="modal-box" style="max-width:520px">
     <button class="modal-close" onclick="closeQuoteForm()">×</button>
     <h2>White Label Quote Request</h2>
-    <div class="plan-tag" style="background:#EDE9FE;color:#6D28D9;border-color:#DDD6FE">Full Source Code License — $2,999 one-time</div>
-    <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px">Fill in your details and we'll get back to you within one business day.</p>
+    <div class="plan-tag" style="background:rgba(139,92,246,0.1);color:#A78BFA;border-color:rgba(139,92,246,0.3)">Full Source Code License — $2,999 one-time</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:20px">Fill in your details and we'll get back to you within one business day.</p>
     <form id="quote-form" onsubmit="submitQuote(event)">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-group">
@@ -1095,7 +1696,7 @@
           <input name="phone" type="tel" placeholder="(512) 555-0100" />
         </div>
         <div class="form-group">
-          <label>Number of Clinic Locations</label>
+          <label>Clinic Locations</label>
           <select name="locations">
             <option value="">— Select —</option>
             <option>1</option>
@@ -1106,42 +1707,40 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Current EHR / PMS System</label>
+          <label>Current EHR / PMS</label>
           <input name="pms" type="text" placeholder="e.g. Epic, Athenahealth" />
         </div>
       </div>
       <div class="form-group">
         <label>Tell us about your needs</label>
-        <textarea name="message" rows="3" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;resize:vertical;outline:none;transition:border-color .2s,box-shadow .2s" placeholder="Specialty, patient volume, timeline, any questions..." onfocus="this.style.borderColor='var(--primary)';this.style.boxShadow='0 0 0 3px rgba(15,61,145,.1)'" onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'"></textarea>
+        <textarea name="message" rows="3" style="resize:vertical" placeholder="Specialty, patient volume, timeline, any questions..."></textarea>
       </div>
-      <button class="btn-submit" type="submit" id="quote-submit-btn" style="background:var(--violet);box-shadow:0 2px 10px rgba(124,58,237,.25)">
+      <button class="btn-submit" type="submit" id="quote-submit-btn" style="background:var(--violet)">
         Send Quote Request →
       </button>
     </form>
-    <div class="trial-note" style="margin-top:10px">
-      We'll reply to <strong>admin@tabor.taborsynergy.com</strong> within 1 business day.
-    </div>
+    <div class="trial-note">We'll reply within 1 business day.</div>
   </div>
 </div>
 
-<!-- ── Quote Success Modal ───────────────────────────────────────── -->
+<!-- Quote Success Modal -->
 <div id="quote-success-modal" class="modal-overlay" onclick="if(event.target===this)closeQuoteSuccess()">
   <div class="modal-box" style="text-align:center;max-width:400px">
     <button class="modal-close" onclick="closeQuoteSuccess()">×</button>
     <div class="success-icon">✉️</div>
     <h2>Request Received!</h2>
-    <p style="color:var(--text-muted);font-size:14px;margin:12px 0">
+    <p style="color:var(--text2);font-size:14px;margin:12px 0">
       Thank you! We'll review your details and reply within one business day at
       <strong id="quote-reply-email"></strong>.
     </p>
-    <p style="font-size:13px;color:#CBD5E1">Questions in the meantime?</p>
-    <a href="mailto:admin@tabor.taborsynergy.com" style="display:inline-block;margin-top:8px;color:var(--violet);font-weight:700;font-size:14px;text-decoration:none">
+    <p style="font-size:13px;color:var(--text3)">Questions in the meantime?</p>
+    <a href="mailto:admin@tabor.taborsynergy.com" style="display:inline-block;margin-top:8px;color:var(--teal);font-weight:700;font-size:14px">
       admin@tabor.taborsynergy.com
     </a>
   </div>
 </div>
 
-<!-- ── Signup Modal ──────────────────────────────────────────────── -->
+<!-- Signup Modal -->
 <div id="signup-modal" class="modal-overlay" onclick="if(event.target===this)closeSignup()">
   <div class="modal-box">
     <button class="modal-close" onclick="closeSignup()">×</button>
@@ -1159,8 +1758,7 @@
       </div>
       <div class="form-group">
         <label>Create Password *</label>
-        <input id="f-password" name="password" type="password" required placeholder="Min. 6 characters"
-               minlength="6" autocomplete="new-password" />
+        <input id="f-password" name="password" type="password" required placeholder="Min. 6 characters" minlength="6" autocomplete="new-password" />
         <div class="hint">You'll use this to sign in to your Aria portal.</div>
       </div>
       <div class="form-group">
@@ -1186,7 +1784,7 @@
         <input id="f-phone" name="phone" type="tel" placeholder="(512) 555-0100" />
       </div>
       <input type="hidden" id="f-plan" name="plan" value="professional" />
-      <div id="signup-error-msg" style="color:#DC2626;font-size:13px;margin-bottom:8px;min-height:18px;font-weight:500"></div>
+      <div id="signup-error-msg" style="color:#EF4444;font-size:13px;margin-bottom:8px;min-height:18px;font-weight:500"></div>
       <button class="btn-submit" type="submit" id="signup-submit-btn">
         Create My Free Trial →
       </button>
@@ -1195,23 +1793,21 @@
   </div>
 </div>
 
-<!-- ── Success Modal ─────────────────────────────────────────────── -->
+<!-- Success Modal -->
 <div id="success-modal" class="modal-overlay" onclick="if(event.target===this)closeSuccess()">
   <div class="modal-box" style="text-align:center">
     <button class="modal-close" onclick="closeSuccess()">×</button>
     <div class="success-icon">🎉</div>
     <h2>Aria is ready!</h2>
-    <p style="color:var(--text-muted);font-size:14px;margin-bottom:4px">Your 14-day free trial has started.</p>
-    <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">Trial ends: <strong id="success-trial-end"></strong></p>
-    <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400E;text-align:left;margin-bottom:12px">
+    <p style="color:var(--text2);font-size:14px;margin-bottom:4px">Your 14-day free trial has started.</p>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:12px">Trial ends: <strong id="success-trial-end"></strong></p>
+    <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:10px 14px;font-size:12px;color:#FCD34D;text-align:left;margin-bottom:12px">
       <strong>Your login credentials:</strong><br>
       Email: <span id="success-login-email" style="font-family:monospace;font-weight:700"></span><br>
       Password: the one you just created
     </div>
     <div class="success-url" id="success-url"></div>
-    <a id="success-open-btn" href="#" target="_blank" class="btn-open-aria">
-      Open My Aria Chat →
-    </a>
+    <a id="success-open-btn" href="#" target="_blank" class="btn-open-aria">Open My Aria Chat →</a>
     <div class="divider">Ready to activate your subscription?</div>
     <p class="success-sub">Plan: <strong id="success-plan-label"></strong></p>
     <a id="success-paypal-btn" href="#" target="_blank" class="btn-paypal">
@@ -1223,10 +1819,10 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════
-     JAVASCRIPT — all logic preserved exactly, nav scroll added
+     JAVASCRIPT
      ════════════════════════════════════════════════════════ -->
 <script>
-// ── Navbar scroll effect ──────────────────────────────────────────
+// ── Navbar scroll ─────────────────────────────────────────────────
 window.addEventListener('scroll', function() {
   document.getElementById('main-nav').classList.toggle('scrolled', window.scrollY > 40);
 });
@@ -1237,9 +1833,17 @@ window.addEventListener('scroll', function() {
     entries.forEach(function(e) {
       if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); }
     });
-  }, { threshold: 0.12 });
+  }, { threshold: 0.08 });
   document.querySelectorAll('.reveal').forEach(function(el) { io.observe(el); });
 })();
+
+// ── Specialty tabs ────────────────────────────────────────────────
+function switchTab(pill, id) {
+  document.querySelectorAll('.tab-pill').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+  pill.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
 
 // ── Quote form ────────────────────────────────────────────────────
 function openQuoteForm() {
@@ -1273,7 +1877,7 @@ function submitQuote(e) {
     document.getElementById("quote-success-modal").classList.add("open");
     form.reset();
   })
-  .catch(function(err) {
+  .catch(function() {
     alert("Something went wrong. Please email us directly at admin@tabor.taborsynergy.com");
   })
   .finally(function() {
@@ -1325,9 +1929,7 @@ function submitSignup(e) {
   }
 
   var controller = new AbortController();
-  var timer = setTimeout(function() {
-    controller.abort();
-  }, 20000);
+  var timer = setTimeout(function() { controller.abort(); }, 20000);
 
   fetch("/api/signup", {
     method: "POST",
