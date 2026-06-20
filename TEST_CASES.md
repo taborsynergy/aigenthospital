@@ -9,7 +9,7 @@ python -m pytest backend/tests --collect-only -q
 
 | Track | Location | Count | Runner |
 |---|---|---:|---|
-| **Core suite** (unit/integration/security) | `backend/tests/` | **517** (515 pass + 2 skip*) | `pytest` |
+| **Core suite** (unit/integration/security) | `backend/tests/` | **550** (548 pass + 2 skip*) | `pytest` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
 | Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
 
@@ -57,8 +57,9 @@ Run the core suite: `python -m pytest backend/tests -q`
 | test_login_flow.py | 13 | Signup→token, portal_url with ?token=, token verify, login correct/wrong creds (JSON errors), rate-limit JSON, E2E flow, cross-clinic token mismatch guard | REG-005/REG-007 |
 | test_clinic_setup_tab.py | 34 | Clinic Setup Tab PATCH /api/{slug}/profile: all fields save + appear in system prompt (phone→Aria prompt), cache invalidation, auth/tenant isolation, input validation (SQL injection, XSS, oversized, plan-gated agent_name) | REG-008 |
 | test_frontend_a11y.py | 4 | Static a11y guards (lang, contrast, widget aria, 911 banner) | L-1/L-2 |
-| test_landing_cta.py | 17 | Landing page CTA wiring: demo buttons open signup (not quote form), white-label entry points open quote form, pricing plan buttons, signup/quote modal presence | REG-009 |
+| test_landing_cta.py | 21 | Landing page CTA wiring: demo buttons open dedicated demo-request modal (not signup/quote), white-label entry points open quote form, pricing plan buttons, signup/quote/demo modal presence | REG-009 |
 | test_landing_links.py | 83 | Landing page link integrity: section anchors, nav/footer hrefs, announcement bar, specialty tabs (6 IDs × 2), all 4 modals + close buttons, 10 JS functions defined, mailto correctness, bare-# onclick guard, external resource https, onclick→function coverage, 17 form element IDs | LNK-001..012 |
+| test_demo_request.py | 29 | Demo request feature: POST /api/demo-request happy path + validation, send_demo_request_email (SendGrid recipient, reply-to, subject, unconfigured graceful, HTML slot), frontend modal presence + form wiring + button wiring | DMO-001..004 |
 
 ---
 
@@ -90,11 +91,31 @@ Test IDs from the QA gap analysis and where they live:
 - **REG-008** (Aria shows wrong phone number: `PATCH /api/{slug}/profile` updated the DB but never called `invalidate_prompt()` → cached system prompt kept old phone → Aria told patients the clinic's old/personal number instead of the clinic office number set in Setup tab) → `test_clinic_setup_tab.py`
   - **REG-008a** Phone update must bust prompt cache → `test_phone_update_invalidates_prompt_cache`
   - **REG-008b–z** All 33 additional setup tab tests (field persistence, auth, tenant isolation, input validation)
-- **REG-009** ("Book a Demo" / "Book a Live Demo" buttons opened the white-label quote modal instead of the trial signup flow → demo visitors were funnelled to a $2,999 purchase page instead of a 14-day free trial) → `test_landing_cta.py`
-  - **REG-009a** Nav "Book a Demo" must call `openSignup()` not `openQuoteForm()` → `test_nav_book_a_demo_calls_open_signup`
-  - **REG-009b** Hero "Book a Live Demo" must call `openSignup()` → `test_hero_book_a_live_demo_calls_open_signup`
-  - **REG-009c** Both demo buttons must default to `professional` plan → `test_demo_buttons_default_to_professional_plan`
-  - **REG-009d–q** White-label entry points, pricing buttons, and modal presence (14 additional checks)
+- **REG-009** ("Book a Demo" / "Book a Live Demo" buttons originally opened the white-label quote modal; then briefly opened the trial signup; now correctly open a dedicated demo-request modal that captures lead details and emails them to the owner) → `test_landing_cta.py`, `test_demo_request.py`
+  - **REG-009a** Nav "Book a Demo" must call `openDemoForm()` not `openSignup()`/`openQuoteForm()` → `test_nav_book_a_demo_calls_open_demo_form`
+  - **REG-009b** Hero "Book a Live Demo" must call `openDemoForm()` → `test_hero_book_a_live_demo_calls_open_demo_form`
+  - **REG-009c** `demo-modal` overlay div must exist → `test_demo_modal_exists`
+  - **REG-009d** `demo-success-modal` div must exist → `test_demo_success_modal_exists`
+  - **REG-009e** `openDemoForm()` JS function must be defined → `test_open_demo_form_js_defined`
+  - **REG-009f** `submitDemoRequest()` JS function must be defined → `test_submit_demo_request_js_defined`
+  - **REG-009g** `submitDemoRequest` must POST to `/api/demo-request` → `test_demo_form_posts_to_correct_endpoint`
+  - **REG-009h–k** White-label entry points, pricing buttons, and signup modal presence (11 additional checks)
+- **DMO-001** (`POST /api/demo-request` happy path) → `test_demo_request.py::TestDemoRequestEndpointHappyPath`
+  - **DMO-001a** Valid payload returns 200 `ok=true`
+  - **DMO-001b** Response message mentions demo / 24-hour confirmation
+  - **DMO-001c** `send_demo_request_email` invoked with correct lead data
+  - **DMO-001d** Optional fields (phone, num_providers, message) are accepted
+- **DMO-002** (Validation errors) → `test_demo_request.py::TestDemoRequestValidation`
+  - **DMO-002a** Missing required fields (full_name, practice_name, specialty, preferred_slot) → 400/422
+  - **DMO-002b** Whitespace-only full_name → 400 with "name" in error
+  - **DMO-002c** Malformed email → 422
+- **DMO-003** (`send_demo_request_email` unit tests) → `test_demo_request.py::TestSendDemoRequestEmail`
+  - **DMO-003a** SendGrid path sends to `write2dinakar10@gmail.com` (not `notify_email`)
+  - **DMO-003b** Reply-To is set to the lead's email for direct owner reply
+  - **DMO-003c** Subject contains practice name for inbox triage
+  - **DMO-003d** Returns False gracefully when no transport configured
+  - **DMO-003e** HTML body includes the preferred time slot
+- **DMO-004** (Frontend modal completeness) → `test_demo_request.py::TestDemoModalFrontend` (14 checks)
 - **LNK-001..012** (Landing page link integrity — every href, anchor, tab, modal, JS function, mailto, form element ID) → `test_landing_links.py` (83 tests)
   - **LNK-001** Section anchor IDs exist (features, how-it-works, specialties, pricing, main-nav)
   - **LNK-002** Nav link hrefs all point to existing section IDs + Enterprise has onclick

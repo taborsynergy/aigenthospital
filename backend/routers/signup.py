@@ -16,7 +16,7 @@ from backend.config import settings
 from backend.db.database import get_db
 from backend.db import crud
 from backend.plans import PLAN_RATES, PLANS
-from backend.services.email_svc import send_quote_email, send_trial_signup_email
+from backend.services.email_svc import send_demo_request_email, send_quote_email, send_trial_signup_email
 from backend.routers.clinic_auth import hash_password
 
 router = APIRouter()
@@ -127,6 +127,39 @@ def request_quote(body: QuoteRequest, background_tasks: BackgroundTasks):
         "message": (
             "Thank you! We've received your request and will contact you within one business day."
         ),
+    }
+
+
+# ── Demo request ─────────────────────────────────────────────────────────────
+
+class DemoRequest(BaseModel):
+    full_name: str
+    email: EmailStr
+    phone: str = ""
+    practice_name: str
+    specialty: str
+    num_providers: str = ""
+    preferred_slot: str
+    message: str = ""
+
+
+@router.post("/api/demo-request")
+def request_demo(body: DemoRequest, background_tasks: BackgroundTasks):
+    if not body.full_name.strip():
+        return JSONResponse(status_code=400, content={"error": "Full name is required."})
+    if not body.practice_name.strip():
+        return JSONResponse(status_code=400, content={"error": "Practice name is required."})
+    if not body.specialty.strip():
+        return JSONResponse(status_code=400, content={"error": "Specialty is required."})
+    if not body.preferred_slot.strip():
+        return JSONResponse(status_code=400, content={"error": "Preferred demo time is required."})
+
+    data = body.model_dump()
+    background_tasks.add_task(send_demo_request_email, data)
+    logger.info("Demo request from %s <%s> practice=%s", body.full_name, body.email, body.practice_name)
+    return {
+        "ok": True,
+        "message": "Thank you! We'll confirm your demo slot within 24 hours.",
     }
 
 

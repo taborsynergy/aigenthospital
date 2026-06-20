@@ -1070,7 +1070,7 @@ footer {
     <li><a href="#" onclick="openQuoteForm();return false;">Enterprise</a></li>
   </ul>
   <div class="nav-ctas">
-    <button class="btn-nav-demo" onclick="openSignup('professional')">Book a Demo</button>
+    <button class="btn-nav-demo" onclick="openDemoForm()">Book a Demo</button>
     <button class="btn-nav-trial" onclick="openSignup('professional')">Start Free Trial</button>
   </div>
 </nav>
@@ -1098,7 +1098,7 @@ footer {
         Start Free 14-Day Trial
         <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </button>
-      <button class="btn-secondary" onclick="openSignup('professional')">
+      <button class="btn-secondary" onclick="openDemoForm()">
         Book a Live Demo
         <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.069A1 1 0 0121 8.845v6.31a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
       </button>
@@ -1817,6 +1817,120 @@ footer {
   </div>
 </div>
 
+<!-- Demo Request Modal -->
+<div id="demo-modal" class="modal-overlay" onclick="if(event.target===this)closeDemoForm()">
+  <div class="modal-box" style="max-width:540px">
+    <button class="modal-close" onclick="closeDemoForm()">×</button>
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:28px;margin-bottom:6px">📅</div>
+      <h2 style="margin:0 0 4px;font-size:20px">Book a Live Demo</h2>
+      <p style="color:var(--text2);font-size:13px;margin:0">30-minute personalised walkthrough — we'll confirm your slot within 24 hours</p>
+    </div>
+    <form id="demo-form" onsubmit="submitDemoRequest(event)">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Full Name *</label>
+          <input name="full_name" id="df-name" type="text" required placeholder="Dr. Jane Smith"
+            style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:var(--text);font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Work Email *</label>
+          <input name="email" id="df-email" type="email" required placeholder="jane@clinic.com"
+            style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:var(--text);font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Phone</label>
+          <input name="phone" id="df-phone" type="tel" placeholder="+1 (555) 000-0000"
+            style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:var(--text);font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Practice Name *</label>
+          <input name="practice_name" id="df-practice" type="text" required placeholder="Sunrise Family Clinic"
+            style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:var(--text);font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Medical Specialty *</label>
+          <select name="specialty" id="df-specialty" required
+            style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:#141c2e;color:var(--text);font-size:13px">
+            <option value="">Select specialty…</option>
+            <option>Family Medicine / Primary Care</option>
+            <option>Internal Medicine</option>
+            <option>Pediatrics</option>
+            <option>OB-GYN</option>
+            <option>Orthopedics</option>
+            <option>Cardiology</option>
+            <option>Dermatology</option>
+            <option>Psychiatry / Mental Health</option>
+            <option>Chiropractic</option>
+            <option>Dental / Oral Health</option>
+            <option>Physical Therapy</option>
+            <option>Urgent Care</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Number of Providers</label>
+          <select name="num_providers" id="df-providers"
+            style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:#141c2e;color:var(--text);font-size:13px">
+            <option value="">Select…</option>
+            <option>1</option>
+            <option>2–5</option>
+            <option>6–10</option>
+            <option>11+</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Preferred Demo Time *</label>
+        <select name="preferred_slot" id="df-slot" required
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:#141c2e;color:var(--text);font-size:13px">
+          <option value="">Select time window…</option>
+          <option>Morning — 9:00 AM to 11:00 AM (ET)</option>
+          <option>Afternoon — 1:00 PM to 3:00 PM (ET)</option>
+          <option>Evening — 4:00 PM to 6:00 PM (ET)</option>
+          <option>Flexible — any time works</option>
+        </select>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Questions or context (optional)</label>
+        <textarea name="message" id="df-message" rows="3" placeholder="e.g. We see 40 patients/day and want to reduce front-desk call volume…"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:var(--text);font-size:13px;resize:vertical"></textarea>
+      </div>
+      <p id="demo-error-msg" style="color:#F87171;font-size:13px;min-height:18px;margin:0 0 10px"></p>
+      <button id="demo-submit-btn" type="submit"
+        style="width:100%;padding:12px;border-radius:10px;background:linear-gradient(135deg,#06E5D5,#0891B2);color:#06090F;font-weight:700;font-size:14px;border:none;cursor:pointer">
+        Request My Demo →
+      </button>
+      <p style="text-align:center;font-size:11px;color:var(--text2);margin:10px 0 0">We'll reply within 24 hours to confirm your slot. No spam, ever.</p>
+    </form>
+  </div>
+</div>
+
+<!-- Demo Success Modal -->
+<div id="demo-success-modal" class="modal-overlay" onclick="if(event.target===this)closeDemoSuccess()">
+  <div class="modal-box" style="text-align:center;max-width:400px">
+    <button class="modal-close" onclick="closeDemoSuccess()">×</button>
+    <div style="font-size:40px;margin-bottom:12px">🎯</div>
+    <h2 style="margin:0 0 8px">Demo Requested!</h2>
+    <p style="color:var(--text2);font-size:14px;margin-bottom:16px">
+      Thanks! We'll review your details and confirm a demo slot at<br>
+      <strong id="demo-reply-email" style="color:var(--teal)"></strong><br>
+      within 24 hours.
+    </p>
+    <div style="background:rgba(6,229,213,0.08);border:1px solid rgba(6,229,213,0.2);border-radius:10px;padding:14px 18px;font-size:13px;color:var(--text2);text-align:left;margin-bottom:16px">
+      <strong style="color:var(--teal)">What happens next:</strong>
+      <ol style="margin:8px 0 0;padding-left:18px;line-height:1.8">
+        <li>We review your practice details</li>
+        <li>You receive a calendar invite for a 30-min Zoom</li>
+        <li>Personal walkthrough tailored to your specialty</li>
+      </ol>
+    </div>
+    <button onclick="closeDemoSuccess()" style="padding:10px 28px;border-radius:8px;background:var(--teal);color:#06090F;font-weight:700;border:none;cursor:pointer">
+      Got it, thanks!
+    </button>
+  </div>
+</div>
+
 <!-- ════════════════════════════════════════════════════════
      JAVASCRIPT
      ════════════════════════════════════════════════════════ -->
@@ -1901,6 +2015,55 @@ function closeSignup() {
   document.getElementById("signup-error-msg").textContent = "";
 }
 function closeSuccess() { document.getElementById("success-modal").classList.remove("open"); }
+
+// ── Demo request form ─────────────────────────────────────────────
+function openDemoForm() {
+  document.getElementById("demo-modal").classList.add("open");
+  document.getElementById("df-name").focus();
+}
+function closeDemoForm() {
+  document.getElementById("demo-modal").classList.remove("open");
+  document.getElementById("demo-error-msg").textContent = "";
+}
+function closeDemoSuccess() { document.getElementById("demo-success-modal").classList.remove("open"); }
+
+function submitDemoRequest(e) {
+  e.preventDefault();
+  var btn = document.getElementById("demo-submit-btn");
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  document.getElementById("demo-error-msg").textContent = "";
+
+  var form = document.getElementById("demo-form");
+  var data = {};
+  new FormData(form).forEach(function(v, k) { data[k] = v; });
+
+  fetch("/api/demo-request", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  .then(function(r) {
+    return r.json().then(function(j) { return { ok: r.ok, body: j }; });
+  })
+  .then(function(res) {
+    if (!res.ok) {
+      document.getElementById("demo-error-msg").textContent = res.body.error || "Something went wrong.";
+      return;
+    }
+    closeDemoForm();
+    document.getElementById("demo-reply-email").textContent = data.email || "";
+    document.getElementById("demo-success-modal").classList.add("open");
+    form.reset();
+  })
+  .catch(function() {
+    document.getElementById("demo-error-msg").textContent = "Network error. Please email us at admin@tabor.taborsynergy.com";
+  })
+  .finally(function() {
+    btn.disabled = false;
+    btn.textContent = "Request My Demo →";
+  });
+}
 
 function showSignupError(msg) {
   document.getElementById("signup-error-msg").textContent = msg;

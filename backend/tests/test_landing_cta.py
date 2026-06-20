@@ -2,12 +2,14 @@
 Landing page CTA wiring tests.
 
 Verifies that every call-to-action button on index.html calls the correct
-JavaScript handler — demo/trial buttons open the signup flow, and only
-explicitly white-label / enterprise entry points open the quote form.
+JavaScript handler — demo/trial buttons open the dedicated demo-request form,
+pricing/trial buttons open the signup flow, and only explicitly white-label /
+enterprise entry points open the quote form.
 
-REG-009: "Book a Demo" and "Book a Live Demo" must NOT open the white-label
-         quote modal — they must open the trial signup modal so visitors can
-         choose any plan, not be funnelled straight to white-label quoting.
+REG-009: "Book a Demo" and "Book a Live Demo" must NOT open the trial signup
+         modal or the white-label quote modal — they must open the dedicated
+         demo-request modal (openDemoForm) so visitors fill in their details
+         and receive a personalised demo booking.
 """
 import pathlib
 import pytest
@@ -22,54 +24,64 @@ def html() -> str:
     return INDEX_HTML.read_text(encoding="utf-8")
 
 
-# ── REG-009: Demo buttons must open signup, not quote modal ─────────────────
+# ── REG-009: Demo buttons must open the demo-request modal ──────────────────
 
-class TestDemoButtonsOpenSignup:
+class TestDemoButtonsOpenDemoForm:
 
-    def test_nav_book_a_demo_calls_open_signup(self, html):
-        """REG-009-A: Nav 'Book a Demo' button must call openSignup(), not openQuoteForm()."""
+    def test_nav_book_a_demo_calls_open_demo_form(self, html):
+        """REG-009-A: Nav 'Book a Demo' button must call openDemoForm(), not openSignup/openQuoteForm."""
         assert "btn-nav-demo" in html, "Nav demo button class missing"
-        # Search for the actual button element (skip the CSS rule which appears first)
+        # Skip the CSS rule — find the actual button element; read only to its closing tag
         idx = html.index('<button class="btn-nav-demo"')
-        snippet = html[idx: idx + 200]
-        assert "openSignup" in snippet, (
-            "REG-009-A: Nav 'Book a Demo' button calls openQuoteForm() instead of "
-            "openSignup(). Demo visitors should enter the trial signup flow, not "
-            "the white-label quote form."
+        end = html.index('</button>', idx) + 9
+        snippet = html[idx:end]
+        assert "openDemoForm" in snippet, (
+            "REG-009-A: Nav 'Book a Demo' must call openDemoForm() to open the "
+            "dedicated demo-request lead capture form."
         )
         assert "openQuoteForm" not in snippet, (
-            "REG-009-A: Nav 'Book a Demo' button must not call openQuoteForm()."
+            "REG-009-A: Nav 'Book a Demo' must not open the white-label quote form."
+        )
+        assert "openSignup" not in snippet, (
+            "REG-009-A: Nav 'Book a Demo' must not open the trial signup form."
         )
 
-    def test_hero_book_a_live_demo_calls_open_signup(self, html):
-        """REG-009-B: Hero 'Book a Live Demo' button must call openSignup(), not openQuoteForm()."""
+    def test_hero_book_a_live_demo_calls_open_demo_form(self, html):
+        """REG-009-B: Hero 'Book a Live Demo' must call openDemoForm()."""
         assert "Book a Live Demo" in html, "'Book a Live Demo' text missing from hero"
         idx = html.index("Book a Live Demo")
-        # Walk back to find the button tag that contains this text
         btn_start = html.rfind("<button", 0, idx)
         snippet = html[btn_start: idx + 20]
-        assert "openSignup" in snippet, (
-            "REG-009-B: Hero 'Book a Live Demo' button calls openQuoteForm() instead "
-            "of openSignup(). Demo visitors should see the trial signup modal."
+        assert "openDemoForm" in snippet, (
+            "REG-009-B: Hero 'Book a Live Demo' must call openDemoForm()."
         )
         assert "openQuoteForm" not in snippet, (
-            "REG-009-B: Hero 'Book a Live Demo' button must not open the quote form."
+            "REG-009-B: Hero demo button must not open the white-label quote form."
+        )
+        assert "openSignup" not in snippet, (
+            "REG-009-B: Hero demo button must not open the trial signup form."
         )
 
-    def test_demo_buttons_default_to_professional_plan(self, html):
-        """REG-009-C: Demo buttons must pre-select the professional (Growth) plan."""
-        # nav demo button (skip CSS rule, find button element)
-        idx = html.index('<button class="btn-nav-demo"')
-        nav_snippet = html[idx: idx + 200]
-        assert "professional" in nav_snippet, (
-            "REG-009-C: Nav demo button should open signup with 'professional' plan."
-        )
-        # hero demo button
-        idx2 = html.index("Book a Live Demo")
-        btn_start = html.rfind("<button", 0, idx2)
-        hero_snippet = html[btn_start: idx2 + 20]
-        assert "professional" in hero_snippet, (
-            "REG-009-C: Hero demo button should open signup with 'professional' plan."
+    def test_demo_modal_exists(self, html):
+        """REG-009-C: demo-modal overlay must be present in the page."""
+        assert 'id="demo-modal"' in html, "demo-modal overlay div is missing"
+
+    def test_demo_success_modal_exists(self, html):
+        """REG-009-D: demo-success-modal must be present for post-submit feedback."""
+        assert 'id="demo-success-modal"' in html, "demo-success-modal div is missing"
+
+    def test_open_demo_form_js_defined(self, html):
+        """REG-009-E: openDemoForm() JS function must be defined."""
+        assert "function openDemoForm(" in html, "openDemoForm() function missing from page JS"
+
+    def test_submit_demo_request_js_defined(self, html):
+        """REG-009-F: submitDemoRequest() JS function must be defined."""
+        assert "function submitDemoRequest(" in html, "submitDemoRequest() function missing"
+
+    def test_demo_form_posts_to_correct_endpoint(self, html):
+        """REG-009-G: submitDemoRequest must POST to /api/demo-request."""
+        assert '"/api/demo-request"' in html, (
+            "submitDemoRequest must POST to /api/demo-request"
         )
 
 

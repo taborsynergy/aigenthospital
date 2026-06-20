@@ -784,6 +784,146 @@ def send_renewal_reminder_to_clinic(data: dict) -> bool:
     return _send(msg)
 
 
+def send_demo_request_email(data: dict) -> bool:
+    """
+    Notify write2dinakar10@gmail.com when a visitor requests a product demo.
+    Sends directly to that address (not notify_email) so demo leads are
+    separated from internal admin alerts.
+    """
+    DEMO_NOTIFY = "write2dinakar10@gmail.com"
+
+    if not settings.sendgrid_api_key and (not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass):
+        logger.warning("Email not configured — demo request NOT emailed. Details: %s", data)
+        return False
+
+    practice  = data.get("practice_name", "Unknown Practice")
+    name      = data.get("full_name", "—")
+    email     = data.get("email", "—")
+    phone     = data.get("phone") or "—"
+    specialty = data.get("specialty", "—")
+    providers = data.get("num_providers", "—")
+    slot      = data.get("preferred_slot", "—")
+    message   = data.get("message", "").strip()
+
+    subject = f"\U0001f3af New Demo Request — {practice}"
+
+    plain = "\n".join([
+        "A new demo request has been submitted via the Tabor Synergy website.",
+        "",
+        f"Name:              {name}",
+        f"Email:             {email}",
+        f"Phone:             {phone}",
+        f"Practice:          {practice}",
+        f"Specialty:         {specialty}",
+        f"Providers:         {providers}",
+        f"Preferred Slot:    {slot}",
+        "",
+        "Message:",
+        message or "(none)",
+        "",
+        "SUGGESTED NEXT STEPS:",
+        "  1. Reply to this email (Reply-To is set to the lead's email)",
+        "  2. Offer a 30-minute Zoom demo in their preferred time window",
+        "  3. Share a calendar link with 2-3 available slots",
+        "  4. Mention the 14-day free trial after the demo",
+        "",
+        "— Tabor Synergy automated notification",
+    ])
+
+    html = f"""
+<html><body style="font-family:Arial,sans-serif;color:#1a1a2e;max-width:640px;margin:0 auto">
+<div style="background:linear-gradient(135deg,#06B6D4,#0891B2);padding:24px 28px;border-radius:10px 10px 0 0">
+  <h2 style="color:#fff;margin:0;font-size:20px">\U0001f3af New Demo Request</h2>
+  <p style="color:#CFFAFE;margin:6px 0 0;font-size:14px">Tabor Synergy — AI Medical Front Desk</p>
+</div>
+<div style="background:#F8FAFC;padding:28px;border-radius:0 0 10px 10px;border:1px solid #E2E8F0">
+  <p style="margin-top:0;font-size:15px">A prospect has requested a live demo. Respond within 24 hours for best conversion.</p>
+  <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px">
+    <tr style="background:#EFF6FF">
+      <td style="padding:10px 14px;color:#64748B;width:38%;font-weight:600">Full Name</td>
+      <td style="padding:10px 14px;font-weight:700">{name}</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 14px;color:#64748B;font-weight:600">Email</td>
+      <td style="padding:10px 14px"><a href="mailto:{email}" style="color:#0891B2;font-weight:600">{email}</a></td>
+    </tr>
+    <tr style="background:#EFF6FF">
+      <td style="padding:10px 14px;color:#64748B;font-weight:600">Phone</td>
+      <td style="padding:10px 14px">{phone}</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 14px;color:#64748B;font-weight:600">Practice Name</td>
+      <td style="padding:10px 14px;font-weight:700">{practice}</td>
+    </tr>
+    <tr style="background:#EFF6FF">
+      <td style="padding:10px 14px;color:#64748B;font-weight:600">Specialty</td>
+      <td style="padding:10px 14px">{specialty}</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 14px;color:#64748B;font-weight:600">Providers</td>
+      <td style="padding:10px 14px">{providers}</td>
+    </tr>
+  </table>
+  <div style="background:#ECFEFF;border-left:4px solid #06B6D4;padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:20px">
+    <strong style="color:#0E7490;font-size:13px;text-transform:uppercase;letter-spacing:.5px">Preferred Demo Time</strong>
+    <p style="margin:6px 0 0;font-size:16px;font-weight:700;color:#164E63">{slot}</p>
+  </div>
+  {"<div style='background:#fff;border:1px solid #E2E8F0;border-radius:8px;padding:14px 18px;margin-bottom:20px'><strong style='color:#374151;font-size:13px'>Message from prospect:</strong><p style='margin:8px 0 0;font-size:14px;color:#4B5563;line-height:1.6'>" + message + "</p></div>" if message else ""}
+  <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:16px 18px">
+    <strong style="color:#166534;font-size:13px;text-transform:uppercase;letter-spacing:.5px">Suggested Next Steps</strong>
+    <ol style="margin:10px 0 0;padding-left:20px;font-size:14px;color:#15803D;line-height:1.8">
+      <li>Reply to this email — Reply-To is set to <strong>{email}</strong></li>
+      <li>Offer a 30-minute Zoom demo in their preferred window: <strong>{slot}</strong></li>
+      <li>Share a calendar link (Calendly / Google Calendar) with 2–3 slots</li>
+      <li>Mention the 14-day free trial so they can test after the demo</li>
+    </ol>
+  </div>
+  <p style="margin-top:24px;font-size:11px;color:#94A3B8;border-top:1px solid #E2E8F0;padding-top:16px">
+    Tabor Synergy — automated demo lead notification
+  </p>
+</div>
+</body></html>
+"""
+
+    if settings.sendgrid_api_key:
+        return _sendgrid_send([DEMO_NOTIFY], subject, plain, html, reply_to=email if email != "—" else "")
+
+    # SMTP path — send directly to DEMO_NOTIFY (not notify_email)
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = f"Tabor Synergy Leads <{settings.smtp_user}>"
+    msg["To"]      = DEMO_NOTIFY
+    if email and email != "—":
+        msg["Reply-To"] = email
+    msg.attach(MIMEText(plain, "plain"))
+    msg.attach(MIMEText(html,  "html"))
+
+    def _via_ssl() -> None:
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL(settings.smtp_host, 465, context=ctx, timeout=15) as smtp:
+            smtp.login(settings.smtp_user, settings.smtp_pass)
+            smtp.sendmail(settings.smtp_user, [DEMO_NOTIFY], msg.as_string())
+
+    def _via_starttls() -> None:
+        port = settings.smtp_port or 587
+        with smtplib.SMTP(settings.smtp_host, port, timeout=15) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(settings.smtp_user, settings.smtp_pass)
+            smtp.sendmail(settings.smtp_user, [DEMO_NOTIFY], msg.as_string())
+
+    for label, fn in [("SSL/465", _via_ssl), ("STARTTLS/587", _via_starttls)]:
+        try:
+            fn()
+            logger.info("Demo request email sent via %s to %s", label, DEMO_NOTIFY)
+            return True
+        except Exception as exc:
+            logger.warning("Demo email %s failed: %s: %s", label, type(exc).__name__, exc)
+
+    logger.error("All demo request email delivery attempts failed")
+    return False
+
+
 # ── Onboarding Email Sequence ─────────────────────────────────────────────────
 
 def send_onboarding_day0(data: dict) -> bool:
