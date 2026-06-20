@@ -70,6 +70,7 @@ def signup(body: SignupRequest, background_tasks: BackgroundTasks, db: Session =
         "monthly_rate":           rate,
         "trial_ends_at":          trial_ends_at,
         "customer_password_hash": hash_password(body.password),
+        "is_active":              True,
     })
 
     chat_url = f"{settings.base_url}/c/{slug}"

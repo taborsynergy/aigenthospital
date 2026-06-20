@@ -319,3 +319,74 @@ class TestCancelSubscription:
             f"/api/{slug}/cancel-subscription", headers={"X-Clinic-Token": tok})
         assert r.status_code == 400
         db.query(Clinic).filter(Clinic.id == c.id).delete(); db.commit()
+
+
+# ── Regression REG-002: appointments visible in portal after Aria books via chat ─
+# Bug: Portal showed "Failed to load appointments" even after Aria confirmed booking.
+# Root causes:
+#   1. signup.py create_clinic omitted is_active=True → potential NULL in DB
+#      → get_clinic_by_token filtered is_active IS TRUE → returned None → 403
+#   2. loadAppts() JS called r.json() without checking r.ok → non-array JSON
+#      → silent "Failed to load appointments" with no useful feedback
+# Fixes: explicit is_active=True in signup; r.ok check with actionable message.
+
+class TestAppointmentPortalVisibility:
+
+    def test_appointment_seeded_via_db_appears_in_portal(self, client, clinic, token, db):
+        """Appointment written to DB (as Aria's book_appointment tool does) must be
+        returned by the portal's /appointments endpoint as a JSON array."""
+        from backend.db.models import Appointment as ApptModel
+        appt = ApptModel(
+            clinic_id=clinic.id,
+            confirmation_number="REG-002-SEED",
+            patient_name="John Smith",
+            appointment_type="New Patient",
+            appointment_datetime="Monday at 10:00 AM",
+            provider="Dr. Smith",
+            status="scheduled",
+            channel="web",
+        )
+        db.add(appt)
+        db.commit()
+
+        r = client.get(f"/api/{clinic.slug}/appointments",
+                       headers={"X-Clinic-Token": token})
+        assert r.status_code == 200, f"Portal appointments returned {r.status_code}: {r.text}"
+        data = r.json()
+        assert isinstance(data, list), "Expected JSON array from appointments endpoint"
+        conf_nums = [a["confirmation_number"] for a in data]
+        assert "REG-002-SEED" in conf_nums, "Booked appointment not found in portal list"
+
+        db.query(ApptModel).filter(ApptModel.id == appt.id).delete()
+        db.commit()
+
+    def test_appointments_returns_json_array_not_dict(self, client, clinic, token):
+        """Appointments endpoint always returns a JSON array when auth is valid."""
+        r = client.get(f"/api/{clinic.slug}/appointments",
+                       headers={"X-Clinic-Token": token})
+        assert r.status_code == 200
+        assert isinstance(r.json(), list), "Response must be a list, not a dict"
+
+    def test_appointments_unauthenticated_returns_403_json(self, client, clinic):
+        """Unauthenticated portal request returns 403 with JSON error body."""
+        r = client.get(f"/api/{clinic.slug}/appointments")
+        assert r.status_code == 403
+        body = r.json()
+        assert "error" in body or "detail" in body
+
+    def test_signup_clinic_is_active_true(self, client, db):
+        """Clinic created via /api/signup must have is_active=True."""
+        r = client.post("/api/signup", json={
+            "practice_name": "Reg002 Test Clinic",
+            "contact_email":  "reg002@testclinic.com",
+            "password":        "password123",
+            "specialty":       "Family Medicine",
+        })
+        assert r.status_code == 200
+        slug = r.json()["slug"]
+        from backend.db.crud import get_clinic
+        clinic_obj = get_clinic(db, slug)
+        assert clinic_obj is not None
+        assert clinic_obj.is_active is True, "Clinic from /api/signup must have is_active=True"
+        db.query(Clinic).filter(Clinic.id == clinic_obj.id).delete()
+        db.commit()

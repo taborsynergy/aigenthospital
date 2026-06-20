@@ -9,7 +9,7 @@ python -m pytest backend/tests --collect-only -q
 
 | Track | Location | Count | Runner |
 |---|---|---:|---|
-| **Core suite** (unit/integration/security) | `backend/tests/` | **322** (320 pass + 2 skip*) | `pytest` |
+| **Core suite** (unit/integration/security) | `backend/tests/` | **329** (327 pass + 2 skip*) | `pytest` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
 | Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
 
@@ -25,9 +25,9 @@ Run the core suite: `python -m pytest backend/tests -q`
 
 | File | Cases | Area | Gap-IDs |
 |---|---:|---|---|
-| test_chat.py | 30 | Chat/agent REST, config, analytics, profile, multi-turn regression + conversation flows | REG-001/MT |
+| test_chat.py | 33 | Chat/agent REST, config, analytics, profile, multi-turn regression + conversation flows + date awareness | REG-001/MT/REG-003 |
 | test_whitelabel.py | 21 | Branding, custom domain, reseller, source-code access | — |
-| test_appointments.py | 20 | Appointment list/update, status transitions, isolation | — |
+| test_appointments.py | 24 | Appointment list/update, status transitions, isolation, portal visibility regression | REG-002 |
 | test_edge_cases.py | 19 | Invalid dates, neg/garbage IDs, IDN domains, volume, indexes | L-3/L-4/L-5 |
 | test_providers.py | 18 | Provider CRUD, per-plan provider limits | — |
 | test_trial.py | 17 | Signup, trial lifecycle, convert-to-paid, login | — |
@@ -70,6 +70,8 @@ Test IDs from the QA gap analysis and where they live:
 - **H-1..H-8** (HIGH) → `test_high_gaps.py` (+ `test_renewal_reminders.py`)
 - **L-1..L-5** (LOW) → `test_edge_cases.py`, `test_frontend_a11y.py`, `e2e/`, `perf/`
 - **REG-001** (multi-turn chat regression: SDK model_dump() citations:null) → `test_chat.py::TestMultiTurnChatRegression`
+- **REG-002** (portal appointments not showing after Aria books: is_active NULL + r.ok unchecked) → `test_appointments.py::TestAppointmentPortalVisibility`
+- **REG-003** (Aria date reasoning error: "July 1st already passed" on June 20) → `test_chat.py::TestDateAwarenessRegression`
 - **GAP2-API-PAGE** (pagination limit/offset/status/sort) → `test_pagination.py`
 - **GAP2-BVA-PAGE** (boundary extremes: 0/huge/neg/garbage params) → `test_pagination.py`
 - **GAP2-DB-AUDIT** (audit trail on create/activate/plan-change/purge/deactivate) → `test_audit_migrate.py`
@@ -130,6 +132,8 @@ python -m pytest backend/tests --collect-only -q | grep ::
 | Wave B — Audit + Migrate (DB-AUDIT + DB-MIGRATE) | 2 | +7 | 306 |
 | Wave C — Resilience (API-RETRY + REL-SCHED + REL-BATCH) | 3 | +7 | 313 |
 | REG-001 — Multi-turn chat serialization regression | 1 | +3 | 316 |
-| MT — Multi-turn conversation flows (SMS removal + 5 flow tests) | 1 | +6 | **322** |
+| MT — Multi-turn conversation flows (SMS removal + 5 flow tests) | 1 | +6 | 322 |
+| REG-002 — Portal appointments visibility (is_active fix + r.ok check) | 1 | +4 | 326 |
+| REG-003 — Aria date reasoning (today's date injected into system prompt) | 1 | +3 | **329** |
 | Wave D — Security (SEC-CSRF + SEC-LOGMON + SEC-MFA) | 3 | pending | — |
 | Wave E — A11y/Real-device (A11Y-KEYB + XBR-REAL) | 2 | pending | — |

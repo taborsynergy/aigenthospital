@@ -369,3 +369,46 @@ class TestMultiTurnConversations:
         for msg in messages:
             r = self._chat(client, clinic, msg, s)
             assert "content" in r, f"Turn failed on: {msg!r}"
+
+
+# ── Regression REG-003: Aria date reasoning must use today's date ─────────────
+# Bug: Aria told a patient "July 1st has already passed" on June 20.
+# Root cause: system prompt had no today's date → Aria used training-data date
+#   (pre-2026 knowledge cutoff) → wrongly computed future dates as past.
+# Fix: inject Today is {weekday, Month DD, YYYY} at top of every system prompt.
+
+class TestDateAwarenessRegression:
+
+    def test_system_prompt_contains_todays_date(self, clinic):
+        """build_system_prompt must include today's date string."""
+        from backend.agent.prompts import build_system_prompt
+        from datetime import date
+        prompt = build_system_prompt(clinic)
+        today_str = date.today().strftime("%B %d, %Y")
+        assert today_str in prompt, (
+            f"System prompt missing today's date ({today_str}). "
+            "Aria will make date reasoning errors without it."
+        )
+
+    def test_system_prompt_date_changes_each_day(self, clinic):
+        """The injected date must be dynamic (evaluated at call time), not hardcoded."""
+        from backend.agent.prompts import build_system_prompt
+        from datetime import date
+        p1 = build_system_prompt(clinic)
+        p2 = build_system_prompt(clinic)
+        today_str = date.today().strftime("%B %d, %Y")
+        assert today_str in p1
+        assert today_str in p2
+
+    def test_chat_response_does_not_claim_future_date_is_past(self, client, clinic):
+        """Aria must not claim a clearly-future month is already past.
+        Uses 'next December' which is always at least months away.
+        MOCK_MODE: canned response won't contain past-date language."""
+        r = client.post(f"/api/{clinic.slug}/chat",
+                        json={"message": "Do you have any slots in December next year?",
+                              "session_id": "reg003-date-001"})
+        assert r.status_code == 200
+        content = r.json().get("content", "").lower()
+        assert "has already passed" not in content, (
+            "Aria claimed a future date has already passed — date injection may be missing"
+        )

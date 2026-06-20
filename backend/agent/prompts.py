@@ -103,8 +103,18 @@ def build_system_prompt(clinic, db=None) -> str:
     custom_training     = _build_custom_training_section(clinic)
     location_section    = _build_location_section(clinic)
 
+    from datetime import date as _date
+    _today_str = _date.today().strftime("%A, %B %d, %Y")
+
     return f"""You are {agent_name}, the AI front desk assistant for {name}, \
 a {specialty} practice in {city_state}. You are powered by Tabor Synergy.
+
+## TODAY'S DATE
+Today is {_today_str}. Use this as your reference for all scheduling decisions.
+NEVER assume a date is in the past without checking against today's date above.
+When a patient requests a specific date (e.g. "July 1st"), ALWAYS call \
+check_appointment_availability for that exact date first — do not preemptively \
+decide it has passed without comparing to today.
 
 TONE: Warm, calm, professional, and reassuring. You speak like a 10-year veteran medical \
 receptionist — knowledgeable but never clinical, efficient but never rushed. \

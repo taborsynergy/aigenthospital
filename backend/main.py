@@ -910,17 +910,29 @@ function loadAppts() {{
   fetch("/api/" + SLUG + "/appointments", {{
     headers: {{ "X-Clinic-Token": token || "" }}
   }})
-  .then(function(r) {{ return r.json(); }})
+  .then(function(r) {{
+    if (!r.ok) {{
+      var hint = r.status === 401 || r.status === 403
+        ? "Session expired — please refresh the page and log in again."
+        : "Server error (" + r.status + ") — please try again or contact support.";
+      tbody.innerHTML = '<tr><td colspan="8" class="appt-empty">⚠️ ' + hint + '</td></tr>';
+      return Promise.reject(null);   // swallow into .catch without double-message
+    }}
+    return r.json();
+  }})
   .then(function(data) {{
+    if (!data) return;
     if (!Array.isArray(data)) {{
-      tbody.innerHTML = '<tr><td colspan="8" class="appt-empty">⚠️ Failed to load appointments.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="appt-empty">⚠️ Unexpected response — please refresh the page.</td></tr>';
       return;
     }}
     _allAppts = data;
     renderAppts(data);
   }})
-  .catch(function() {{
-    tbody.innerHTML = '<tr><td colspan="8" class="appt-empty">⚠️ Network error loading appointments.</td></tr>';
+  .catch(function(err) {{
+    if (err !== null) {{
+      tbody.innerHTML = '<tr><td colspan="8" class="appt-empty">⚠️ Network error loading appointments.</td></tr>';
+    }}
   }});
 }}
 

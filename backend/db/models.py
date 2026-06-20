@@ -431,6 +431,9 @@ class ClinicUser(Base):
     last_login_at   = Column(DateTime, nullable=True)
     failed_login_attempts = Column(Integer, default=0)
     locked_until    = Column(DateTime, nullable=True)
+    # Optional TOTP 2FA (opt-in). totp_secret is only enforced once mfa_enabled.
+    mfa_enabled     = Column(Boolean, default=False)
+    totp_secret     = Column(String,  default="")
     # Metadata
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
