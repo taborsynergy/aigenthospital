@@ -581,7 +581,7 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
 
       <div class="share-card">
         <h2>🔗 Patient Chat Link</h2>
-        <p>Share this link with your patients via SMS or email. They can open it in any browser — no app or login needed — and start chatting with {clinic.agent_name} instantly.</p>
+        <p>Share this link with your patients via email. They can open it in any browser — no app or login needed — and start chatting with {clinic.agent_name} instantly.</p>
         <div class="url-row">
           <span class="url-text" id="patient-url"></span>
           <button class="btn-copy" onclick="copyText('patient-url', this)">Copy Link</button>
@@ -601,10 +601,10 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
             <div>
               <strong>Copy the link above</strong> and paste it into any message to your patients.
               <div class="channel-pills">
-                <span class="pill">📱 SMS / Text</span>
                 <span class="pill">✉️ Email</span>
                 <span class="pill">📘 Facebook</span>
                 <span class="pill">📷 Instagram Bio</span>
+                <span class="pill">🌐 Your Website</span>
               </div>
             </div>
           </li>
@@ -804,7 +804,7 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
       </div>
       <div class="share-card">
         <h2>📧 Patient Invite Message Template</h2>
-        <p>Copy and send this to your patients via SMS or email:</p>
+        <p>Copy and send this to your patients via email:</p>
         <div class="embed-box" id="invite-msg"></div>
         <button class="btn-copy" onclick="copyText('invite-msg', this)">Copy Message</button>
       </div>
