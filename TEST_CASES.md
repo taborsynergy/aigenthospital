@@ -9,7 +9,7 @@ python -m pytest backend/tests --collect-only -q
 
 | Track | Location | Count | Runner |
 |---|---|---:|---|
-| **Core suite** (unit/integration/security) | `backend/tests/` | **374** (372 pass + 2 skip*) | `pytest` |
+| **Core suite** (unit/integration/security) | `backend/tests/` | **376** (374 pass + 2 skip*) | `pytest` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
 | Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
 
@@ -54,7 +54,7 @@ Run the core suite: `python -m pytest backend/tests -q`
 | test_unsubscribe.py | 5 | CAN-SPAM recall unsubscribe (signed token) | — |
 | test_phase2_setup.py | 22 | Appointment Types CRUD, Clinic Holidays CRUD, Notification Preferences, system prompt injection | P2 |
 | test_portal_render.py | 12 | Portal page GET /c/{slug}: 200 status, all UI landmarks, CSS injection, 404 on missing slug, UTF-8, JS escape guards (toggleDayRow, deleteProvider, deleteAptType) | REG-004/REG-006 |
-| test_login_flow.py | 11 | Signup→token, portal_url with ?token=, token verify, login correct/wrong creds (JSON errors), rate-limit JSON, E2E flow | REG-005 |
+| test_login_flow.py | 13 | Signup→token, portal_url with ?token=, token verify, login correct/wrong creds (JSON errors), rate-limit JSON, E2E flow, cross-clinic token mismatch guard | REG-005/REG-007 |
 | test_frontend_a11y.py | 4 | Static a11y guards (lang, contrast, widget aria, 911 banner) | L-1/L-2 |
 
 ---
@@ -81,6 +81,9 @@ Test IDs from the QA gap analysis and where they live:
   - **REG-006a** `toggleDayRow` onclick — hours grid (line 1318) → `test_portal_js_no_adjacent_string_literals_in_onchnage`
   - **REG-006b** `deleteProvider` onclick — provider Remove button (line 1428) → `test_portal_js_no_adjacent_string_literals_in_delete_provider`
   - **REG-006c** `deleteAptType` onclick — appointment type Remove button (line 1569) → `test_portal_js_no_adjacent_string_literals_in_delete_apt_type`
+- **REG-007** (Appointments "Session expired": `/verify` accepts any valid token (no slug check), so stale token from clinic-A stored under key for clinic-B passes verify → `showDash()` runs → `/appointments` enforces slug match → 403 → "Session expired") → `test_login_flow.py::TestCrossClinicTokenMismatch`
+  - **REG-007a** Portal HTML must contain `d.slug !== SLUG` guard in verify callback → `test_portal_html_contains_slug_mismatch_guard`
+  - **REG-007b** `/verify` must return `slug` in JSON response → `test_verify_returns_slug_in_response`
 - **GAP2-API-PAGE** (pagination limit/offset/status/sort) → `test_pagination.py`
 - **GAP2-BVA-PAGE** (boundary extremes: 0/huge/neg/garbage params) → `test_pagination.py`
 - **GAP2-DB-AUDIT** (audit trail on create/activate/plan-change/purge/deactivate) → `test_audit_migrate.py`
@@ -147,6 +150,7 @@ python -m pytest backend/tests --collect-only -q | grep ::
 | Phase 2 — Appointment Types + Holidays + Notification Prefs | 3 | +22 | 351 |
 | REG-004 — Portal render regression (GET /c/{slug} must return 200) | 1 | +9 | 360 |
 | REG-005 — Login flow regression (signup→token, login JSON errors, rate-limit JSON) | 1 | +11 | 371 |
-| REG-006 — Portal JS SyntaxError (Python f-string `\'` → `''` adjacent string literals) | 3 | +3 | **374** |
+| REG-006 — Portal JS SyntaxError (Python f-string `\'` → `''` adjacent string literals) | 3 | +3 | 374 |
+| REG-007 — Appointments "Session expired": cross-clinic token not rejected by `/verify`; portal init IIFE now compares d.slug vs SLUG | 2 | +2 | **376** |
 | Wave D — Security (SEC-CSRF + SEC-LOGMON + SEC-MFA) | 3 | pending | — |
 | Wave E — A11y/Real-device (A11Y-KEYB + XBR-REAL) | 2 | pending | — |

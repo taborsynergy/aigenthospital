@@ -2391,8 +2391,16 @@ function doLogout() {{
   if (!token) return;
   fetch("/api/clinic-auth/verify", {{ headers: {{ "X-Clinic-Token": token }} }})
     .then(function(r) {{
-      if (r.ok) {{ try {{ showDash(); }} catch(e) {{ localStorage.removeItem(TKEY); }} }}
-      else {{ localStorage.removeItem(TKEY); }}
+      if (r.ok) {{
+        r.json().then(function(d) {{
+          if (d.slug && d.slug !== SLUG) {{
+            // Token belongs to a different clinic — clear it and show login
+            localStorage.removeItem(TKEY);
+            return;
+          }}
+          try {{ showDash(); }} catch(e) {{ localStorage.removeItem(TKEY); }}
+        }});
+      }} else {{ localStorage.removeItem(TKEY); }}
     }})
     .catch(function() {{ localStorage.removeItem(TKEY); }});
 }})();

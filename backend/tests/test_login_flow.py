@@ -252,3 +252,60 @@ class TestRateLimitReturnsJSON:
         assert 'json' in handler_name.lower() or 'rate' in handler_name.lower(), (
             f"Unexpected handler: {handler_name}"
         )
+
+
+class TestCrossClinicTokenMismatch:
+    """REG-007: Verify endpoint slug mismatch must not allow dashboard access.
+
+    Root cause: /verify accepts ANY valid token (no slug check), so a stale token
+    from clinic-A stored under localStorage key aria_token_clinic-B would pass verify
+    and show the dashboard — but then /appointments enforces slug match → 403 →
+    "Session expired" message on the Appointments tab.
+
+    Fix: portal init IIFE parses the verify JSON and compares d.slug to SLUG.
+    If mismatch → clear token, show login (not dashboard).
+
+    This test verifies that the portal HTML contains the slug-mismatch guard code.
+    """
+
+    def test_portal_html_contains_slug_mismatch_guard(self, client):
+        """REG-007: Portal JS must contain d.slug !== SLUG guard in verify callback."""
+        global _ctr; _ctr += 1
+        r = client.post("/api/signup", json={
+            "practice_name": f"Slug Guard Clinic {_ctr}",
+            "contact_email": f"sg{_ctr}@test.com",
+            "password":      "SlugGuard123!",
+            "specialty":     "Family Medicine",
+            "plan":          "starter",
+        })
+        assert r.status_code == 200
+        slug = r.json()["slug"]
+
+        r = client.get(f"/c/{slug}")
+        assert r.status_code == 200
+        # The portal JS must guard against cross-clinic token reuse
+        assert "d.slug !== SLUG" in r.text, (
+            "REG-007: Portal JS missing cross-clinic token guard (d.slug !== SLUG). "
+            "Without this, a token from a different clinic passes /verify and shows "
+            "the dashboard, but /appointments returns 403 → 'Session expired'."
+        )
+
+    def test_verify_returns_slug_in_response(self, client):
+        """REG-007: /verify must return slug in JSON so the portal can compare it."""
+        global _ctr; _ctr += 1
+        r = client.post("/api/signup", json={
+            "practice_name": f"Verify Slug Clinic {_ctr}",
+            "contact_email": f"vs{_ctr}@test.com",
+            "password":      "VerifySlug123!",
+            "specialty":     "Pediatrics",
+            "plan":          "starter",
+        })
+        assert r.status_code == 200
+        token = r.json()["token"]
+        slug  = r.json()["slug"]
+
+        vr = client.get("/api/clinic-auth/verify", headers={"X-Clinic-Token": token})
+        assert vr.status_code == 200
+        d = vr.json()
+        assert "slug" in d, f"/verify response missing 'slug' field: {list(d.keys())}"
+        assert d["slug"] == slug, f"/verify returned slug={d['slug']!r}, expected {slug!r}"
