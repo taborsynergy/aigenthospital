@@ -9,7 +9,7 @@ python -m pytest backend/tests --collect-only -q
 
 | Track | Location | Count | Runner |
 |---|---|---:|---|
-| **Core suite** (unit/integration/security) | `backend/tests/` | **376** (374 pass + 2 skip*) | `pytest` |
+| **Core suite** (unit/integration/security) | `backend/tests/` | **412** (410 pass + 2 skip*) | `pytest` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
 | Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
 
@@ -55,6 +55,7 @@ Run the core suite: `python -m pytest backend/tests -q`
 | test_phase2_setup.py | 22 | Appointment Types CRUD, Clinic Holidays CRUD, Notification Preferences, system prompt injection | P2 |
 | test_portal_render.py | 12 | Portal page GET /c/{slug}: 200 status, all UI landmarks, CSS injection, 404 on missing slug, UTF-8, JS escape guards (toggleDayRow, deleteProvider, deleteAptType) | REG-004/REG-006 |
 | test_login_flow.py | 13 | Signup→token, portal_url with ?token=, token verify, login correct/wrong creds (JSON errors), rate-limit JSON, E2E flow, cross-clinic token mismatch guard | REG-005/REG-007 |
+| test_clinic_setup_tab.py | 34 | Clinic Setup Tab PATCH /api/{slug}/profile: all fields save + appear in system prompt (phone→Aria prompt), cache invalidation, auth/tenant isolation, input validation (SQL injection, XSS, oversized, plan-gated agent_name) | REG-008 |
 | test_frontend_a11y.py | 4 | Static a11y guards (lang, contrast, widget aria, 911 banner) | L-1/L-2 |
 
 ---
@@ -84,6 +85,9 @@ Test IDs from the QA gap analysis and where they live:
 - **REG-007** (Appointments "Session expired": `/verify` accepts any valid token (no slug check), so stale token from clinic-A stored under key for clinic-B passes verify → `showDash()` runs → `/appointments` enforces slug match → 403 → "Session expired") → `test_login_flow.py::TestCrossClinicTokenMismatch`
   - **REG-007a** Portal HTML must contain `d.slug !== SLUG` guard in verify callback → `test_portal_html_contains_slug_mismatch_guard`
   - **REG-007b** `/verify` must return `slug` in JSON response → `test_verify_returns_slug_in_response`
+- **REG-008** (Aria shows wrong phone number: `PATCH /api/{slug}/profile` updated the DB but never called `invalidate_prompt()` → cached system prompt kept old phone → Aria told patients the clinic's old/personal number instead of the clinic office number set in Setup tab) → `test_clinic_setup_tab.py`
+  - **REG-008a** Phone update must bust prompt cache → `test_phone_update_invalidates_prompt_cache`
+  - **REG-008b–z** All 33 additional setup tab tests (field persistence, auth, tenant isolation, input validation)
 - **GAP2-API-PAGE** (pagination limit/offset/status/sort) → `test_pagination.py`
 - **GAP2-BVA-PAGE** (boundary extremes: 0/huge/neg/garbage params) → `test_pagination.py`
 - **GAP2-DB-AUDIT** (audit trail on create/activate/plan-change/purge/deactivate) → `test_audit_migrate.py`
@@ -151,6 +155,7 @@ python -m pytest backend/tests --collect-only -q | grep ::
 | REG-004 — Portal render regression (GET /c/{slug} must return 200) | 1 | +9 | 360 |
 | REG-005 — Login flow regression (signup→token, login JSON errors, rate-limit JSON) | 1 | +11 | 371 |
 | REG-006 — Portal JS SyntaxError (Python f-string `\'` → `''` adjacent string literals) | 3 | +3 | 374 |
-| REG-007 — Appointments "Session expired": cross-clinic token not rejected by `/verify`; portal init IIFE now compares d.slug vs SLUG | 2 | +2 | **376** |
+| REG-007 — Appointments "Session expired": cross-clinic token not rejected by `/verify`; portal init IIFE now compares d.slug vs SLUG | 2 | +2 | 376 |
+| REG-008 — Aria uses wrong phone: `update_profile` didn't call `invalidate_prompt()`; clinic Setup tab fields not reflected in Aria's answers | 34 | +34 | **412** |
 | Wave D — Security (SEC-CSRF + SEC-LOGMON + SEC-MFA) | 3 | pending | — |
 | Wave E — A11y/Real-device (A11Y-KEYB + XBR-REAL) | 2 | pending | — |

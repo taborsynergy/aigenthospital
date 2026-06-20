@@ -392,6 +392,10 @@ async def update_profile(
     )
     logger.info("Clinic profile updated: slug=%s fields=%s", clinic_slug, list(updates.keys()))
 
+    # Bust the cached system prompt so Aria picks up the new values immediately
+    from backend.agent.aria import invalidate_prompt
+    invalidate_prompt(clinic.id)
+
     return {"ok": True, "updated_fields": list(updates.keys())}
 
 
