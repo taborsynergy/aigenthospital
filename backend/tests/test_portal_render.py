@@ -153,3 +153,34 @@ class TestPortalPageRender:
         )
         # The hours-grid onchange handler must be present
         assert "toggleDayRow" in r.text, "toggleDayRow function reference missing from portal JS"
+
+    def test_portal_js_no_adjacent_string_literals_in_delete_provider(self, client, portal_clinic):
+        """REG-006b: deleteProvider onclick must not have '' + _xe(p.name) + '' (adjacent JS strings).
+
+        Same root cause as REG-006: line 1428 had \\' which Python collapsed to ',
+        producing ,'' + _xe(p.name) + '' — the '' immediately after the comma string
+        is an adjacent literal with no operator → 'Unexpected string' SyntaxError.
+        """
+        r = client.get(f"/c/{portal_clinic.slug}")
+        assert r.status_code == 200
+        assert ",''+_xe(p.name)+''" not in r.text and "'' + _xe(p.name) + ''" not in r.text, (
+            "REG-006b: portal JS contains adjacent string literals around _xe(p.name) "
+            "in deleteProvider onclick — Python f-string \\' escape collapsed. "
+            "Fix: use \\\\' in Python source on line 1428."
+        )
+        assert "deleteProvider" in r.text, "deleteProvider function reference missing from portal JS"
+
+    def test_portal_js_no_adjacent_string_literals_in_delete_apt_type(self, client, portal_clinic):
+        """REG-006c: deleteAptType onclick must not have '' + _xe(t.name) + '' (adjacent JS strings).
+
+        Same root cause as REG-006: line 1569 had \\' which Python collapsed to ',
+        producing ,'' + _xe(t.name) + '' — adjacent string literals → SyntaxError.
+        """
+        r = client.get(f"/c/{portal_clinic.slug}")
+        assert r.status_code == 200
+        assert ",''+_xe(t.name)+''" not in r.text and "'' + _xe(t.name) + ''" not in r.text, (
+            "REG-006c: portal JS contains adjacent string literals around _xe(t.name) "
+            "in deleteAptType onclick — Python f-string \\' escape collapsed. "
+            "Fix: use \\\\' in Python source on line 1569."
+        )
+        assert "deleteAptType" in r.text, "deleteAptType function reference missing from portal JS"
