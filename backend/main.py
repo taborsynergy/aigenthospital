@@ -10,7 +10,6 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
@@ -211,7 +210,18 @@ class SecurityHeadersMiddleware:
 
 
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+async def _json_rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Return JSON 429 so the portal login form can display the error to the user."""
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=429,
+        content={"error": f"Too many attempts. Please wait and try again. ({exc.detail})"},
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, _json_rate_limit_handler)
 
 
 async def _db_unavailable_handler(request, exc):
@@ -2337,6 +2347,7 @@ function doLogin(e) {{
     if (!res.ok) {{
       var msg = (res.data && (res.data.error || res.data.detail)) || "Login failed. Please try again.";
       err.textContent = msg; err.classList.add("show");
+      err.scrollIntoView({{ behavior: "smooth", block: "nearest" }});
       return;
     }}
     localStorage.setItem(TKEY, res.data.token);
@@ -2367,6 +2378,15 @@ function doLogout() {{
 }}
 
 (function() {{
+  // Check URL ?token= first (set by signup redirect / password-reset link)
+  var urlParams = new URLSearchParams(window.location.search);
+  var urlToken  = urlParams.get("token");
+  if (urlToken) {{
+    localStorage.setItem(TKEY, urlToken);
+    // Clean URL so token doesn't persist in browser history
+    history.replaceState(null, "", window.location.pathname);
+  }}
+
   var token = localStorage.getItem(TKEY);
   if (!token) return;
   fetch("/api/clinic-auth/verify", {{ headers: {{ "X-Clinic-Token": token }} }})

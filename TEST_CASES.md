@@ -9,7 +9,7 @@ python -m pytest backend/tests --collect-only -q
 
 | Track | Location | Count | Runner |
 |---|---|---:|---|
-| **Core suite** (unit/integration/security) | `backend/tests/` | **360** (358 pass + 2 skip*) | `pytest` |
+| **Core suite** (unit/integration/security) | `backend/tests/` | **371** (369 pass + 2 skip*) | `pytest` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
 | Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
 
@@ -54,6 +54,7 @@ Run the core suite: `python -m pytest backend/tests -q`
 | test_unsubscribe.py | 5 | CAN-SPAM recall unsubscribe (signed token) | — |
 | test_phase2_setup.py | 22 | Appointment Types CRUD, Clinic Holidays CRUD, Notification Preferences, system prompt injection | P2 |
 | test_portal_render.py | 9 | Portal page GET /c/{slug}: 200 status, all UI landmarks, CSS injection, 404 on missing slug, UTF-8 | REG-004 |
+| test_login_flow.py | 11 | Signup→token, portal_url with ?token=, token verify, login correct/wrong creds (JSON errors), rate-limit JSON, E2E flow | REG-005 |
 | test_frontend_a11y.py | 4 | Static a11y guards (lang, contrast, widget aria, 911 banner) | L-1/L-2 |
 
 ---
@@ -75,6 +76,7 @@ Test IDs from the QA gap analysis and where they live:
 - **REG-002** (portal appointments not showing after Aria books: is_active NULL + r.ok unchecked) → `test_appointments.py::TestAppointmentPortalVisibility`
 - **REG-003** (Aria date reasoning error: "July 1st already passed" on June 20) → `test_chat.py::TestDateAwarenessRegression`
 - **REG-004** (Portal page 500: unescaped `{`/`}` in f-string CSS → NameError at render time) → `test_portal_render.py::TestPortalPageRender`
+- **REG-005** (Login "nothing happening": signup returned no token; rate-limit 429 returned plain-text not JSON) → `test_login_flow.py`
 - **GAP2-API-PAGE** (pagination limit/offset/status/sort) → `test_pagination.py`
 - **GAP2-BVA-PAGE** (boundary extremes: 0/huge/neg/garbage params) → `test_pagination.py`
 - **GAP2-DB-AUDIT** (audit trail on create/activate/plan-change/purge/deactivate) → `test_audit_migrate.py`
@@ -139,6 +141,7 @@ python -m pytest backend/tests --collect-only -q | grep ::
 | REG-002 — Portal appointments visibility (is_active fix + r.ok check) | 1 | +4 | 326 |
 | REG-003 — Aria date reasoning (today's date injected into system prompt) | 1 | +3 | 329 |
 | Phase 2 — Appointment Types + Holidays + Notification Prefs | 3 | +22 | 351 |
-| REG-004 — Portal render regression (GET /c/{slug} must return 200) | 1 | +9 | **360** |
+| REG-004 — Portal render regression (GET /c/{slug} must return 200) | 1 | +9 | 360 |
+| REG-005 — Login flow regression (signup→token, login JSON errors, rate-limit JSON) | 1 | +11 | **371** |
 | Wave D — Security (SEC-CSRF + SEC-LOGMON + SEC-MFA) | 3 | pending | — |
 | Wave E — A11y/Real-device (A11Y-KEYB + XBR-REAL) | 2 | pending | — |

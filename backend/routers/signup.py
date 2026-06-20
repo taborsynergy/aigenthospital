@@ -58,7 +58,7 @@ def signup(body: SignupRequest, background_tasks: BackgroundTasks, db: Session =
 
     trial_ends_at = datetime.utcnow() + timedelta(days=14)
 
-    crud.create_clinic(db, {
+    clinic = crud.create_clinic(db, {
         "slug":                   slug,
         "name":                   body.practice_name,
         "specialty":              body.specialty,
@@ -73,7 +73,12 @@ def signup(body: SignupRequest, background_tasks: BackgroundTasks, db: Session =
         "is_active":              True,
     })
 
+    # Generate session token so the landing page can auto-login the user on redirect
+    token = uuid.uuid4().hex
+    crud.set_session_token(db, clinic.id, token)
+
     chat_url = f"{settings.base_url}/c/{slug}"
+    portal_url = f"{chat_url}?token={token}"
     logger.info("Trial signup: slug=%s plan=%s email=%s", slug, plan_key, body.contact_email)
 
     background_tasks.add_task(send_trial_signup_email, {
@@ -91,6 +96,8 @@ def signup(body: SignupRequest, background_tasks: BackgroundTasks, db: Session =
     return {
         "slug":          slug,
         "chat_url":      chat_url,
+        "portal_url":    portal_url,
+        "token":         token,
         "plan":          plan_key,
         "monthly_rate":  rate,
         "trial_ends_at": trial_ends_at.strftime("%B %d, %Y"),
