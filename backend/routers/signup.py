@@ -163,61 +163,6 @@ def request_demo(body: DemoRequest, background_tasks: BackgroundTasks):
     }
 
 
-# ── Email diagnostic (temporary — remove after confirming email works) ────────
-
-@router.get("/api/test-demo-email")
-def test_demo_email():
-    """
-    Sends a test demo-request email synchronously and returns the result + error.
-    Use this to diagnose SendGrid/SMTP issues. Remove once email is confirmed working.
-    """
-    import httpx as _httpx
-    from backend.services.email_svc import _email_from, settings as _s
-
-    test_data = {
-        "full_name":      "Test Lead",
-        "email":          "test@example.com",
-        "phone":          "+1 555-000-1234",
-        "practice_name":  "Diagnostic Test Clinic",
-        "specialty":      "Family Medicine",
-        "num_providers":  "1",
-        "preferred_slot": "Morning — 9:00 AM to 11:00 AM (ET)",
-        "message":        "This is a diagnostic test — not a real lead.",
-    }
-
-    diag = {
-        "sendgrid_key_set": bool(_s.sendgrid_api_key),
-        "sendgrid_key_prefix": _s.sendgrid_api_key[:10] + "…" if _s.sendgrid_api_key else None,
-        "smtp_host": _s.smtp_host,
-        "smtp_user": _s.smtp_user,
-        "smtp_port": _s.smtp_port,
-        "email_from_resolved": _email_from(),
-        "notify_email": _s.notify_email,
-    }
-
-    if _s.sendgrid_api_key:
-        payload = {
-            "personalizations": [{"to": [{"email": "write2dinakar10@gmail.com"}]}],
-            "from": {"email": _email_from(), "name": "Tabor Synergy Diagnostic"},
-            "subject": "[DIAGNOSTIC] Demo email test",
-            "content": [{"type": "text/plain", "value": "This is a diagnostic test email from /api/test-demo-email"}],
-        }
-        try:
-            r = _httpx.post(
-                "https://api.sendgrid.com/v3/mail/send",
-                headers={"Authorization": f"Bearer {_s.sendgrid_api_key}",
-                         "Content-Type": "application/json"},
-                json=payload, timeout=15,
-            )
-            diag["sendgrid_http_status"] = r.status_code
-            diag["sendgrid_response"] = r.text[:500] if r.text else "(empty)"
-            diag["sendgrid_success"] = r.status_code in (200, 201, 202)
-        except Exception as exc:
-            diag["sendgrid_error"] = str(exc)
-
-    return diag
-
-
 @router.get("/api/plans")
 def get_all_plans():
     """Get all available plans with features and coming_soon items."""
