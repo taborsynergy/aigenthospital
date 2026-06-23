@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # When set, all LLM calls route through OpenRouter instead of Anthropic directly.
     # Model name must use OpenRouter format, e.g. "anthropic/claude-sonnet-4-5"
     openrouter_api_key: str = ""
-    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_base_url: str = "https://openrouter.ai/api/"
     openrouter_model: str = "anthropic/claude-sonnet-4-5"
 
     # ── Database ─────────────────────────────────────────────────────
