@@ -2,10 +2,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # ── Anthropic ────────────────────────────────────────────────────
+    # ── LLM — Anthropic direct or OpenRouter proxy ───────────────────
     anthropic_api_key: str = "dummy-api-key"
     model: str = "claude-sonnet-4-6"
     max_tokens: int = 1024
+    # When set, all LLM calls route through OpenRouter instead of Anthropic directly.
+    # Model name must use OpenRouter format, e.g. "anthropic/claude-sonnet-4-5"
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "anthropic/claude-sonnet-4-5"
 
     # ── Database ─────────────────────────────────────────────────────
     database_url: str = "sqlite:///./tabor_agent.db"

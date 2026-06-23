@@ -23,7 +23,6 @@ from backend.agent.tools import TOOLS, dispatch_tool
 logger = logging.getLogger(__name__)
 
 MOCK_MODE     = os.getenv("MOCK_MODE", "0") == "1"
-FALLBACK_MODEL = "claude-3-5-sonnet-20241022"
 
 # On Windows, use OS certificate store (handles corporate SSL inspection)
 _timeout = httpx.Timeout(60.0, connect=10.0)
@@ -34,9 +33,27 @@ if platform.system() == "Windows":
 else:
     _http_client = httpx.AsyncClient(timeout=_timeout)
 
-_client = anthropic.AsyncAnthropic(
-    api_key=settings.anthropic_api_key,
-    http_client=_http_client,
+# Route through OpenRouter when OPENROUTER_API_KEY is set; otherwise hit Anthropic directly.
+if settings.openrouter_api_key:
+    _client = anthropic.AsyncAnthropic(
+        api_key=settings.openrouter_api_key,
+        base_url=settings.openrouter_base_url,
+        http_client=_http_client,
+    )
+    _ACTIVE_MODEL = settings.openrouter_model
+    logger.info("LLM backend: OpenRouter (%s)", _ACTIVE_MODEL)
+else:
+    _client = anthropic.AsyncAnthropic(
+        api_key=settings.anthropic_api_key,
+        http_client=_http_client,
+    )
+    _ACTIVE_MODEL = settings.model
+    logger.info("LLM backend: Anthropic direct (%s)", _ACTIVE_MODEL)
+
+# Fallback model when primary model is not found — use same provider
+__FALLBACK_MODEL = (
+    "anthropic/claude-3-5-sonnet" if settings.openrouter_api_key
+    else "claude-3-5-sonnet-20241022"
 )
 
 # ── In-memory LRU cache (hot sessions only) ───────────────────────────────────
@@ -143,7 +160,7 @@ async def chat(
     is_escalated  = False
     total_input   = 0
     total_output  = 0
-    model         = settings.model
+    model         = _ACTIVE_MODEL
 
     while True:
         try:
@@ -155,10 +172,10 @@ async def chat(
                 messages=history,
             )
         except (anthropic.NotFoundError, anthropic.BadRequestError) as api_err:
-            if model != FALLBACK_MODEL:
+            if model != _FALLBACK_MODEL:
                 logger.warning("Model %s failed [%s] — falling back to %s",
-                               model, type(api_err).__name__, FALLBACK_MODEL)
-                model = FALLBACK_MODEL
+                               model, type(api_err).__name__, _FALLBACK_MODEL)
+                model = _FALLBACK_MODEL
                 continue
             raise
 
@@ -233,7 +250,7 @@ async def chat_stream(
     total_input   = 0
     total_output  = 0
     full_text     = ""
-    model         = settings.model
+    model         = _ACTIVE_MODEL
 
     while True:
         try:
@@ -249,9 +266,9 @@ async def chat_stream(
                     yield ("chunk", chunk)
                 response = await stream.get_final_message()
         except (anthropic.NotFoundError, anthropic.BadRequestError):
-            if model != FALLBACK_MODEL:
-                logger.warning("Model %s failed — falling back to %s", model, FALLBACK_MODEL)
-                model = FALLBACK_MODEL
+            if model != _FALLBACK_MODEL:
+                logger.warning("Model %s failed — falling back to %s", model, _FALLBACK_MODEL)
+                model = _FALLBACK_MODEL
                 continue
             raise
 

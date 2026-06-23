@@ -565,10 +565,9 @@ async def health():
 async def health_ai():
     """Test that the Anthropic API key is valid and the model responds."""
     try:
-        from backend.agent.aria import _client
-        from backend.config import settings
+        from backend.agent.aria import _client, _ACTIVE_MODEL
         resp = await _client.messages.create(
-            model=settings.model,
+            model=_ACTIVE_MODEL,
             max_tokens=10,
             messages=[{"role": "user", "content": "ping"}],
         )
