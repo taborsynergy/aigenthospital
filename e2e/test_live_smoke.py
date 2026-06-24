@@ -1394,3 +1394,146 @@ class TestDatabase:
             if field in body and body[field] is not None:
                 assert isinstance(body[field], str), \
                     f"Field '{field}' should be str, got {type(body[field])}"
+
+
+# SMOKE-017 — EMR / EHR Integration (plan gate, config CRUD, security, sync-log)
+# All tests skip cleanly when the clinic is Starter plan (smoke clinic is Pro).
+
+class TestEMRIntegration:
+    """SMOKE-017: EHR/EMR integration endpoints — functional + security + corner cases."""
+
+    def test_smoke017a_get_ehr_config_pro_clinic(self, live_clinic):
+        """SMOKE-017-A: Pro clinic can GET /ehr-config (200, config fields present)."""
+        r = get(f"/api/{live_clinic['slug']}/ehr-config",
+                headers={"X-Clinic-Token": live_clinic["token"]})
+        assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
+        body = r.json()
+        assert "ehr_system" in body
+        assert "api_endpoint" in body
+        assert "sync_status" in body
+        assert "auto_sync" in body
+
+    def test_smoke017b_ehr_config_no_token_returns_403(self, live_clinic):
+        """SMOKE-017-B: GET /ehr-config without token returns 403."""
+        r = get(f"/api/{live_clinic['slug']}/ehr-config")
+        assert r.status_code == 403
+
+    def test_smoke017c_ehr_config_fake_token_returns_403(self, live_clinic):
+        """SMOKE-017-C: GET /ehr-config with invalid token returns 403."""
+        r = get(f"/api/{live_clinic['slug']}/ehr-config",
+                headers={"X-Clinic-Token": "fake-token-xyz-123"})
+        assert r.status_code == 403
+
+    def test_smoke017d_patch_ehr_config_saves_system(self, live_clinic):
+        """SMOKE-017-D: PATCH /ehr-config saves ehr_system and returns it."""
+        r = patch(f"/api/{live_clinic['slug']}/ehr-config",
+                  json={"ehr_system": "epic", "auto_sync": True},
+                  headers={"X-Clinic-Token": live_clinic["token"]})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["ehr_system"] == "epic"
+        assert body["auto_sync"] is True
+
+    def test_smoke017e_patch_empty_body_returns_400(self, live_clinic):
+        """SMOKE-017-E: PATCH /ehr-config with empty body returns 400."""
+        r = patch(f"/api/{live_clinic['slug']}/ehr-config",
+                  json={},
+                  headers={"X-Clinic-Token": live_clinic["token"]})
+        assert r.status_code == 400
+
+    def test_smoke017f_get_supported_systems(self, live_clinic):
+        """SMOKE-017-F: /ehr-config/systems returns expected EHR list."""
+        r = get(f"/api/{live_clinic['slug']}/ehr-config/systems",
+                headers={"X-Clinic-Token": live_clinic["token"]})
+        assert r.status_code == 200
+        systems = r.json().get("supported_systems", [])
+        assert "epic" in systems
+        assert "cerner" in systems
+        assert "athenahealth" in systems
+
+    def test_smoke017g_test_connection_unconfigured(self, live_clinic):
+        """SMOKE-017-G: Test connection on unconfigured EHR returns success=False, not 500."""
+        r = post(f"/api/{live_clinic['slug']}/ehr-config/test",
+                 headers={"X-Clinic-Token": live_clinic["token"]})
+        assert r.status_code == 200
+        body = r.json()
+        assert "success" in body
+        assert "message" in body
+        # Expect False since no real EHR is connected in smoke env
+        assert body["success"] is False
+
+    def test_smoke017h_sync_log_returns_list(self, live_clinic):
+        """SMOKE-017-H: /emr/sync-log returns 200 with entries list."""
+        r = get(f"/api/{live_clinic['slug']}/emr/sync-log",
+                headers={"X-Clinic-Token": live_clinic["token"]})
+        assert r.status_code == 200
+        body = r.json()
+        assert "entries" in body
+        assert isinstance(body["entries"], list)
+
+    def test_smoke017i_sync_log_no_token_returns_403(self, live_clinic):
+        """SMOKE-017-I: /emr/sync-log without token returns 403."""
+        r = get(f"/api/{live_clinic['slug']}/emr/sync-log")
+        assert r.status_code == 403
+
+    def test_smoke017j_patient_lookup_no_ehr_returns_not_found(self, live_clinic):
+        """SMOKE-017-J: Patient lookup with no EHR connected returns found=False."""
+        r = get(f"/api/{live_clinic['slug']}/emr/patient-lookup",
+                params={"patient_name": "John Doe", "date_of_birth": "1980-01-15"},
+                headers={"X-Clinic-Token": live_clinic["token"]})
+        assert r.status_code == 200
+        assert r.json()["found"] is False
+
+    def test_smoke017k_patient_lookup_no_token_returns_403(self, live_clinic):
+        """SMOKE-017-K: Patient lookup without token returns 403."""
+        r = get(f"/api/{live_clinic['slug']}/emr/patient-lookup",
+                params={"patient_name": "John Doe", "date_of_birth": "1980-01-15"})
+        assert r.status_code == 403
+
+    def test_smoke017l_slots_no_ehr_returns_empty_list(self, live_clinic):
+        """SMOKE-017-L: Slot fetch with no EHR returns empty list."""
+        r = get(f"/api/{live_clinic['slug']}/emr/slots",
+                params={"appointment_type": "annual physical"},
+                headers={"X-Clinic-Token": live_clinic["token"]})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["slots"] == []
+        assert body["count"] == 0
+
+    def test_smoke017m_slots_no_token_returns_403(self, live_clinic):
+        """SMOKE-017-M: Slot fetch without token returns 403."""
+        r = get(f"/api/{live_clinic['slug']}/emr/slots",
+                params={"appointment_type": "annual physical"})
+        assert r.status_code == 403
+
+    def test_smoke017n_api_key_not_in_config_response(self, live_clinic):
+        """SMOKE-017-N: GET /ehr-config never returns api_key field (secret masking)."""
+        r = get(f"/api/{live_clinic['slug']}/ehr-config",
+                headers={"X-Clinic-Token": live_clinic["token"]})
+        assert r.status_code == 200
+        assert "api_key" not in r.json()
+
+    def test_smoke017o_cross_tenant_ehr_blocked(self, live_clinic):
+        """SMOKE-017-O: Smoke clinic token cannot read a different clinic's EHR config."""
+        # Use a made-up slug — the token belongs to live_clinic, not this slug
+        r = get("/api/definitely-not-our-clinic/ehr-config",
+                headers={"X-Clinic-Token": live_clinic["token"]})
+        assert r.status_code == 403
+
+    def test_smoke017p_sql_injection_patient_name_no_500(self, live_clinic):
+        """SMOKE-017-P: SQL injection in patient_name does not cause 500."""
+        for payload in ["'; DROP TABLE emr_patients; --", "1' OR '1'='1"]:
+            r = get(f"/api/{live_clinic['slug']}/emr/patient-lookup",
+                    params={"patient_name": payload, "date_of_birth": "1990-01-01"},
+                    headers={"X-Clinic-Token": live_clinic["token"]})
+            assert r.status_code != 500, f"SQL injection caused 500: {r.text}"
+
+    def test_smoke017q_ehr_config_response_time_under_5s(self, live_clinic):
+        """SMOKE-017-Q: GET /ehr-config responds within 5s (cold Render start excluded)."""
+        import time
+        t0 = time.monotonic()
+        r = get(f"/api/{live_clinic['slug']}/ehr-config",
+                headers={"X-Clinic-Token": live_clinic["token"]})
+        elapsed = time.monotonic() - t0
+        assert r.status_code == 200
+        assert elapsed < 5.0, f"EHR config took {elapsed:.1f}s (limit: 5s)"

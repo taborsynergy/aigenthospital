@@ -573,6 +573,7 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
       <button class="tab-btn" onclick="switchTab('plan', this)" id="tab-btn-plan">💳 Plan & Billing</button>
       <button class="tab-btn" onclick="switchTab('try', this)">💬 Try Aria</button>
       <button class="tab-btn" onclick="switchTab('embed', this)">🔧 Embed on Website</button>
+      <button class="tab-btn" id="tab-btn-ehr" onclick="switchTab('ehr', this)" style="display:none;">🏥 EHR Integration</button>
       <button class="tab-btn" id="tab-btn-whitelabel" onclick="switchTab('whitelabel', this)" style="display:none;">🏷️ White Label</button>
     </div>
 
@@ -944,6 +945,76 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
 
       </div><!-- /wl-content -->
     </div><!-- /tab-whitelabel -->
+
+
+    <!-- ── TAB: EHR Integration ── -->
+    <div id="tab-ehr" class="tab-panel">
+      <div id="ehr-loading" class="share-card" style="text-align:center;padding:40px;">Loading EHR settings…</div>
+      <div id="ehr-content" style="display:none;">
+
+        <!-- Status card -->
+        <div class="share-card">
+          <h2>🏥 EHR / EMR Integration</h2>
+          <p style="color:#6B7280;font-size:13px;margin:0 0 16px;">
+            Connect Aria to your EHR so appointments are automatically synced and Aria can look up existing patients in real time.
+            Supported: <strong>Epic (FHIR R4)</strong>, Cerner, Athenahealth.
+          </p>
+          <div id="ehr-status-badge" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:99px;font-size:13px;font-weight:600;background:#F3F4F6;color:#374151;margin-bottom:0;">
+            <span id="ehr-status-dot" style="width:8px;height:8px;border-radius:50%;background:#9CA3AF;display:inline-block;"></span>
+            <span id="ehr-status-text">Not connected</span>
+          </div>
+        </div>
+
+        <!-- Configuration card -->
+        <div class="share-card">
+          <h2 style="margin-bottom:16px;">⚙️ Connection Settings</h2>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div>
+              <label class="setup-lbl">EHR System</label>
+              <select id="ehr-system" class="setup-inp">
+                <option value="">— Select your EHR —</option>
+                <option value="epic">Epic (FHIR R4)</option>
+                <option value="cerner">Cerner</option>
+                <option value="athenahealth">Athenahealth</option>
+              </select>
+            </div>
+            <div>
+              <label class="setup-lbl">FHIR API Endpoint</label>
+              <input id="ehr-endpoint" type="url" class="setup-inp" placeholder="https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4"/>
+            </div>
+            <div>
+              <label class="setup-lbl">Client ID (OAuth)</label>
+              <input id="ehr-client-id" type="text" class="setup-inp" placeholder="Your Epic/Cerner OAuth client ID"/>
+            </div>
+            <div>
+              <label class="setup-lbl">Client Secret / API Key</label>
+              <input id="ehr-api-key" type="password" class="setup-inp" placeholder="••••••••••••"/>
+            </div>
+          </div>
+          <div style="margin-top:16px;display:flex;align-items:center;gap:16px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+              <input type="checkbox" id="ehr-auto-sync" style="width:16px;height:16px;"/>
+              Auto-sync new appointments to EHR
+            </label>
+          </div>
+          <div style="margin-top:20px;display:flex;gap:12px;align-items:center;">
+            <button class="setup-save-btn" onclick="saveEhrConfig()">Save Settings</button>
+            <button onclick="testEhrConnection()" style="background:#0F172A;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-weight:600;cursor:pointer;font-size:14px;">🔌 Test Connection</button>
+            <span id="ehr-save-msg" class="setup-msg"></span>
+          </div>
+        </div>
+
+        <!-- Sync log card -->
+        <div class="share-card">
+          <h2 style="margin-bottom:4px;">📋 Recent Sync Activity</h2>
+          <p style="color:#6B7280;font-size:13px;margin:0 0 16px;">Last 10 EHR sync operations. All activity is logged for HIPAA compliance.</p>
+          <div id="ehr-sync-log" style="font-size:13px;color:#374151;">
+            <p style="color:#9CA3AF;text-align:center;padding:20px 0;">No sync activity yet.</p>
+          </div>
+        </div>
+
+      </div><!-- /ehr-content -->
+    </div><!-- /tab-ehr -->
 
 
     <!-- TAB: Clinic Setup -->
@@ -1722,6 +1793,7 @@ function switchTab(name, btn) {{
   if (name === "setup")      loadSetup();
   if (name === "plan")       loadPlan();
   if (name === "whitelabel") loadWhitelabel();
+  if (name === "ehr")        loadEhrConfig();
 }}
 
 var _allAppts = [];
@@ -2260,6 +2332,9 @@ function maybeShowWlTab(plan) {{
   if (plan === "enterprise") {{
     document.getElementById("tab-btn-whitelabel").style.display = "";
   }}
+  if (plan === "professional" || plan === "enterprise") {{
+    document.getElementById("tab-btn-ehr").style.display = "";
+  }}
 }}
 
 function filterAppts() {{
@@ -2404,6 +2479,133 @@ function doLogout() {{
     }})
     .catch(function() {{ localStorage.removeItem(TKEY); }});
 }})();
+
+var _ehrLoaded = false;
+
+function loadEhrConfig() {{
+  if (_ehrLoaded) return;
+  var token = localStorage.getItem(TKEY);
+  fetch("/api/" + SLUG + "/ehr-config", {{
+    headers: {{ "X-Clinic-Token": token || "" }}
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, status: r.status, data: d }}; }}); }})
+  .then(function(res) {{
+    document.getElementById("ehr-loading").style.display = "none";
+    if (!res.ok) {{
+      var msg = res.data.error || "EHR integration not available on your plan.";
+      document.getElementById("ehr-loading").textContent = "⚠️ " + msg;
+      document.getElementById("ehr-loading").style.display = "block";
+      return;
+    }}
+    _ehrLoaded = true;
+    var d = res.data;
+    document.getElementById("ehr-content").style.display = "block";
+    if (d.ehr_system) document.getElementById("ehr-system").value = d.ehr_system;
+    if (d.api_endpoint) document.getElementById("ehr-endpoint").value = d.api_endpoint;
+    document.getElementById("ehr-auto-sync").checked = !!d.auto_sync;
+    _updateEhrStatusBadge(d.sync_status, d.last_sync_at);
+    _loadEhrSyncLog(token);
+  }})
+  .catch(function() {{
+    document.getElementById("ehr-loading").textContent = "⚠️ Network error loading EHR settings.";
+  }});
+}}
+
+function _updateEhrStatusBadge(status, lastSyncAt) {{
+  var dot  = document.getElementById("ehr-status-dot");
+  var text = document.getElementById("ehr-status-text");
+  var badge = document.getElementById("ehr-status-badge");
+  var colors = {{
+    active:   {{ bg: "#D1FAE5", color: "#065F46", dot: "#10B981", label: "Connected" }},
+    error:    {{ bg: "#FEE2E2", color: "#991B1B", dot: "#EF4444", label: "Error" }},
+    syncing:  {{ bg: "#DBEAFE", color: "#1E40AF", dot: "#3B82F6", label: "Syncing…" }},
+    inactive: {{ bg: "#F3F4F6", color: "#374151", dot: "#9CA3AF", label: "Not connected" }},
+  }};
+  var c = colors[status] || colors.inactive;
+  badge.style.background = c.bg; badge.style.color = c.color;
+  dot.style.background   = c.dot;
+  text.textContent = c.label + (lastSyncAt ? " · Last sync " + new Date(lastSyncAt).toLocaleString() : "");
+}}
+
+function _loadEhrSyncLog(token) {{
+  fetch("/api/" + SLUG + "/emr/sync-log", {{
+    headers: {{ "X-Clinic-Token": token || "" }}
+  }})
+  .then(function(r) {{ return r.ok ? r.json() : null; }})
+  .then(function(data) {{
+    if (!data || !data.entries || !data.entries.length) return;
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+      '<thead><tr style="background:#F9FAFB;">' +
+      '<th style="padding:6px 10px;text-align:left;color:#6B7280;">Time</th>' +
+      '<th style="padding:6px 10px;text-align:left;color:#6B7280;">Operation</th>' +
+      '<th style="padding:6px 10px;text-align:left;color:#6B7280;">Status</th>' +
+      '<th style="padding:6px 10px;text-align:left;color:#6B7280;">EHR ID</th>' +
+      '</tr></thead><tbody>';
+    data.entries.forEach(function(e) {{
+      var statusColor = e.status === "success" ? "#059669" : e.status === "error" ? "#DC2626" : "#92400E";
+      html += '<tr style="border-bottom:1px solid #F3F4F6;">' +
+        '<td style="padding:6px 10px;">' + new Date(e.created_at).toLocaleString() + '</td>' +
+        '<td style="padding:6px 10px;">' + (e.operation || "") + '</td>' +
+        '<td style="padding:6px 10px;color:' + statusColor + ';font-weight:600;">' + (e.status || "") + '</td>' +
+        '<td style="padding:6px 10px;font-family:monospace;font-size:11px;">' + (e.ehr_resource_id || "—") + '</td>' +
+        '</tr>';
+    }});
+    html += '</tbody></table>';
+    document.getElementById("ehr-sync-log").innerHTML = html;
+  }})
+  .catch(function() {{}});
+}}
+
+function saveEhrConfig() {{
+  var token = localStorage.getItem(TKEY);
+  var msg   = document.getElementById("ehr-save-msg");
+  var body  = {{
+    ehr_system:   document.getElementById("ehr-system").value,
+    api_endpoint: document.getElementById("ehr-endpoint").value.trim(),
+    client_id:    document.getElementById("ehr-client-id").value.trim(),
+    api_key:      document.getElementById("ehr-api-key").value.trim(),
+    auto_sync:    document.getElementById("ehr-auto-sync").checked,
+  }};
+  // Strip empty values so PATCH only sends changed fields
+  Object.keys(body).forEach(function(k) {{ if (!body[k] && body[k] !== false) delete body[k]; }});
+  fetch("/api/" + SLUG + "/ehr-config", {{
+    method: "PATCH",
+    headers: {{ "Content-Type": "application/json", "X-Clinic-Token": token || "" }},
+    body: JSON.stringify(body),
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    if (res.ok) {{
+      msg.textContent = "✅ Saved"; msg.className = "setup-msg ok";
+      _updateEhrStatusBadge(res.data.sync_status, res.data.last_sync_at);
+      _ehrLoaded = false; // allow reload
+    }} else {{
+      msg.textContent = "⚠️ " + (res.data.error || "Save failed"); msg.className = "setup-msg err";
+    }}
+  }})
+  .catch(function() {{ msg.textContent = "⚠️ Network error"; msg.className = "setup-msg err"; }});
+}}
+
+function testEhrConnection() {{
+  var token = localStorage.getItem(TKEY);
+  var msg   = document.getElementById("ehr-save-msg");
+  msg.textContent = "Testing…"; msg.className = "setup-msg";
+  fetch("/api/" + SLUG + "/ehr-config/test", {{
+    method: "POST",
+    headers: {{ "X-Clinic-Token": token || "" }},
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    if (res.data.success) {{
+      msg.textContent = "✅ " + (res.data.message || "Connection OK"); msg.className = "setup-msg ok";
+      _updateEhrStatusBadge("active", null);
+    }} else {{
+      msg.textContent = "⚠️ " + (res.data.message || "Connection failed"); msg.className = "setup-msg err";
+      _updateEhrStatusBadge("error", null);
+    }}
+  }})
+  .catch(function() {{ msg.textContent = "⚠️ Network error"; msg.className = "setup-msg err"; }});
+}}
 </script>
 </body>
 </html>""")

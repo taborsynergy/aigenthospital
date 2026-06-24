@@ -113,6 +113,92 @@ def test_ehr_config(
         return {"success": False, "message": message}
 
 
+@router.get("/{clinic_slug}/emr/sync-log")
+def get_emr_sync_log(
+    clinic_slug: str,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Return last 20 EMR sync log entries for this clinic."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    if not can_use_ehr_integration(clinic):
+        return JSONResponse(status_code=403, content={"error": "EHR integration not available on your plan."})
+    from backend.db.models import EMRSyncLog
+    rows = (
+        db.query(EMRSyncLog)
+        .filter(EMRSyncLog.clinic_id == clinic.id)
+        .order_by(EMRSyncLog.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    entries = [
+        {
+            "id": r.id,
+            "operation": r.operation,
+            "direction": r.direction,
+            "status": r.status,
+            "ehr_system": r.ehr_system,
+            "ehr_resource_id": r.ehr_resource_id,
+            "error_message": r.error_message,
+            "http_status": r.http_status,
+            "duration_ms": r.duration_ms,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]
+    return {"entries": entries}
+
+
+@router.get("/{clinic_slug}/emr/patient-lookup")
+def emr_patient_lookup(
+    clinic_slug: str,
+    patient_name: str,
+    date_of_birth: str,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Look up a patient in the EHR by name + DOB."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    if not can_use_ehr_integration(clinic):
+        return JSONResponse(status_code=403, content={"error": "EHR integration not available on your plan."})
+    from backend.services.ehr_svc import lookup_patient
+    patient = lookup_patient(clinic.id, patient_name, date_of_birth, db)
+    if patient:
+        return {"found": True, "patient": patient}
+    return {"found": False}
+
+
+@router.get("/{clinic_slug}/emr/slots")
+def emr_get_slots(
+    clinic_slug: str,
+    appointment_type: str,
+    date_start: str = "",
+    date_end: str = "",
+    provider_name: str = "",
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Get available slots from EHR."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    if not can_use_ehr_integration(clinic):
+        return JSONResponse(status_code=403, content={"error": "EHR integration not available on your plan."})
+    from datetime import date, timedelta
+    from backend.services.ehr_svc import get_available_slots
+    if not date_start:
+        date_start = (date.today() + timedelta(days=1)).isoformat()
+    if not date_end:
+        date_end = (date.fromisoformat(date_start) + timedelta(days=7)).isoformat()
+    slots = get_available_slots(clinic.id, appointment_type, date_start, date_end,
+                                provider_name or None, db)
+    return {"slots": slots, "count": len(slots)}
+
+
 @router.get("/{clinic_slug}/ehr-config/systems")
 def get_supported_systems(
     clinic_slug: str,
