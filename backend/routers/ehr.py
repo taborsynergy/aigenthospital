@@ -103,7 +103,7 @@ def test_ehr_config(
         })
 
     config = get_or_create_ehr_configuration(db, clinic.id)
-    success, message = test_ehr_connection(config)
+    success, message = test_ehr_connection(config, clinic_id=clinic.id)
 
     if success:
         logger.info("EHR test passed: clinic=%s system=%s", clinic_slug, config.ehr_system)

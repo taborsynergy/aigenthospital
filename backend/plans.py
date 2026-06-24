@@ -32,6 +32,7 @@ PLANS = {
         "max_providers":       5,         # Growth: 2-5 doctors
         "monthly_reports":     True,
         "custom_insurance":    True,
+        "ehr_integration":     True,      # EHR/EMR sync — Pro + Enterprise
         "support":             "Priority email support",
         "color":               "#1E40AF",
         "coming_soon":         [],

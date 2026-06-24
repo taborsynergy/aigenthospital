@@ -240,6 +240,62 @@ TOOLS: list[dict] = [
         },
     },
     {
+        "name": "lookup_patient_in_ehr",
+        "description": (
+            "Look up an existing patient in the clinic's EHR system by name and date of birth. "
+            "Use this when a returning patient contacts the clinic and you need to confirm they are on file, "
+            "retrieve their contact info, or pre-populate an intake form. "
+            "Only call after the patient has provided their name and date of birth. "
+            "Requires the clinic to have an EHR integration configured (Pro/Enterprise plans)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "patient_name": {
+                    "type": "string",
+                    "description": "Full name of the patient as they provided it.",
+                },
+                "date_of_birth": {
+                    "type": "string",
+                    "description": "Patient date of birth in YYYY-MM-DD format.",
+                },
+            },
+            "required": ["patient_name", "date_of_birth"],
+        },
+    },
+    {
+        "name": "get_available_slots_from_ehr",
+        "description": (
+            "Fetch real-time open appointment slots directly from the clinic's EHR system. "
+            "Use this instead of check_appointment_availability when the clinic has an EHR "
+            "integration configured — it returns live slots from Epic/Cerner/Athenahealth "
+            "rather than the local mock schedule. "
+            "Requires Pro or Enterprise plan with EHR connected."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "appointment_type": {
+                    "type": "string",
+                    "description": "Type of visit the patient needs (e.g. 'annual physical', 'follow-up', 'new patient').",
+                },
+                "date_start": {
+                    "type": "string",
+                    "description": "Earliest date to search for slots, YYYY-MM-DD. Defaults to tomorrow.",
+                },
+                "date_end": {
+                    "type": "string",
+                    "description": "Latest date to search, YYYY-MM-DD. Defaults to 7 days from date_start.",
+                },
+                "provider_name": {
+                    "type": "string",
+                    "description": "Filter by specific provider name, or omit for any available provider.",
+                },
+            },
+            "required": ["appointment_type"],
+        },
+    },
+    {
         "name": "get_clinic_analytics",
         "description": (
             "Get real-time analytics and reports for the clinic. "
@@ -364,6 +420,56 @@ async def dispatch_tool(
                 preferred_provider=inputs.get("preferred_provider"),
                 earliest_available=inputs.get("earliest_available"),
             )
+        case "lookup_patient_in_ehr":
+            from backend.plans import can_use_ehr_integration
+            if not can_use_ehr_integration(clinic):
+                return {
+                    "error": "EHR integration is available on Professional and Enterprise plans only.",
+                    "found": False,
+                }
+            from backend.services.ehr_svc import lookup_patient
+            patient = lookup_patient(
+                clinic_id=clinic.id,
+                patient_name=inputs["patient_name"],
+                date_of_birth=inputs["date_of_birth"],
+                db=db,
+            )
+            if patient:
+                return {"found": True, "patient": patient}
+            return {
+                "found": False,
+                "message": f"No patient record found for {inputs['patient_name']} (DOB {inputs['date_of_birth']}) in the EHR.",
+            }
+
+        case "get_available_slots_from_ehr":
+            from backend.plans import can_use_ehr_integration
+            if not can_use_ehr_integration(clinic):
+                return {
+                    "error": "EHR integration is available on Professional and Enterprise plans only.",
+                    "slots": [],
+                }
+            from datetime import date, timedelta
+            from backend.services.ehr_svc import get_available_slots
+            tomorrow = (date.today() + timedelta(days=1)).isoformat()
+            date_start = inputs.get("date_start") or tomorrow
+            date_end   = inputs.get("date_end") or (
+                date.fromisoformat(date_start) + timedelta(days=7)
+            ).isoformat()
+            slots = get_available_slots(
+                clinic_id=clinic.id,
+                appointment_type=inputs["appointment_type"],
+                date_start=date_start,
+                date_end=date_end,
+                provider_name=inputs.get("provider_name"),
+                db=db,
+            )
+            if slots:
+                return {"slots": slots, "count": len(slots)}
+            return {
+                "slots": [],
+                "message": "No open slots found in the EHR for the requested date range. Try a wider range or check back later.",
+            }
+
         case "escalate_to_human":
             _notify_escalation(inputs, clinic)
             return {

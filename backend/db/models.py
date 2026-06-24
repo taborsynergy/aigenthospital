@@ -516,3 +516,89 @@ class ClinicHoliday(Base):
     date       = Column(String,   nullable=False)   # ISO: "2026-07-04"
     reason     = Column(String,   default="")       # "Independence Day"
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ── EMR / EHR Phase 1 tables ─────────────────────────────────────────────────
+
+class EMRPatient(Base):
+    """
+    Local cache of patient records pulled from the clinic's EHR.
+    TTL = 24 h; stale rows are re-fetched on next lookup.
+    Stores the minimum data Aria needs — never full chart (HIPAA minimum necessary).
+    """
+    __tablename__ = "emr_patients"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    ehr_patient_id  = Column(String,   nullable=False)           # FHIR Patient.id from the EHR
+    ehr_system      = Column(String,   nullable=False)           # "epic" | "cerner" | "athenahealth"
+    # Demographic cache
+    full_name       = Column(String,   default="")
+    date_of_birth   = Column(String,   default="")               # ISO YYYY-MM-DD
+    gender          = Column(String,   default="")
+    phone           = Column(String,   default="")
+    email           = Column(String,   default="")
+    # Last appointment info (pre-populated from EHR)
+    last_visit_date = Column(String,   default="")               # ISO YYYY-MM-DD
+    last_visit_type = Column(String,   default="")
+    primary_provider= Column(String,   default="")
+    # Cache management
+    fetched_at      = Column(DateTime, default=datetime.utcnow)  # when this row was last synced
+    expires_at      = Column(DateTime, nullable=True)            # fetched_at + 24 h
+    created_at      = Column(DateTime, default=datetime.utcnow)
+
+Index("ix_emr_patients_clinic_ehr", EMRPatient.clinic_id, EMRPatient.ehr_patient_id, unique=True)
+Index("ix_emr_patients_clinic_name", EMRPatient.clinic_id, EMRPatient.full_name)
+
+
+class EMRSyncLog(Base):
+    """
+    Immutable audit trail for every EHR sync operation.
+    Required for HIPAA: records what PHI was accessed, by whom, when.
+    """
+    __tablename__ = "emr_sync_log"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    ehr_system      = Column(String,   nullable=False)
+    operation       = Column(String,   nullable=False)           # "patient_lookup" | "appt_sync" | "slot_fetch" | "connection_test"
+    direction       = Column(String,   default="outbound")       # "outbound" (push) | "inbound" (pull)
+    status          = Column(String,   default="success")        # "success" | "error" | "skipped"
+    # References
+    appointment_id  = Column(Integer,  ForeignKey("appointments.id", ondelete="SET NULL"), nullable=True)
+    ehr_resource_id = Column(String,   default="")               # EHR-side ID returned (FHIR id)
+    # Error detail (only populated on status="error")
+    error_code      = Column(String,   default="")
+    error_message   = Column(Text,     default="")
+    # Token counts for rate-limit tracking
+    http_status     = Column(Integer,  default=0)
+    duration_ms     = Column(Integer,  default=0)                # round-trip time
+    created_at      = Column(DateTime, default=datetime.utcnow, index=True)
+
+Index("ix_emr_sync_log_clinic_created", EMRSyncLog.clinic_id, EMRSyncLog.created_at)
+
+
+class EMRAppointment(Base):
+    """
+    EHR-side appointment records fetched for live slot availability queries.
+    Caches the provider's schedule from the EHR so Aria can show real open slots.
+    TTL = 15 min (slots change frequently).
+    """
+    __tablename__ = "emr_appointments"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    ehr_system      = Column(String,   nullable=False)
+    ehr_slot_id     = Column(String,   nullable=False)           # FHIR Slot.id or Schedule.id
+    provider_name   = Column(String,   default="")
+    slot_datetime   = Column(DateTime, nullable=True)            # structured for range queries
+    slot_date_str   = Column(String,   default="")               # "2026-06-24" — display
+    slot_time_str   = Column(String,   default="")               # "10:00 AM" — display
+    duration_minutes= Column(Integer,  default=30)
+    appointment_type= Column(String,   default="")               # FHIR serviceType
+    status          = Column(String,   default="free")           # "free" | "busy" | "entered-in-error"
+    fetched_at      = Column(DateTime, default=datetime.utcnow)
+    expires_at      = Column(DateTime, nullable=True)            # fetched_at + 15 min
+
+Index("ix_emr_appointments_clinic_dt", EMRAppointment.clinic_id, EMRAppointment.slot_datetime)
+Index("ix_emr_appointments_clinic_ehr", EMRAppointment.clinic_id, EMRAppointment.ehr_slot_id, unique=True)

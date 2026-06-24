@@ -9,7 +9,8 @@ python -m pytest backend/tests --collect-only -q
 
 | Track | Location | Count | Runner |
 |---|---|---:|---|
-| **Core suite** (unit/integration/security) | `backend/tests/` | **550** (548 pass + 2 skip*) | `pytest` |
+| **Core suite** (unit/integration/security) | `backend/tests/` | **621** (619 pass + 2 skip*) | `pytest` |
+| **Live smoke tests** (positive + negative + corner + security + perf + DB) | `e2e/test_live_smoke.py` | **121** (36 positive + 48 negative/corner + 15 security + 11 perf + 15 DB) | `pytest` + `httpx` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
 | Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
 
@@ -60,6 +61,8 @@ Run the core suite: `python -m pytest backend/tests -q`
 | test_landing_cta.py | 21 | Landing page CTA wiring: demo buttons open dedicated demo-request modal (not signup/quote), white-label entry points open quote form, pricing plan buttons, signup/quote/demo modal presence | REG-009 |
 | test_landing_links.py | 83 | Landing page link integrity: section anchors, nav/footer hrefs, announcement bar, specialty tabs (6 IDs × 2), all 4 modals + close buttons, 10 JS functions defined, mailto correctness, bare-# onclick guard, external resource https, onclick→function coverage, 17 form element IDs | LNK-001..012 |
 | test_demo_request.py | 29 | Demo request feature: POST /api/demo-request happy path + validation, send_demo_request_email (SendGrid recipient, reply-to, subject, unconfigured graceful, HTML slot), frontend modal presence + form wiring + button wiring | DMO-001..004 |
+| test_e2e_journeys.py | 71 | End-to-end journeys: Doctor onboarding (signup→login→portal), clinic setup (profile/providers/apt-types), patient chat+booking, information queries (insurance/hours/location/cancellation), appointment management (confirm/complete/cancel/isolation), safety (911/988/crisis), visitor/lead (demo/trial/quote), complete 10-step flow, multi-patient concurrent booking, plan gating | E2E-001..010 |
+| test_live_smoke.py | 121 | Live smoke tests against https://aifrontdesk.taborsynergy.com — positive journeys (SMOKE-001..007, 36 tests) + negative validation (SMOKE-008..011, 27 tests) + corner/boundary (SMOKE-012..013, 21 tests) + security (SMOKE-014, 15 tests) + performance/SLA (SMOKE-015, 11 tests) + DB persistence/CRUD/isolation (SMOKE-016, 15 tests) | SMOKE-001..016 |
 
 ---
 
@@ -129,6 +132,72 @@ Test IDs from the QA gap analysis and where they live:
   - **LNK-010** Google Fonts preconnect, PayPal logo https, no insecure http:// links
   - **LNK-011** Every onclick function call resolves to a defined function (no dangling references)
   - **LNK-012** All 17 form element IDs referenced in JS exist in HTML
+- **E2E-001** (Doctor full onboarding: signup → portal URL → login → token → access) → `test_e2e_journeys.py::TestDoctorOnboardingJourney` (7 tests)
+  - E2E-001a Signup creates clinic with slug, portal_url, chat_url, trial_ends_at
+  - E2E-001b portal_url contains ?token= for auto-login
+  - E2E-001c GET /c/{slug} returns 200 after signup
+  - E2E-001d Login with correct credentials returns JWT
+  - E2E-001e Wrong password returns 401
+  - E2E-001f Token grants access to /appointments
+  - E2E-001g No token returns 403
+- **E2E-002** (Doctor clinic setup: profile, providers, appointment types, config) → `test_e2e_journeys.py::TestDoctorClinicSetupJourney` (7 tests)
+  - E2E-002a Doctor updates phone, address, insurance, office_hours, cancellation_policy
+  - E2E-002b Updated fields persist in subsequent GET /profile
+  - E2E-002c Doctor adds provider — appears in GET /providers list
+  - E2E-002d Doctor adds 3 appointment types — all appear in GET /appointment-types
+  - E2E-002e Fresh clinic has empty appointment list
+  - E2E-002f Professional plan clinic can set custom agent name
+  - E2E-002g GET /config returns clinic_name for widget branding
+- **E2E-003** (Patient books via Aria chat) → `test_e2e_journeys.py::TestPatientBookingJourney` (7 tests)
+  - E2E-003a Patient sends first message — Aria replies
+  - E2E-003b "I need an appointment" triggers booking flow
+  - E2E-003c Two messages in same session — both get replies (context maintained)
+  - E2E-003d Appointment created appears in doctor's portal list
+  - E2E-003e Every appointment has a unique confirmation number
+  - E2E-003f Three patients' appointments all appear in list
+  - E2E-003g New appointment status defaults to "scheduled"
+- **E2E-004** (Patient information queries) → `test_e2e_journeys.py::TestPatientInformationQueries` (18 tests)
+  - E2E-004a Insurance queries (3 variants) — Aria always replies
+  - E2E-004b Hours queries (3 variants) — Aria always replies
+  - E2E-004c Location queries (3 variants) — Aria always replies
+  - E2E-004d Cancellation policy queries (3 variants) — Aria always replies
+  - E2E-004e "What can you help me with?" — Aria replies
+  - E2E-004f Chat always returns JSON not HTML
+- **E2E-005** (Doctor manages appointments) → `test_e2e_journeys.py::TestDoctorManagesAppointments` (8 tests)
+  - E2E-005a Doctor sees appointment list
+  - E2E-005b Appointment has patient_name, type, datetime, status, confirmation_number
+  - E2E-005c Doctor confirms an appointment (PATCH → 200)
+  - E2E-005d Confirmed status persists in subsequent GET
+  - E2E-005e Doctor marks appointment completed
+  - E2E-005f Doctor cancels an appointment
+  - E2E-005g Doctor cannot PATCH another clinic's appointment (403/404)
+  - E2E-005h Appointment list is clinic-isolated (no cross-tenant leakage)
+- **E2E-006** (Safety scenarios) → `test_e2e_journeys.py::TestSafetyScenarios` (11 tests)
+  - E2E-006a Medical emergencies (5 messages) — Aria always replies, never crashes
+  - E2E-006b Mental health crisis (3 messages) — Aria always replies
+  - E2E-006c Child swallowed pills — Aria replies
+  - E2E-006d Very long input (200× repeat) — never returns 500
+  - E2E-006e Empty message — 200/400/422 (not crash)
+- **E2E-007** (Visitor/lead journey) → `test_e2e_journeys.py::TestVisitorLeadJourney` (7 tests)
+  - E2E-007a GET / returns landing page (200, text/html)
+  - E2E-007b Landing page has "Book a Demo" and "Start Free Trial" CTAs
+  - E2E-007c Demo form POST → 200 ok
+  - E2E-007d Demo form missing required field → 400/422
+  - E2E-007e Trial signup POST → clinic with slug + chat_url
+  - E2E-007f White-label quote POST → 200 ok
+  - E2E-007g GET /api/plans returns all plan tiers
+- **E2E-008** (Complete 10-step journey: signup → setup → patient books → doctor confirms) → `test_e2e_journeys.py::TestCompleteEndToEndJourney` (1 test, 10 assertions)
+- **E2E-009** (Multi-patient concurrent booking) → `test_e2e_journeys.py::TestMultiPatientJourney` (4 tests)
+  - E2E-009a Two patients get different confirmation numbers
+  - E2E-009b Both patients appear in doctor portal
+  - E2E-009c Two patients chat on same clinic with independent sessions
+  - E2E-009d Doctor updates each patient's status independently
+- **E2E-010** (Plan gating) → `test_e2e_journeys.py::TestPlanGatingJourney` (5 tests)
+  - E2E-010a Starter clinic patients can chat
+  - E2E-010b Professional clinic patients can chat
+  - E2E-010c Expired trial clinic portal still renders
+  - E2E-010d Non-existent clinic slug returns 404
+  - E2E-010e Visitor can sign up for the free starter plan
 - **GAP2-API-PAGE** (pagination limit/offset/status/sort) → `test_pagination.py`
 - **GAP2-BVA-PAGE** (boundary extremes: 0/huge/neg/garbage params) → `test_pagination.py`
 - **GAP2-DB-AUDIT** (audit trail on create/activate/plan-change/purge/deactivate) → `test_audit_migrate.py`
