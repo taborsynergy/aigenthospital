@@ -901,6 +901,13 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
             </button>
           </div>
           <div id="wl-domain-instructions" style="display:none;margin-top:14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:12px;font-size:13px;line-height:1.6;"></div>
+          <div style="margin-top:12px;display:flex;align-items:center;gap:12px;">
+            <button onclick="verifyWlDomain()"
+              style="background:#1E40AF;color:#fff;padding:9px 18px;border-radius:8px;font-weight:600;border:none;cursor:pointer;font-size:13px;">
+              🔍 Verify DNS
+            </button>
+            <span id="wl-verify-msg" style="font-size:13px;"></span>
+          </div>
           <span id="wl-domain-msg" style="display:block;margin-top:8px;font-size:13px;"></span>
         </div>
 
@@ -2264,18 +2271,52 @@ function setWlDomain() {{
   .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
   .then(function(res) {{
     if (res.ok) {{
-      msg.textContent = "✅ Domain saved. DNS verification pending."; msg.style.color = "#059669";
+      msg.textContent = "✅ Domain saved."; msg.style.color = "#059669";
       var instrEl = document.getElementById("wl-domain-instructions");
       instrEl.style.display = "block";
-      instrEl.innerHTML = "<strong>DNS Setup Required:</strong><br>" + res.data.verification_instructions;
+      var dns = res.data.dns_instructions || {{}};
+      instrEl.innerHTML = (
+        "<strong>DNS Setup Required:</strong><br>" +
+        "1. " + (dns.step1 || "") + "<br>" +
+        "2. " + (dns.step2 || "") + "<br>" +
+        "&nbsp;&nbsp;&nbsp;<strong>CNAME Name:</strong> " + (dns.cname_name || domain) + "<br>" +
+        "&nbsp;&nbsp;&nbsp;<strong>CNAME Target:</strong> " + (dns.cname_target || "taborsynergy-agent.onrender.com") + "<br>" +
+        "3. " + (dns.step3 || "Click Verify DNS once done.")
+      );
       document.getElementById("wl-domain-current").style.display = "block";
       document.getElementById("wl-current-domain").textContent = res.data.custom_domain;
-      _wlLoaded = false; // Force refresh next time
+      _wlLoaded = false;
     }} else {{
       msg.textContent = "⚠️ " + (res.data.error || "Failed."); msg.style.color = "#DC2626";
     }}
   }})
   .catch(function() {{ msg.textContent = "⚠️ Network error."; msg.style.color = "#DC2626"; }});
+}}
+
+function verifyWlDomain() {{
+  var token = localStorage.getItem(TKEY);
+  var vmsg = document.getElementById("wl-verify-msg");
+  vmsg.textContent = "Checking DNS…"; vmsg.style.color = "#6B7280";
+  fetch("/api/" + SLUG + "/whitelabel/verify-domain", {{
+    method: "POST",
+    headers: {{ "X-Clinic-Token": token || "" }}
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    var d = res.data;
+    if (d.verified) {{
+      vmsg.textContent = "✅ " + d.message; vmsg.style.color = "#059669";
+      var badge = document.getElementById("wl-domain-verified-badge");
+      if (badge) {{
+        badge.textContent = "✅ Verified";
+        badge.style.background = "#D1FAE5"; badge.style.color = "#065F46";
+      }}
+      _wlLoaded = false;
+    }} else {{
+      vmsg.textContent = "⏳ " + (d.message || d.error || "Not verified yet."); vmsg.style.color = "#92400E";
+    }}
+  }})
+  .catch(function() {{ vmsg.textContent = "⚠️ Network error."; vmsg.style.color = "#DC2626"; }});
 }}
 
 function enableReseller() {{

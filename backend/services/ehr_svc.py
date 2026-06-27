@@ -957,6 +957,33 @@ def _fetch_patient_athenahealth(
     }
 
 
+def _fetch_athena_provider_name(base: str, headers: dict, provider_id: str) -> str:
+    """
+    Resolve a numeric Athenahealth providerid to a human-readable name.
+    Endpoint: GET /v1/{practiceid}/providers/{providerid}
+    Cached in module-level dict to avoid N+1 lookups per slot.
+    """
+    if not provider_id:
+        return ""
+    cache_key = f"athena_prov_{provider_id}"
+    if cache_key in _TOKEN_CACHE:
+        return _TOKEN_CACHE[cache_key].get("name", "")
+    try:
+        r = httpx.get(f"{base}/providers/{provider_id}",
+                      headers=headers, timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        body = r.json()
+        providers = body.get("providers", [body] if isinstance(body, dict) else [])
+        if providers:
+            p = providers[0]
+            name = f"Dr. {p.get('firstname', '')} {p.get('lastname', '')}".strip()
+            _TOKEN_CACHE[cache_key] = {"name": name, "expires_at": float("inf")}
+            return name
+    except Exception:
+        pass
+    return f"Provider #{provider_id}"
+
+
 def _fetch_slots_athenahealth(
     config: EHRConfiguration,
     clinic_id: int,
@@ -966,72 +993,131 @@ def _fetch_slots_athenahealth(
     provider_name: Optional[str],
 ) -> list[dict]:
     """
-    Fetch open appointment slots from Athenahealth.
-    Endpoint: GET /v1/{practiceid}/appointments/open
-    Returns slots in Athenahealth's own format; normalized to our internal dict.
+    Fetch open appointment slots from Athenahealth with:
+    - Appointment type ID resolution
+    - Provider name lookup (providerid → display name)
+    - Pagination (follows Athena's offset/limit pattern, fetches up to 150 slots)
+    - Robust date parsing (MM/DD/YYYY, YYYY-MM-DD, ISO 8601)
     """
     token = _get_athena_token(config, clinic_id)
     if not token:
         return []
 
-    base   = config.api_endpoint.rstrip("/")
-    params: dict = {
-        "startdate":         date_start,
-        "enddate":           date_end,
-        "appointmenttypeid": resolve_appointment_type_id(appointment_type, "athenahealth"),
-        "limit":             "50",
-    }
-    if provider_name:
-        params["providerid"] = provider_name
+    base    = config.api_endpoint.rstrip("/")
+    headers = _athena_headers(token)
 
-    try:
-        r = httpx.get(
-            f"{base}/appointments/open",
-            params=params,
-            headers=_athena_headers(token),
-            timeout=_HTTP_TIMEOUT,
-        )
-        r.raise_for_status()
-        body = r.json()
-    except Exception as exc:
-        logger.error("Athenahealth slot fetch failed: %s", exc)
-        return []
+    # Resolve provider ID if a name filter was passed
+    provider_id = ""
+    if provider_name and provider_name.isdigit():
+        provider_id = provider_name
+    elif provider_name:
+        # Try to find provider by name via /providers search
+        try:
+            pr = httpx.get(f"{base}/providers",
+                           params={"searchterm": provider_name, "limit": "5"},
+                           headers=headers, timeout=_HTTP_TIMEOUT)
+            if pr.ok:
+                plist = pr.json().get("providers", [])
+                if plist:
+                    provider_id = str(plist[0].get("providerid", ""))
+        except Exception:
+            pass
 
-    raw_slots = body.get("appointments", body if isinstance(body, list) else [])
-    slots: list[dict] = []
-    for s in raw_slots:
-        slot = _parse_athena_slot(s, appointment_type)
-        if slot:
-            slots.append(slot)
-    return slots
+    appt_type_id = resolve_appointment_type_id(appointment_type, "athenahealth")
+
+    # Paginate — Athena returns up to 50 per page
+    all_slots: list[dict] = []
+    offset = 0
+    limit  = 50
+    max_pages = 3  # cap at 150 slots
+
+    for _ in range(max_pages):
+        params: dict = {
+            "startdate":         date_start,
+            "enddate":           date_end,
+            "appointmenttypeid": appt_type_id,
+            "limit":             str(limit),
+            "offset":            str(offset),
+        }
+        if provider_id:
+            params["providerid"] = provider_id
+
+        try:
+            r = httpx.get(f"{base}/appointments/open",
+                          params=params, headers=headers, timeout=_HTTP_TIMEOUT)
+            r.raise_for_status()
+            body = r.json()
+        except Exception as exc:
+            logger.error("Athenahealth slot fetch failed (offset=%d): %s", offset, exc)
+            break
+
+        raw_slots = body.get("appointments", body if isinstance(body, list) else [])
+        if not raw_slots:
+            break
+
+        for s in raw_slots:
+            slot = _parse_athena_slot(s, appointment_type, base, headers)
+            if slot:
+                all_slots.append(slot)
+
+        # Stop paginating if we got fewer than a full page
+        if len(raw_slots) < limit:
+            break
+        offset += limit
+
+    return all_slots
 
 
-def _parse_athena_slot(raw: dict, appointment_type: str) -> Optional[dict]:
-    """Normalize an Athenahealth appointment slot to our internal dict format."""
+def _parse_athena_slot(raw: dict, appointment_type: str,
+                       base: str = "", headers: dict = None) -> Optional[dict]:
+    """
+    Normalize an Athenahealth appointment slot to our internal dict format.
+    Handles multiple Athena date formats:
+      MM/DD/YYYY, YYYY-MM-DD, ISO 8601 (with/without timezone)
+    Resolves provider ID to display name when base URL is provided.
+    """
     date_str = raw.get("date", "")
-    time_str = raw.get("starttime", "")    # "10:00" 24h or "10:00 AM"
+    time_str = raw.get("starttime", "")
     if not date_str:
         return None
 
-    # Athena date format: MM/DD/YYYY
-    try:
-        from datetime import datetime as _dt
-        if "/" in date_str:
-            dt = _dt.strptime(f"{date_str} {time_str}", "%m/%d/%Y %H:%M")
-        else:
-            dt = _dt.fromisoformat(f"{date_str}T{time_str or '00:00'}")
-    except ValueError:
-        return None
+    # Parse date — handle multiple Athena date formats
+    from datetime import datetime as _dt
+    dt = None
+    formats = [
+        ("%m/%d/%Y %H:%M",    f"{date_str} {time_str}"),
+        ("%m/%d/%Y %I:%M %p", f"{date_str} {time_str}"),
+        ("%Y-%m-%d %H:%M",    f"{date_str} {time_str or '00:00'}"),
+        ("%Y-%m-%d",          date_str),
+    ]
+    for fmt, val in formats:
+        try:
+            dt = _dt.strptime(val.strip(), fmt)
+            break
+        except ValueError:
+            continue
+    if dt is None:
+        try:
+            dt = _dt.fromisoformat(date_str.replace("Z", "+00:00")).replace(tzinfo=None)
+        except ValueError:
+            return None
+
+    # Resolve providerid → display name if base URL available
+    raw_provider = str(raw.get("providerid", ""))
+    if base and headers and raw_provider:
+        display_name = _fetch_athena_provider_name(base, headers, raw_provider)
+    else:
+        display_name = raw_provider
 
     return {
-        "ehr_slot_id":       str(raw.get("appointmentid", raw.get("slotid", ""))),
+        "ehr_slot_id":       str(raw.get("appointmentid", raw.get("slotid", raw_provider + dt.isoformat()))),
         "ehr_system":        "athenahealth",
-        "provider_name":     str(raw.get("providerid", "")),
+        "provider_name":     display_name,
         "slot_datetime":     dt,
         "slot_date_str":     dt.strftime("%Y-%m-%d"),
         "slot_time_str":     dt.strftime("%I:%M %p").lstrip("0"),
-        "duration_minutes":  int(raw.get("duration", 30)),
-        "appointment_type":  appointment_type,
+        "duration_minutes":  int(raw.get("duration", raw.get("appointmentduration", 30))),
+        "appointment_type":  raw.get("appointmenttype", appointment_type),
         "status":            "free",
     }
 

@@ -1,9 +1,13 @@
 """White label configuration router — Enterprise feature for custom branding, domains, and reselling."""
 import re
+import socket
+import logging
 from datetime import datetime
 from fastapi import APIRouter, Depends, Header
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from backend.db.database import get_db
 from backend.db.crud import (
@@ -164,18 +168,102 @@ def set_custom_domain(
         config = create_whitelabel_config(db, clinic.id, {})
 
     config.custom_domain = domain
-    config.domain_verified = False  # Requires DNS verification (manual for now)
+    config.domain_verified = False
     db.commit()
     db.refresh(config)
+
+    # Render deployment hostname — custom domain should CNAME to this
+    render_host = "taborsynergy-agent.onrender.com"
 
     return {
         "custom_domain": config.custom_domain,
         "domain_verified": config.domain_verified,
-        "verification_instructions": (
-            f"Add CNAME record: clinic-{clinic.id}.yourdomain.com -> "
-            f"app.aigenthospital.com (DNS propagation can take up to 24 hours)"
-        ),
+        "dns_instructions": {
+            "step1": f"Log in to your domain registrar (GoDaddy, Namecheap, Cloudflare, etc.)",
+            "step2": f"Create a CNAME record:",
+            "cname_name":  domain,
+            "cname_target": render_host,
+            "step3": "Click 'Verify DNS' below after saving. DNS propagation can take up to 24 hours.",
+        },
     }
+
+
+@router.post("/{clinic_slug}/whitelabel/verify-domain")
+def verify_custom_domain(
+    clinic_slug: str,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """
+    Verify that the clinic's custom domain CNAME points to the Render deployment.
+    Performs a live DNS lookup — call this after the clinic has updated their DNS.
+    """
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    if not can_use_custom_domain(clinic):
+        return JSONResponse(status_code=403, content={
+            "error": "Custom domain not available on your plan."
+        })
+
+    config = get_whitelabel_config(db, clinic.id)
+    if not config or not config.custom_domain:
+        return JSONResponse(status_code=400, content={
+            "error": "No custom domain configured. Set a domain first."
+        })
+
+    domain = config.custom_domain
+    render_host = "taborsynergy-agent.onrender.com"
+
+    try:
+        # Resolve the custom domain's CNAME / A records
+        resolved_ips = set()
+        render_ips   = set()
+
+        try:
+            for res in socket.getaddrinfo(domain, None):
+                resolved_ips.add(res[4][0])
+        except socket.gaierror as e:
+            return {
+                "verified": False,
+                "domain":   domain,
+                "error":    f"DNS lookup failed: {e}. The domain may not exist or DNS has not propagated yet.",
+                "hint":     f"Ensure CNAME record for '{domain}' points to '{render_host}'.",
+            }
+
+        try:
+            for res in socket.getaddrinfo(render_host, None):
+                render_ips.add(res[4][0])
+        except socket.gaierror:
+            render_ips = set()
+
+        # Check if the IPs overlap (domain resolves to same host as Render)
+        overlap = resolved_ips & render_ips
+        verified = bool(overlap)
+
+        if verified:
+            config.domain_verified = True
+            db.commit()
+            logger.info("Custom domain verified: clinic=%s domain=%s", clinic_slug, domain)
+
+        return {
+            "verified":      verified,
+            "domain":        domain,
+            "resolved_to":   sorted(resolved_ips)[:3],
+            "expected_host": render_host,
+            "message": (
+                f"Domain '{domain}' is correctly pointed to Tabor Synergy."
+                if verified else
+                f"Domain '{domain}' does not yet resolve to '{render_host}'. "
+                f"Check your CNAME record and allow up to 24 hours for DNS propagation."
+            ),
+        }
+
+    except Exception as exc:
+        logger.error("Domain verification error clinic=%s: %s", clinic_slug, exc)
+        return {"verified": False, "domain": domain,
+                "error": f"Verification failed: {exc}"}
 
 
 @router.get("/{clinic_slug}/whitelabel/reseller")

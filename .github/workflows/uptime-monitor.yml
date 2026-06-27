@@ -1,0 +1,54 @@
+name: Uptime Monitor
+
+# Ping the production health endpoint every 5 minutes.
+# GitHub Actions will email the repo owner on workflow failure.
+# Set NOTIFY_EMAIL in repo secrets for Slack/email alert (optional).
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # every 5 minutes
+  workflow_dispatch:          # allow manual trigger
+
+jobs:
+  health-check:
+    name: Ping /api/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Health check — aifrontdesk.taborsynergy.com
+        run: |
+          echo "Checking https://aifrontdesk.taborsynergy.com/api/health ..."
+          RESPONSE=$(curl -sf --max-time 30 \
+            -w "\nHTTP_STATUS:%{http_code}\nRESPONSE_TIME:%{time_total}" \
+            https://aifrontdesk.taborsynergy.com/api/health)
+          echo "$RESPONSE"
+          HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
+          RESPONSE_TIME=$(echo "$RESPONSE" | grep "RESPONSE_TIME" | cut -d: -f2)
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Health check FAILED — HTTP $HTTP_STATUS"
+            exit 1
+          fi
+          echo "Health check PASSED — HTTP $HTTP_STATUS in ${RESPONSE_TIME}s"
+
+      - name: Verify response body contains status ok
+        run: |
+          BODY=$(curl -sf --max-time 30 \
+            https://aifrontdesk.taborsynergy.com/api/health)
+          echo "Response: $BODY"
+          if ! echo "$BODY" | grep -q '"ok"'; then
+            echo "::error::Health check body missing 'ok' — service may be degraded"
+            exit 1
+          fi
+
+      - name: Check cold-start SLA (< 60s)
+        run: |
+          START=$(date +%s%N)
+          curl -sf --max-time 60 \
+            https://aifrontdesk.taborsynergy.com/api/health > /dev/null
+          END=$(date +%s%N)
+          ELAPSED_MS=$(( (END - START) / 1000000 ))
+          echo "Response time: ${ELAPSED_MS}ms"
+          if [ $ELAPSED_MS -gt 60000 ]; then
+            echo "::warning::Response time ${ELAPSED_MS}ms exceeds 60s cold-start SLA"
+          fi
