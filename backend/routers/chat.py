@@ -556,9 +556,8 @@ async def clinic_plan(
     }
 
 
-@router.get("/api/health")
-async def health():
-    return {"status": "ok", "service": "Tabor Synergy Agent"}
+# /api/health is now handled by backend/main.py with DB check + circuit statuses.
+# This stub is intentionally removed — do not add a shallow health check here.
 
 
 @router.get("/api/health/ai")

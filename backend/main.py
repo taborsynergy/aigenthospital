@@ -17,6 +17,7 @@ from backend.config import settings
 from backend.db.database import get_db, init_db
 from backend.db.crud import get_clinic
 from backend.limiter import limiter
+from backend.middleware import CorrelationIDMiddleware, all_circuit_breaker_statuses
 
 # ── Sentry (initialize before anything else) ─────────────────────────────────
 if settings.sentry_dsn and settings.sentry_dsn.startswith("https://"):
@@ -42,9 +43,9 @@ if settings.sentry_dsn and settings.sentry_dsn.startswith("https://"):
             # Scrub sensitive fields before sending to Sentry
             before_send=lambda event, hint: _scrub_sentry_event(event),
         )
-        print("✓ Sentry initialized — error tracking active")
+        logging.getLogger("backend.main").info("Sentry initialized — error tracking active")
     except Exception as e:
-        print(f"Warning: Sentry init failed: {e} — continuing without error tracking")
+        logging.getLogger("backend.main").warning("Sentry init failed: %s — continuing without error tracking", e)
 
 
 def _scrub_sentry_event(event: dict) -> dict:
@@ -188,6 +189,7 @@ class SecurityHeadersMiddleware:
                     (b"x-xss-protection",         b"1; mode=block"),
                     (b"strict-transport-security",b"max-age=63072000; includeSubDomains"),
                     (b"referrer-policy",          b"strict-origin-when-cross-origin"),
+                    (b"permissions-policy",        b"camera=(), microphone=(), geolocation=(), payment=()"),
                     (b"content-security-policy",  (
                         b"default-src 'self'; "
                         b"script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
@@ -243,6 +245,7 @@ app.add_exception_handler(_SADBAPIError, _db_unavailable_handler)
 
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(CorrelationIDMiddleware)
 
 origins = ["*"] if settings.allowed_origins == "*" else settings.allowed_origins.split(",")
 app.add_middleware(
@@ -276,9 +279,56 @@ app.include_router(holidays_router)
 
 # ── Health check endpoint (for Render uptime monitoring) ───────────────────────
 @app.get("/api/health")
-async def health_check():
-    """Health check endpoint for uptime monitoring and deployment verification."""
-    return {"status": "ok", "service": "taborsynergy-agent"}
+async def health_check(db: Session = Depends(get_db)):
+    """
+    Liveness + basic readiness check.
+    - Returns 200 if the process is alive and the DB is reachable.
+    - Returns 503 if DB is down (so Render/load-balancer removes the instance).
+    """
+    import time as _time
+    from sqlalchemy import text as _text
+    db_ok   = False
+    db_ms   = 0
+    t0      = _time.monotonic()
+    try:
+        db.execute(_text("SELECT 1"))
+        db_ok = True
+        db_ms = int((_time.monotonic() - t0) * 1000)
+    except Exception as db_err:
+        logging.getLogger("backend.main").error("Health check DB failure: %s", db_err)
+
+    circuit_statuses = all_circuit_breaker_statuses()
+    payload = {
+        "status":   "ok" if db_ok else "degraded",
+        "service":  "taborsynergy-agent",
+        "db":       {"ok": db_ok, "latency_ms": db_ms},
+        "circuits": circuit_statuses,
+    }
+    status_code = 200 if db_ok else 503
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content=payload, status_code=status_code)
+
+
+@app.get("/api/health/live")
+async def liveness():
+    """Kubernetes/Render liveness — returns 200 as long as the process is running."""
+    return {"status": "alive"}
+
+
+@app.get("/api/health/ready")
+async def readiness(db: Session = Depends(get_db)):
+    """
+    Readiness — returns 200 only when all dependencies are reachable.
+    Use this as the load-balancer health check target.
+    """
+    from sqlalchemy import text as _text
+    try:
+        db.execute(_text("SELECT 1"))
+        return {"status": "ready"}
+    except Exception as exc:
+        logging.getLogger("backend.main").error("Readiness check failed: %s", exc)
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"status": "not_ready", "reason": "database"}, status_code=503)
 
 # ── Clinic widget pages ───────────────────────────────────────────────────────
 @app.get("/c/{clinic_slug}", response_class=HTMLResponse)

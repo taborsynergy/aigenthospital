@@ -1,20 +1,17 @@
 """
-EHR integration service — Phase 2.
+EHR integration service — Phase 2 + production hardening.
 
-Supports Epic (FHIR R4), Cerner (FHIR R4), and Athenahealth (REST API).
-Phase 2 adds: real Cerner + Athenahealth adapters + intake pre-population.
+Supports Epic (FHIR R4), Cerner (FHIR R4), Athenahealth (REST API), eClinicalWorks.
 
-Key design decisions:
-- All HTTP calls are synchronous (httpx.Client) so this module can be imported
-  from both sync and async contexts without event-loop conflicts.
-- We use a short-lived OAuth2 client_credentials token per request; tokens are
-  cached in a module-level dict keyed by clinic_id with a 55-minute TTL (Epic
-  tokens expire after 60 min).
-- HIPAA minimum-necessary: we only fetch name, DOB, gender, phone, email and
-  most-recent encounter date — never full chart notes.
+Production additions (Phase 2+):
+- Circuit breaker per EHR system — prevents cascade failures when an EHR is down
+- Thread-safe token cache with RLock — safe under multi-threaded Gunicorn workers
+- Athena sandbox auto-detection + retry wrapper with exponential-aware back-off
+- HIPAA: never log patient names / DOB / PHI at ERROR/WARNING level
 """
 import logging
 import time
+import threading
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -23,49 +20,71 @@ from sqlalchemy.orm import Session
 
 from backend.db.models import Appointment, EHRConfiguration, EMRPatient, EMRSyncLog, EMRAppointment
 from backend.db.crud import get_ehr_configuration, update_ehr_configuration
+from backend.middleware import get_circuit_breaker, CircuitOpenError
 
 logger = logging.getLogger(__name__)
 
 _HTTP_TIMEOUT = httpx.Timeout(15.0, connect=5.0)
 
 # ── OAuth token cache ─────────────────────────────────────────────────────────
-# {clinic_id: {"token": str, "expires_at": float (unix ts)}}
+# Thread-safe: Gunicorn threaded workers can call this concurrently.
+# RLock (re-entrant) so a thread can acquire while already holding the lock.
 _TOKEN_CACHE: dict[int, dict] = {}
+_TOKEN_CACHE_LOCK = threading.RLock()
 _TOKEN_TTL_SECONDS = 55 * 60  # refresh 5 min before Epic's 60-min expiry
+
+
+def _cache_get(key) -> Optional[dict]:
+    with _TOKEN_CACHE_LOCK:
+        entry = _TOKEN_CACHE.get(key)
+        if entry and entry.get("expires_at", 0) > time.time():
+            return entry
+        return None
+
+
+def _cache_set(key, value: dict) -> None:
+    with _TOKEN_CACHE_LOCK:
+        _TOKEN_CACHE[key] = value
 
 
 def _get_epic_token(config: EHRConfiguration, clinic_id: int) -> Optional[str]:
     """
     Fetch (or return cached) an Epic SMART backend-services OAuth2 token.
-    Uses client_credentials grant with client_id + api_key (treated as client_secret).
+    Thread-safe. Circuit-broken per clinic to prevent hammering a down EHR.
     """
-    cached = _TOKEN_CACHE.get(clinic_id)
-    if cached and cached["expires_at"] > time.time():
+    cache_key = clinic_id
+    cached = _cache_get(cache_key)
+    if cached:
         return cached["token"]
+
+    cb = get_circuit_breaker(f"epic_token_{clinic_id}", failure_threshold=3, reset_timeout=120)
+    if not cb.is_available():
+        logger.warning("Epic token circuit OPEN for clinic %d — skipping EHR call", clinic_id)
+        return None
 
     token_url = config.api_endpoint.rstrip("/") + "/oauth2/token"
     try:
-        r = httpx.post(
-            token_url,
-            data={
-                "grant_type":    "client_credentials",
-                "client_id":     config.client_id,
-                "client_secret": config.api_key,
-                "scope":         "system/Patient.read system/Appointment.read system/Appointment.write system/Slot.read",
-            },
-            timeout=_HTTP_TIMEOUT,
-        )
-        r.raise_for_status()
-        body = r.json()
-        token = body["access_token"]
-        _TOKEN_CACHE[clinic_id] = {
-            "token":      token,
-            "expires_at": time.time() + _TOKEN_TTL_SECONDS,
-        }
-        logger.debug("Epic OAuth token fetched for clinic %d", clinic_id)
-        return token
+        with cb:
+            r = httpx.post(
+                token_url,
+                data={
+                    "grant_type":    "client_credentials",
+                    "client_id":     config.client_id,
+                    "client_secret": config.api_key,
+                    "scope":         "system/Patient.read system/Appointment.read system/Appointment.write system/Slot.read",
+                },
+                timeout=_HTTP_TIMEOUT,
+            )
+            r.raise_for_status()
+            body  = r.json()
+            token = body["access_token"]
+            _cache_set(cache_key, {"token": token, "expires_at": time.time() + _TOKEN_TTL_SECONDS})
+            logger.debug("Epic OAuth token fetched for clinic %d", clinic_id)
+            return token
+    except CircuitOpenError:
+        return None
     except Exception as exc:
-        logger.error("Epic OAuth token fetch failed for clinic %d: %s", clinic_id, exc)
+        logger.error("Epic OAuth token fetch failed for clinic %d: %s", clinic_id, type(exc).__name__)
         return None
 
 
@@ -212,7 +231,7 @@ def lookup_patient(
         .first()
     )
     if cached:
-        logger.debug("Patient cache hit: clinic=%d name=%s", clinic_id, patient_name)
+        logger.debug("Patient cache hit: clinic=%d", clinic_id)  # HIPAA: no name in logs
         return _emr_patient_to_dict(cached)
 
     t0 = time.monotonic()
@@ -548,11 +567,16 @@ def _fetch_slots_epic(
 # Token endpoint pattern: {base}/oauth2/token  (Cerner Ignite / Millennium R4)
 
 def _get_cerner_token(config: EHRConfiguration, clinic_id: int) -> Optional[str]:
-    """Fetch (or return cached) a Cerner SMART backend-services OAuth2 token."""
+    """Fetch (or return cached) a Cerner SMART backend-services OAuth2 token. Thread-safe."""
     cache_key = f"cerner_{clinic_id}"
-    cached = _TOKEN_CACHE.get(cache_key)
-    if cached and cached["expires_at"] > time.time():
+    cached = _cache_get(cache_key)
+    if cached:
         return cached["token"]
+
+    cb = get_circuit_breaker(f"cerner_token_{clinic_id}", failure_threshold=3, reset_timeout=120)
+    if not cb.is_available():
+        logger.warning("Cerner token circuit OPEN for clinic %d", clinic_id)
+        return None
 
     token_url = config.api_endpoint.rstrip("/") + "/oauth2/token"
     try:
@@ -572,14 +596,13 @@ def _get_cerner_token(config: EHRConfiguration, clinic_id: int) -> Optional[str]
         r.raise_for_status()
         body = r.json()
         token = body["access_token"]
-        _TOKEN_CACHE[cache_key] = {
-            "token":      token,
-            "expires_at": time.time() + _TOKEN_TTL_SECONDS,
-        }
+        _cache_set(cache_key, {"token": token, "expires_at": time.time() + _TOKEN_TTL_SECONDS})
         logger.debug("Cerner OAuth token fetched for clinic %d", clinic_id)
         return token
+    except CircuitOpenError:
+        return None
     except Exception as exc:
-        logger.error("Cerner OAuth token fetch failed for clinic %d: %s", clinic_id, exc)
+        logger.error("Cerner OAuth token fetch failed for clinic %d: %s", clinic_id, type(exc).__name__)
         return None
 
 
@@ -888,14 +911,11 @@ def _get_athena_token(config: EHRConfiguration, clinic_id: int) -> Optional[str]
         token = body["access_token"]
         ttl   = int(body.get("expires_in", _TOKEN_TTL_SECONDS))
         env   = "sandbox" if _athena_is_sandbox(config) else "production"
-        _TOKEN_CACHE[cache_key] = {
-            "token":      token,
-            "expires_at": time.time() + min(ttl - 60, _TOKEN_TTL_SECONDS),
-        }
+        _cache_set(cache_key, {"token": token, "expires_at": time.time() + min(ttl - 60, _TOKEN_TTL_SECONDS)})
         logger.debug("Athenahealth OAuth token fetched (%s) for clinic %d", env, clinic_id)
         return token
     except Exception as exc:
-        logger.error("Athenahealth OAuth token fetch failed for clinic %d: %s", clinic_id, exc)
+        logger.error("Athenahealth OAuth token fetch failed for clinic %d: %s", clinic_id, type(exc).__name__)
         return None
 
 
@@ -1026,8 +1046,9 @@ def _fetch_athena_provider_name(base: str, headers: dict, provider_id: str) -> s
     if not provider_id:
         return ""
     cache_key = f"athena_prov_{provider_id}"
-    if cache_key in _TOKEN_CACHE:
-        return _TOKEN_CACHE[cache_key].get("name", "")
+    cached = _cache_get(cache_key)
+    if cached:
+        return cached.get("name", "")
     try:
         r = httpx.get(f"{base}/providers/{provider_id}",
                       headers=headers, timeout=_HTTP_TIMEOUT)
@@ -1037,7 +1058,7 @@ def _fetch_athena_provider_name(base: str, headers: dict, provider_id: str) -> s
         if providers:
             p = providers[0]
             name = f"Dr. {p.get('firstname', '')} {p.get('lastname', '')}".strip()
-            _TOKEN_CACHE[cache_key] = {"name": name, "expires_at": float("inf")}
+            _cache_set(cache_key, {"name": name, "expires_at": float("inf")})
             return name
     except Exception:
         pass
@@ -1889,14 +1910,11 @@ def _get_ecw_token(config: EHRConfiguration, clinic_id: int) -> Optional[str]:
         body  = r.json()
         token = body["access_token"]
         ttl   = int(body.get("expires_in", _TOKEN_TTL_SECONDS))
-        _TOKEN_CACHE[cache_key] = {
-            "token":      token,
-            "expires_at": time.time() + min(ttl - 60, _TOKEN_TTL_SECONDS),
-        }
+        _cache_set(cache_key, {"token": token, "expires_at": time.time() + min(ttl - 60, _TOKEN_TTL_SECONDS)})
         logger.debug("eClinicalWorks OAuth token fetched for clinic %d", clinic_id)
         return token
     except Exception as exc:
-        logger.error("eClinicalWorks OAuth token fetch failed for clinic %d: %s", clinic_id, exc)
+        logger.error("eClinicalWorks OAuth token fetch failed for clinic %d: %s", clinic_id, type(exc).__name__)
         return None
 
 

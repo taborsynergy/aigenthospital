@@ -320,10 +320,11 @@ def book_appointment(
             "channel":              channel,
             "session_id":           session_id,
         })
-        logger.info("Appointment booked: clinic=%s conf=%s patient=%s",
-                    clinic.slug if clinic else "?", conf_num, patient_name)
+        logger.info("Appointment booked: clinic=%s conf=%s",
+                    clinic.slug if clinic else "?", conf_num)
     except Exception:
-        logger.exception("Failed to persist appointment for %s", patient_name)
+        # HIPAA: do not log patient_name at ERROR level — use conf_num only
+        logger.exception("Failed to persist appointment conf=%s", conf_num)
         return {
             "success": False,
             "error":   "Failed to save appointment. Please try again.",
@@ -515,7 +516,7 @@ def add_to_waitlist(
         })
         position = existing_waitlist + 1
     except Exception:
-        logger.exception("Failed to add %s to waitlist", patient_name)
+        logger.exception("Failed to add patient to waitlist (clinic=%s)", getattr(clinic, "slug", "?"))
         position = 1
 
     return {
