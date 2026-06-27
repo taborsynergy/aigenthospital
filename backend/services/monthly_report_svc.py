@@ -1,5 +1,5 @@
 """Monthly performance report generation for clinics."""
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -109,7 +109,7 @@ def generate_monthly_report(clinic_id: int, db: Session, year: int, month: int) 
 
     return {
         "period": month_name,
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         "appointments": {
             "total": total_appts,
             "completed": completed_appts,
@@ -144,7 +144,7 @@ def generate_monthly_report(clinic_id: int, db: Session, year: int, month: int) 
 
 def get_last_month_report(clinic_id: int, db: Session) -> dict:
     """Generate report for the previous calendar month."""
-    today = datetime.utcnow()
+    today = datetime.now(timezone.utc).replace(tzinfo=None)
     if today.month == 1:
         year, month = today.year - 1, 12
     else:

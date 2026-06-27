@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -58,7 +58,7 @@ def create_trial_clinic(db: Session, email: str, slug: str, name: str, specialty
         subscription_status="trial",
         customer_password_hash=password_hash,
         is_active=True,
-        trial_ends_at=datetime.utcnow() + timedelta(days=14),
+        trial_ends_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=14),
         subscription_ends_at=None,  # No paid subscription yet
         monthly_rate=297.0,  # Starter plan rate
     )
@@ -78,7 +78,7 @@ def get_clinic_by_token(db: Session, token: str) -> Optional[Clinic]:
     if not clinic:
         return None
     # Honour token expiry when set
-    if clinic.token_expires_at and datetime.utcnow() > clinic.token_expires_at:
+    if clinic.token_expires_at and datetime.now(timezone.utc).replace(tzinfo=None) > clinic.token_expires_at:
         clinic.session_token = ""
         clinic.token_expires_at = None
         db.commit()
@@ -91,7 +91,7 @@ def set_session_token(db: Session, clinic_id: int, token: str) -> None:
     if clinic:
         clinic.session_token = token
         clinic.token_expires_at = (
-            datetime.utcnow() + timedelta(days=_TOKEN_TTL_DAYS) if token else None
+            datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=_TOKEN_TTL_DAYS) if token else None
         )
         db.commit()
 
@@ -100,7 +100,7 @@ def record_failed_login(db: Session, clinic: Clinic) -> int:
     """Increment failure counter; lock account after threshold. Returns attempt count."""
     clinic.failed_login_attempts = (clinic.failed_login_attempts or 0) + 1
     if clinic.failed_login_attempts >= _MAX_LOGIN_FAILURES:
-        clinic.locked_until = datetime.utcnow() + timedelta(minutes=_LOCKOUT_MINUTES)
+        clinic.locked_until = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=_LOCKOUT_MINUTES)
     db.commit()
     return clinic.failed_login_attempts
 
@@ -129,7 +129,7 @@ def list_clinics_paged(db: Session, limit: int = 100, offset: int = 0,
 
 def create_clinic(db: Session, data: dict) -> Clinic:
     if "trial_ends_at" not in data:
-        data = {**data, "trial_ends_at": datetime.utcnow() + timedelta(days=14)}
+        data = {**data, "trial_ends_at": datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=14)}
     clinic = Clinic(**data)
     db.add(clinic)
     db.commit()
@@ -170,7 +170,7 @@ def activate_subscription(db: Session, slug: str, payment_reference: str = "") -
     clinic = get_clinic(db, slug)
     if not clinic:
         return None
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     # Payment reconciliation: if this exact payment reference was already applied,
     # this is a duplicate webhook/click — do not credit a second month.
     pref = (payment_reference or "").strip()
@@ -363,7 +363,7 @@ def save_chat_history(db: Session, clinic_id: int, session_id: str,
         ChatSession.session_id == session_id,
     ).first()
     serialized = json.dumps(history)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     if row:
         row.history = serialized
         row.last_active = now
@@ -388,7 +388,7 @@ def delete_chat_session(db: Session, clinic_id: int, session_id: str) -> None:
 
 def purge_old_chat_sessions(db: Session, older_than_hours: int = 48) -> int:
     """Remove sessions inactive for longer than `older_than_hours`. Returns count deleted."""
-    cutoff = datetime.utcnow() - timedelta(hours=older_than_hours)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=older_than_hours)
     count = db.query(ChatSession).filter(ChatSession.last_active < cutoff).delete()
     db.commit()
     return count
@@ -428,7 +428,7 @@ def get_usage_summary(db: Session, clinic_id: int) -> dict:
 
 def get_usage_this_month(db: Session, clinic_id: int) -> int:
     from sqlalchemy import extract
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     count = (
         db.query(func.count(func.distinct(UsageLog.session_id)))
         .filter(
@@ -443,7 +443,7 @@ def get_usage_this_month(db: Session, clinic_id: int) -> int:
 
 def get_all_monthly_sessions(db: Session) -> dict:
     from sqlalchemy import extract
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     rows = (
         db.query(
             UsageLog.clinic_id,
@@ -482,7 +482,7 @@ def get_or_create_sms_session(db: Session, clinic_id: int, patient_phone: str) -
         .first()
     )
     if conv:
-        conv.last_message_at = datetime.utcnow()
+        conv.last_message_at = datetime.now(timezone.utc).replace(tzinfo=None)
         db.commit()
         return conv.session_id
 
@@ -648,7 +648,7 @@ def find_patients_due_for_recall(db: Session, clinic_id: int,
     interval_months ago and who have an EMAIL on file (recall is email-based).
     Returns list of dicts with patient_name, patient_email, last_visit_ts.
     """
-    cutoff = datetime.utcnow() - timedelta(days=interval_months * 30)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=interval_months * 30)
 
     rows = (
         db.query(
@@ -777,7 +777,7 @@ def update_widget_config(db: Session, clinic_id: int, data: dict) -> Optional[Wi
         return None
     for k, v in data.items():
         setattr(config, k, v)
-    config.updated_at = datetime.utcnow()
+    config.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     db.refresh(config)
     return config
@@ -814,7 +814,7 @@ def update_insurance_knowledge(db: Session, clinic_id: int, data: dict) -> Insur
         return None
     for k, v in data.items():
         setattr(knowledge, k, v)
-    knowledge.updated_at = datetime.utcnow()
+    knowledge.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     db.refresh(knowledge)
     return knowledge
@@ -851,7 +851,7 @@ def update_ehr_configuration(db: Session, clinic_id: int, data: dict) -> EHRConf
         return None
     for k, v in data.items():
         setattr(config, k, v)
-    config.updated_at = datetime.utcnow()
+    config.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     db.refresh(config)
     return config
@@ -901,7 +901,7 @@ def update_custom_ai_training(db: Session, training_id: int, clinic_id: int, dat
         return None
     for k, v in data.items():
         setattr(training, k, v)
-    training.updated_at = datetime.utcnow()
+    training.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     db.refresh(training)
     return training
@@ -945,14 +945,14 @@ def is_trial_active(clinic: Clinic) -> bool:
         return False
     if not clinic.trial_ends_at:
         return False
-    return datetime.utcnow() < clinic.trial_ends_at
+    return datetime.now(timezone.utc).replace(tzinfo=None) < clinic.trial_ends_at
 
 
 def is_subscription_active(clinic: Clinic) -> bool:
     """Check if a clinic has an active paid subscription."""
     if clinic.subscription_status == "active":
         if clinic.subscription_ends_at:
-            return datetime.utcnow() < clinic.subscription_ends_at
+            return datetime.now(timezone.utc).replace(tzinfo=None) < clinic.subscription_ends_at
         return True
     return False
 
@@ -964,23 +964,23 @@ def can_access_clinic(clinic: Clinic) -> bool:
 
 def get_trials_expiring_soon(db: Session, days_until: int = 5) -> list[Clinic]:
     """Get all trial clinics expiring within N days."""
-    cutoff = datetime.utcnow() + timedelta(days=days_until)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=days_until)
     return db.query(Clinic).filter(
         Clinic.subscription_status == "trial",
         Clinic.trial_ends_at.isnot(None),
         Clinic.trial_ends_at <= cutoff,
-        Clinic.trial_ends_at > datetime.utcnow(),  # Not already expired
+        Clinic.trial_ends_at > datetime.now(timezone.utc).replace(tzinfo=None),  # Not already expired
     ).all()
 
 
 def get_active_subscriptions_ending_soon(db: Session, days_until: int = 7) -> list[Clinic]:
     """Active (paid) clinics whose subscription_ends_at is within N days."""
-    cutoff = datetime.utcnow() + timedelta(days=days_until)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=days_until)
     return db.query(Clinic).filter(
         Clinic.subscription_status == "active",
         Clinic.subscription_ends_at.isnot(None),
         Clinic.subscription_ends_at <= cutoff,
-        Clinic.subscription_ends_at > datetime.utcnow(),  # Not already lapsed
+        Clinic.subscription_ends_at > datetime.now(timezone.utc).replace(tzinfo=None),  # Not already lapsed
     ).all()
 
 
@@ -989,7 +989,7 @@ def get_expired_trials(db: Session) -> list[Clinic]:
     return db.query(Clinic).filter(
         Clinic.subscription_status == "trial",
         Clinic.trial_ends_at.isnot(None),
-        Clinic.trial_ends_at <= datetime.utcnow(),
+        Clinic.trial_ends_at <= datetime.now(timezone.utc).replace(tzinfo=None),
     ).all()
 
 
@@ -1011,7 +1011,7 @@ def convert_trial_to_paid(db: Session, clinic_id: int, plan: str = "starter") ->
 
     clinic.subscription_status = "active"
     clinic.plan = plan
-    clinic.subscription_ends_at = datetime.utcnow() + timedelta(days=30)
+    clinic.subscription_ends_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=30)
     clinic.trial_ends_at = None  # Clear trial
     clinic.renewal_reminder_day = None  # arm renewal reminders for this cycle
 
@@ -1182,7 +1182,7 @@ def mark_onboarding_completed(db: Session, session_id: int, clinic_id: int) -> O
         return None
 
     session.status = "completed"
-    session.completed_at = datetime.utcnow()
+    session.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     db.refresh(session)
     return session
@@ -1229,7 +1229,7 @@ def update_whitelabel_config(db: Session, clinic_id: int, data: dict) -> Optiona
         if hasattr(config, key) and key not in ("id", "clinic_id", "created_at"):
             setattr(config, key, val)
 
-    config.updated_at = datetime.utcnow()
+    config.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     db.refresh(config)
     return config

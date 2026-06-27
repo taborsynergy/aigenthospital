@@ -4,6 +4,7 @@ import logging.config
 import re
 from pathlib import Path
 
+from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
@@ -157,9 +158,92 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s — %(message)s",
 )
 
+@asynccontextmanager
+async def _lifespan(application: FastAPI):
+    """
+    FastAPI lifespan handler — replaces deprecated @app.on_event("startup").
+    Runs sync startup in a thread pool so it doesn't block the event loop.
+    """
+    import asyncio, logging as _log
+    _logger = _log.getLogger(__name__)
+
+    def _startup_sync():
+        try:
+            init_db()
+        except Exception:
+            _logger.exception("init_db failed — continuing anyway")
+        try:
+            from backend.db.database import migrate_db
+            migrate_db()
+        except Exception:
+            _logger.exception("migrate_db failed — continuing anyway")
+
+        if not settings.enable_scheduler:
+            _logger.info("Scheduler disabled (ENABLE_SCHEDULER=false)")
+            return
+
+        try:
+            from apscheduler.schedulers.background import BackgroundScheduler
+            from apscheduler.triggers.cron import CronTrigger
+            from backend.jobs.trial_jobs import check_trial_expiry_and_remind
+            from backend.db.database import SessionLocal
+
+            sched = BackgroundScheduler()
+
+            def _job(fn, name):
+                db = SessionLocal()
+                try:
+                    result = fn(db)
+                    _logger.info("%s completed: %s", name, result)
+                except Exception as exc:
+                    _logger.error("%s failed: %s", name, exc)
+                finally:
+                    db.close()
+
+            sched.add_job(lambda: _job(check_trial_expiry_and_remind, "trial_job"),
+                          CronTrigger(hour=1, minute=0), id="trial_expiry", replace_existing=True)
+
+            def _billing():
+                from backend.jobs.billing_jobs import check_renewals_and_remind
+                _job(check_renewals_and_remind, "renewal_job")
+
+            def _onboarding():
+                from backend.jobs.onboarding_jobs import run_onboarding_email_sequence
+                _job(run_onboarding_email_sequence, "onboarding_job")
+
+            def _reminders():
+                from backend.services.reminders_svc import send_due_reminders
+                _job(send_due_reminders, "reminders_job")
+
+            def _recall():
+                from backend.services.recall_svc import run_all_active_campaigns
+                _job(run_all_active_campaigns, "recall_job")
+
+            sched.add_job(_billing,    CronTrigger(hour=2,  minute=0), id="renewals",   replace_existing=True)
+            sched.add_job(_onboarding, CronTrigger(hour=9,  minute=0), id="onboarding", replace_existing=True)
+            sched.add_job(_reminders,  CronTrigger(minute=7),          id="reminders",  replace_existing=True)
+            sched.add_job(_recall,     CronTrigger(hour=10, minute=0), id="recall",     replace_existing=True)
+            sched.start()
+            _logger.info("Scheduler started: trial(1:00) renewal(2:00) onboarding(9:00) reminders(:07) recall(10:00) UTC")
+            application.state.scheduler = sched
+        except ImportError:
+            _logger.warning("APScheduler not installed — background jobs disabled")
+        except Exception as exc:
+            _logger.error("Scheduler start failed: %s", exc)
+
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _startup_sync)
+    yield
+    # Graceful shutdown
+    if hasattr(application.state, "scheduler"):
+        application.state.scheduler.shutdown(wait=False)
+        _logger.info("Scheduler shut down")
+
+
 app = FastAPI(
     title="Tabor Synergy — Universal Medical Front Desk Agent",
     version="2.0.0",
+    lifespan=_lifespan,
     docs_url="/docs"        if settings.debug_mode else None,
     redoc_url="/redoc"      if settings.debug_mode else None,
     openapi_url="/openapi.json" if settings.debug_mode else None,
@@ -329,6 +413,61 @@ async def readiness(db: Session = Depends(get_db)):
         logging.getLogger("backend.main").error("Readiness check failed: %s", exc)
         from fastapi.responses import JSONResponse
         return JSONResponse({"status": "not_ready", "reason": "database"}, status_code=503)
+
+@app.get("/api/metrics")
+async def metrics(db: Session = Depends(get_db)):
+    """
+    Lightweight Prometheus-style metrics for dashboards and alerting.
+    Exposes: process memory, DB pool stats, circuit breaker states, AI model info.
+    Not a replacement for Prometheus/OpenTelemetry — a quick operational snapshot.
+    Protected by the same admin password check if desired; currently open (non-sensitive data).
+    """
+    import psutil, os as _os, time as _time
+    from sqlalchemy import text as _text
+    from backend.agent.aria import _ACTIVE_MODEL
+    from backend.middleware import all_circuit_breaker_statuses
+    from backend.db.database import engine as _engine
+
+    proc  = psutil.Process(_os.getpid())
+    mem   = proc.memory_info()
+    cpu   = proc.cpu_percent(interval=0.1)
+
+    # DB pool stats (PostgreSQL only — SQLite returns zeros)
+    pool  = _engine.pool
+    pool_stats = {
+        "checked_in":  getattr(pool, "checkedin", lambda: 0)(),
+        "checked_out": getattr(pool, "checkedout", lambda: 0)(),
+        "overflow":    getattr(pool, "overflow", lambda: 0)(),
+        "size":        getattr(pool, "size", lambda: 0)(),
+    }
+
+    # DB query latency
+    t0 = _time.monotonic()
+    db_ok = True
+    try:
+        db.execute(_text("SELECT 1"))
+    except Exception:
+        db_ok = False
+    db_latency_ms = int((_time.monotonic() - t0) * 1000)
+
+    return {
+        "process": {
+            "pid":              _os.getpid(),
+            "memory_rss_mb":    round(mem.rss / 1024 / 1024, 2),
+            "memory_vms_mb":    round(mem.vms / 1024 / 1024, 2),
+            "cpu_percent":      cpu,
+        },
+        "database": {
+            "ok":               db_ok,
+            "latency_ms":       db_latency_ms,
+            "pool":             pool_stats,
+        },
+        "ai": {
+            "active_model":     _ACTIVE_MODEL,
+        },
+        "circuit_breakers":     all_circuit_breaker_statuses(),
+    }
+
 
 # ── Clinic widget pages ───────────────────────────────────────────────────────
 @app.get("/c/{clinic_slug}", response_class=HTMLResponse)
@@ -1544,7 +1683,7 @@ function _parseHours(s) {{
   }}
   s.split(",").forEach(function(seg) {{
     seg = seg.trim();
-    var m = seg.match(/^([A-Za-z]+)[ -]+([A-Za-z]+) +(\S+) *- *(\S+)$/);
+    var m = seg.match(/^([A-Za-z]+)[ -]+([A-Za-z]+) +([\\S]+) *- *([\\S]+)$/);
     if (m) {{
       var s1 = toFull(m[1]), s2 = toFull(m[2]);
       if (!s1 || !s2) return;
@@ -1553,7 +1692,7 @@ function _parseHours(s) {{
       }});
       return;
     }}
-    var m2 = seg.match(/^([A-Za-z]+) +(\S+) *- *(\S+)$/);
+    var m2 = seg.match(/^([A-Za-z]+) +([\\S]+) *- *([\\S]+)$/);
     if (m2) {{ var d = toFull(m2[1]); if (d) result[d] = {{open:true,start:toTime(m2[2]),end:toTime(m2[3])}}; }}
   }});
   return result;
@@ -3035,142 +3174,11 @@ async def patient_chat_page(clinic_slug: str, db: Session = Depends(get_db)):
 </html>""")
 
 
-# ── Startup ───────────────────────────────────────────────────────────────────
-@app.on_event("startup")
-def on_startup():
-    import logging as _log
-    _logger = _log.getLogger(__name__)
-    try:
-        init_db()
-    except Exception:
-        _logger.exception("init_db failed — continuing anyway")
-    try:
-        from backend.db.database import migrate_db
-        migrate_db()
-    except Exception:
-        _logger.exception("migrate_db failed — continuing anyway")
-
-    # Schedule background jobs (trial expiry checks, etc.)
-    if not settings.enable_scheduler:
-        _logger.info("In-app scheduler disabled (ENABLE_SCHEDULER=false) — "
-                     "relying on external cron for reminders/recall.")
-    try:
-        if not settings.enable_scheduler:
-            raise StopIteration  # skip scheduler setup cleanly
-        from apscheduler.schedulers.background import BackgroundScheduler
-        from apscheduler.triggers.cron import CronTrigger
-        from backend.jobs.trial_jobs import check_trial_expiry_and_remind
-        from backend.db.database import SessionLocal
-
-        scheduler = BackgroundScheduler()
-
-        def _trial_job_wrapper():
-            """Wrapper to create session and call job."""
-            db = SessionLocal()
-            try:
-                result = check_trial_expiry_and_remind(db)
-                _logger.info(f"Trial job completed: {result}")
-            except Exception as e:
-                _logger.error(f"Trial job failed: {e}")
-            finally:
-                db.close()
-
-        def _renewal_job_wrapper():
-            """Daily: remind active clinics 7/3/1 days before monthly renewal."""
-            from backend.jobs.billing_jobs import check_renewals_and_remind
-            db = SessionLocal()
-            try:
-                result = check_renewals_and_remind(db)
-                _logger.info(f"Renewal job completed: {result}")
-            except Exception as e:
-                _logger.error(f"Renewal job failed: {e}")
-            finally:
-                db.close()
-
-        def _onboarding_job_wrapper():
-            """Wrapper for onboarding email sequence."""
-            from backend.jobs.onboarding_jobs import run_onboarding_email_sequence
-            db = SessionLocal()
-            try:
-                result = run_onboarding_email_sequence(db)
-                _logger.info(f"Onboarding job completed: {result}")
-            except Exception as e:
-                _logger.error(f"Onboarding job failed: {e}")
-            finally:
-                db.close()
-
-        def _reminders_job_wrapper():
-            """Hourly: send due 72h/24h appointment reminder emails."""
-            from backend.services.reminders_svc import send_due_reminders
-            db = SessionLocal()
-            try:
-                result = send_due_reminders(db)
-                _logger.info(f"Reminders job completed: {result}")
-            except Exception as e:
-                _logger.error(f"Reminders job failed: {e}")
-            finally:
-                db.close()
-
-        def _recall_job_wrapper():
-            """Daily: run all active recall campaigns (email)."""
-            from backend.services.recall_svc import run_all_active_campaigns
-            db = SessionLocal()
-            try:
-                result = run_all_active_campaigns(db)
-                _logger.info(f"Recall job completed: {result}")
-            except Exception as e:
-                _logger.error(f"Recall job failed: {e}")
-            finally:
-                db.close()
-
-        # Schedule daily at 1 AM UTC
-        scheduler.add_job(
-            _trial_job_wrapper,
-            CronTrigger(hour=1, minute=0),
-            id="trial_expiry_check",
-            name="Trial Expiry Check",
-            replace_existing=True
-        )
-        # Subscription renewal reminders — daily at 2 AM UTC
-        scheduler.add_job(
-            _renewal_job_wrapper,
-            CronTrigger(hour=2, minute=0),
-            id="renewal_reminders",
-            name="Subscription Renewal Reminders",
-            replace_existing=True
-        )
-        # Schedule onboarding emails daily at 9 AM UTC
-        scheduler.add_job(
-            _onboarding_job_wrapper,
-            CronTrigger(hour=9, minute=0),
-            id="onboarding_email_sequence",
-            name="Onboarding Email Sequence",
-            replace_existing=True
-        )
-        # Appointment reminders — every hour (at :07)
-        scheduler.add_job(
-            _reminders_job_wrapper,
-            CronTrigger(minute=7),
-            id="appointment_reminders",
-            name="Appointment Reminders (email)",
-            replace_existing=True
-        )
-        # Recall campaigns — daily at 10 AM UTC
-        scheduler.add_job(
-            _recall_job_wrapper,
-            CronTrigger(hour=10, minute=0),
-            id="recall_campaigns",
-            name="Recall Campaigns (email)",
-            replace_existing=True
-        )
-        scheduler.start()
-        _logger.info("Background scheduler started: trial(1:00), renewal(2:00), onboarding(9:00), reminders(hourly :07), recall(10:00) UTC")
-    except StopIteration:
-        pass  # scheduler intentionally disabled via ENABLE_SCHEDULER=false
-    except ImportError:
-        _logger.warning("APScheduler not installed — background jobs disabled. Install with: pip install apscheduler")
-    except Exception as e:
-        _logger.error(f"Failed to start background scheduler: {e}")
+# Startup is handled by _lifespan() above.
+# Legacy on_event block removed — see git history if needed.
+if False:
+    def _removed():
+        pass  # placeholder to satisfy the linter about the comment block
 
 
 # ── Static files ──────────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ address. Every recall email carries a signed unsubscribe link
 (GET /api/unsubscribe) for CAN-SPAM compliance; opted-out patients are skipped.
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
@@ -59,7 +59,7 @@ def preview_campaign(db: Session, clinic_id: int, campaign) -> list[dict]:
     """Patients who would receive this recall — dry run, no email sent."""
     from backend.db.crud import find_patients_due_for_recall, get_recall_log, is_opted_out
     due = find_patients_due_for_recall(db, clinic_id, campaign.interval_months)
-    cutoff = datetime.utcnow() - timedelta(days=campaign.interval_months * 30)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=campaign.interval_months * 30)
     result = []
     for patient in due:
         email = patient["patient_email"]
@@ -88,7 +88,7 @@ def run_campaign(db: Session, clinic, campaign) -> dict:
         return stats
 
     due = find_patients_due_for_recall(db, clinic.id, campaign.interval_months)
-    cutoff = datetime.utcnow() - timedelta(days=campaign.interval_months * 30)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=campaign.interval_months * 30)
 
     for patient in due:
         email = patient["patient_email"]

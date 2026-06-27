@@ -5,7 +5,7 @@ clinic's LOCAL wall-clock time (that's how the booking flow parses "Monday 10am"
 Schedulers run in UTC, so any due-window math must be anchored to the clinic's
 local "now" — otherwise reminders fire hours early/late for non-UTC clinics.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     from zoneinfo import ZoneInfo
@@ -47,8 +47,8 @@ def clinic_local_now(clinic) -> datetime:
     """
     zone = iana_zone(getattr(clinic, "timezone", "") or "")
     if ZoneInfo is None:
-        return datetime.utcnow()
+        return datetime.now(timezone.utc).replace(tzinfo=None)
     try:
         return datetime.now(ZoneInfo(zone)).replace(tzinfo=None)
     except Exception:
-        return datetime.utcnow()
+        return datetime.now(timezone.utc).replace(tzinfo=None)

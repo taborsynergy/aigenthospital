@@ -5,7 +5,7 @@ No admin password required for either.
 import logging
 import re
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
@@ -56,7 +56,7 @@ def signup(body: SignupRequest, background_tasks: BackgroundTasks, db: Session =
     while crud.get_clinic(db, slug):
         slug = _make_slug(body.practice_name)
 
-    trial_ends_at = datetime.utcnow() + timedelta(days=14)
+    trial_ends_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=14)
 
     clinic = crud.create_clinic(db, {
         "slug":                   slug,

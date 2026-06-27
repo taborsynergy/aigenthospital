@@ -12,7 +12,7 @@ Production additions (Phase 2+):
 import logging
 import time
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
@@ -168,7 +168,7 @@ def sync_appointment_to_ehr(
 
         if success:
             update_ehr_configuration(db, clinic_id, {
-                "last_sync_at":  datetime.utcnow(),
+                "last_sync_at":  datetime.now(timezone.utc).replace(tzinfo=None),
                 "sync_status":   "active",
                 "error_message": "",
             })
@@ -219,7 +219,7 @@ def lookup_patient(
     system = config.ehr_system.lower()
 
     # Check local cache first
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     cached = (
         db.query(EMRPatient)
         .filter(
@@ -287,7 +287,7 @@ def get_available_slots(
         return []
 
     system = config.ehr_system.lower()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # Return cached slots if fresh
     cached_slots = (
@@ -1166,7 +1166,7 @@ def _parse_athena_slot(raw: dict, appointment_type: str,
         return None
 
     # Parse date — handle multiple Athena date formats
-    from datetime import datetime as _dt
+    from datetime import datetime as _dt, timezone
     dt = None
     formats = [
         ("%m/%d/%Y %H:%M",    f"{date_str} {time_str}"),
@@ -1268,7 +1268,7 @@ def _parse_fhir_slot(resource: dict, ehr_system: str, appointment_type: str) -> 
 # ── Cache helpers ─────────────────────────────────────────────────────────────
 
 def _upsert_emr_patient(db: Session, clinic_id: int, ehr_system: str, data: dict) -> None:
-    expires = datetime.utcnow() + timedelta(hours=24)
+    expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=24)
     existing = (
         db.query(EMRPatient)
         .filter(EMRPatient.clinic_id == clinic_id,
@@ -1279,7 +1279,7 @@ def _upsert_emr_patient(db: Session, clinic_id: int, ehr_system: str, data: dict
         for k, v in data.items():
             if hasattr(existing, k):
                 setattr(existing, k, v)
-        existing.fetched_at = datetime.utcnow()
+        existing.fetched_at = datetime.now(timezone.utc).replace(tzinfo=None)
         existing.expires_at = expires
     else:
         db.add(EMRPatient(
@@ -1296,7 +1296,7 @@ def _upsert_emr_patient(db: Session, clinic_id: int, ehr_system: str, data: dict
 
 
 def _upsert_emr_slots(db: Session, clinic_id: int, ehr_system: str, slots: list[dict]) -> None:
-    expires = datetime.utcnow() + timedelta(minutes=15)
+    expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=15)
     for slot in slots:
         ehr_slot_id = slot.get("ehr_slot_id", "")
         if not ehr_slot_id:
@@ -1309,7 +1309,7 @@ def _upsert_emr_slots(db: Session, clinic_id: int, ehr_system: str, slots: list[
         )
         if existing:
             existing.status     = slot.get("status", "free")
-            existing.fetched_at = datetime.utcnow()
+            existing.fetched_at = datetime.now(timezone.utc).replace(tzinfo=None)
             existing.expires_at = expires
         else:
             db.add(EMRAppointment(
@@ -1377,7 +1377,7 @@ def _human_to_iso(human_datetime: str) -> str:
         try:
             dt = datetime.strptime(human_datetime.strip(), fmt)
             if dt.year < 2000:
-                dt = dt.replace(year=datetime.utcnow().year)
+                dt = dt.replace(year=datetime.now(timezone.utc).replace(tzinfo=None).year)
             return dt.strftime("%Y-%m-%dT%H:%M:00")
         except ValueError:
             continue
@@ -1453,7 +1453,7 @@ def fetch_patient_chart(
     Caches result for 1 hour (HIPAA minimum necessary — no free-text notes).
     """
     from backend.db.models import EMRChartSummary
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # Check cache
     cached = (
@@ -1667,7 +1667,7 @@ def _post_note_epic(config, clinic_id, patient_id, note_content, note_type) -> t
             "text": "Aria AI Encounter Summary",
         },
         "subject": {"reference": f"Patient/{patient_id}"},
-        "date":    datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "date":    datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "content": [{
             "attachment": {
                 "contentType": "text/plain",
@@ -1762,7 +1762,7 @@ def _post_note_cerner(config, clinic_id, patient_id, note_content, note_type) ->
         "type": {"coding": [{"system": "http://loinc.org", "code": "11488-4"}],
                  "text": "Aria AI Encounter Summary"},
         "subject":  {"reference": f"Patient/{patient_id}"},
-        "date":     datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "date":     datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "content":  [{"attachment": {"contentType": "text/plain", "data": encoded,
                                      "title": "Aria AI Encounter Summary"}}],
     }
@@ -2081,7 +2081,7 @@ def _post_note_ecw(config, clinic_id, patient_id, note_content) -> tuple[bool, s
         "type":         {"coding": [{"system": "http://loinc.org", "code": "11488-4"}],
                          "text": "Aria AI Encounter Summary"},
         "subject":      {"reference": f"Patient/{patient_id}"},
-        "date":         datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "date":         datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "content":      [{"attachment": {"contentType": "text/plain", "data": encoded,
                                          "title": "Aria AI Encounter Summary"}}],
     }
@@ -2100,9 +2100,9 @@ def _post_note_ecw(config, clinic_id, patient_id, note_content) -> tuple[bool, s
 
 def _upsert_chart_summary(db, clinic_id, ehr_patient_id, ehr_system, chart) -> None:
     import json as _json
-    from datetime import timedelta
+    from datetime import timedelta, timezone
     from backend.db.models import EMRChartSummary
-    expires = datetime.utcnow() + timedelta(hours=1)
+    expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
     existing = (
         db.query(EMRChartSummary)
         .filter(EMRChartSummary.clinic_id == clinic_id,
@@ -2113,7 +2113,7 @@ def _upsert_chart_summary(db, clinic_id, ehr_patient_id, ehr_system, chart) -> N
         existing.diagnoses   = _json.dumps(chart.get("diagnoses", []))
         existing.medications = _json.dumps(chart.get("medications", []))
         existing.allergies   = _json.dumps(chart.get("allergies", []))
-        existing.fetched_at  = datetime.utcnow()
+        existing.fetched_at  = datetime.now(timezone.utc).replace(tzinfo=None)
         existing.expires_at  = expires
     else:
         from backend.db.models import EMRChartSummary as _CS

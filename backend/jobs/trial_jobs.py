@@ -1,6 +1,6 @@
 """Background jobs for trial management (expiry checks, reminders)."""
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 from backend.db import crud
@@ -56,7 +56,7 @@ def check_trial_expiry_and_remind(db: Session) -> dict:
             try:
                 if not clinic.trial_ends_at:
                     continue
-                days_left = (clinic.trial_ends_at - datetime.utcnow()).days
+                days_left = (clinic.trial_ends_at - datetime.now(timezone.utc).replace(tzinfo=None)).days
                 bucket = reminder_bucket(days_left)
                 if not _should_send(clinic.trial_reminder_day, bucket):
                     continue

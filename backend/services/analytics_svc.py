@@ -8,7 +8,7 @@ Functions are read-only and have no side effects.
 """
 import logging
 from collections import Counter, defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -108,7 +108,7 @@ def get_monthly_summary(db: Session, clinic_id: int) -> dict:
     from backend.db.models import Appointment
     from sqlalchemy import extract
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     appts = (
         db.query(Appointment)
         .filter(
@@ -152,7 +152,7 @@ def get_no_shows(db: Session, clinic_id: int, days_back: int = 7) -> dict:
     """Recent no-shows with patient names — used for follow-up outreach."""
     from backend.db.models import Appointment
 
-    since = datetime.utcnow() - timedelta(days=days_back)
+    since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days_back)
     rows = (
         db.query(Appointment)
         .filter(
@@ -187,7 +187,7 @@ def get_provider_breakdown(db: Session, clinic_id: int) -> dict:
     from backend.db.models import Appointment
     from sqlalchemy import extract
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     rows = (
         db.query(
             Appointment.provider,

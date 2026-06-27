@@ -8,7 +8,7 @@ import hashlib
 import logging
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse
@@ -68,8 +68,8 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
         return JSONResponse(status_code=401, content={"error": "Invalid credentials."})
 
     # Account lockout check
-    if clinic.locked_until and datetime.utcnow() < clinic.locked_until:
-        remaining = int((clinic.locked_until - datetime.utcnow()).total_seconds() // 60) + 1
+    if clinic.locked_until and datetime.now(timezone.utc).replace(tzinfo=None) < clinic.locked_until:
+        remaining = int((clinic.locked_until - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds() // 60) + 1
         return JSONResponse(status_code=429, content={
             "error": f"Account temporarily locked. Try again in {remaining} minute(s)."
         })

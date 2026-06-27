@@ -3,7 +3,7 @@ import re
 import socket
 import logging
 import httpx
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Header
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -371,7 +371,7 @@ def grant_source_code_access(
         })
 
     config.can_access_source = True
-    config.source_access_granted_at = datetime.utcnow()
+    config.source_access_granted_at = datetime.now(timezone.utc).replace(tzinfo=None)
     config.self_host_enabled = True
     db.commit()
     db.refresh(config)

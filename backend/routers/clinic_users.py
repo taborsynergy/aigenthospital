@@ -2,7 +2,7 @@
 Clinic user management endpoints.
 Handles admin/staff user creation, authentication, and password reset.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import json
 import secrets
@@ -201,14 +201,14 @@ async def login(
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Check if account is currently locked
-    if user.locked_until and user.locked_until > datetime.utcnow():
+    if user.locked_until and user.locked_until > datetime.now(timezone.utc).replace(tzinfo=None):
         raise HTTPException(
             status_code=429,
             detail="Account locked due to too many failed attempts. Try again later."
         )
 
     # Lock window has elapsed — reset the counter so a stale count can't re-lock instantly
-    if user.locked_until and user.locked_until <= datetime.utcnow():
+    if user.locked_until and user.locked_until <= datetime.now(timezone.utc).replace(tzinfo=None):
         user.failed_login_attempts = 0
         user.locked_until = None
 
@@ -218,14 +218,14 @@ async def login(
 
         # Lock account after 5 failed attempts
         if user.failed_login_attempts >= 5:
-            user.locked_until = datetime.utcnow() + timedelta(minutes=30)
+            user.locked_until = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=30)
 
         db.commit()
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Reset failed attempts on successful login
     user.failed_login_attempts = 0
-    user.last_login_at = datetime.utcnow()
+    user.last_login_at = datetime.now(timezone.utc).replace(tzinfo=None)
     user.locked_until = None
     db.commit()
 
@@ -272,7 +272,7 @@ async def forgot_password(
         # Generate reset token
         reset_token = secrets.token_urlsafe(32)
         user.reset_token = reset_token
-        user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
+        user.reset_token_expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
         db.commit()
 
         # Send reset email
@@ -324,7 +324,7 @@ async def reset_password(
         raise HTTPException(status_code=400, detail="Invalid reset token")
 
     # Check token expiration
-    if user.reset_token_expires is None or user.reset_token_expires < datetime.utcnow():
+    if user.reset_token_expires is None or user.reset_token_expires < datetime.now(timezone.utc).replace(tzinfo=None):
         raise HTTPException(status_code=400, detail="Reset token expired")
 
     # Hash and update password

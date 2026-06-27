@@ -2,7 +2,7 @@
 Plan definitions and feature-gate helpers.
 Single source of truth — import from here everywhere.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 PLANS = {
@@ -188,14 +188,14 @@ def is_clinic_active(clinic) -> bool:
     """
     # Check trial status
     if clinic.subscription_status == "trial":
-        if clinic.trial_ends_at and datetime.utcnow() < clinic.trial_ends_at:
+        if clinic.trial_ends_at and datetime.now(timezone.utc).replace(tzinfo=None) < clinic.trial_ends_at:
             return True
         return False
 
     # Check paid subscription status
     if clinic.subscription_status == "active":
         if clinic.subscription_ends_at:
-            return datetime.utcnow() < clinic.subscription_ends_at
+            return datetime.now(timezone.utc).replace(tzinfo=None) < clinic.subscription_ends_at
         return True
 
     return False
@@ -205,8 +205,8 @@ def get_access_status(clinic) -> dict:
     """Return detailed access status for a clinic."""
     if clinic.subscription_status == "trial":
         if clinic.trial_ends_at:
-            if datetime.utcnow() < clinic.trial_ends_at:
-                days_left = (clinic.trial_ends_at - datetime.utcnow()).days + 1
+            if datetime.now(timezone.utc).replace(tzinfo=None) < clinic.trial_ends_at:
+                days_left = (clinic.trial_ends_at - datetime.now(timezone.utc).replace(tzinfo=None)).days + 1
                 return {
                     "active": True,
                     "status": "trial",
@@ -222,8 +222,8 @@ def get_access_status(clinic) -> dict:
 
     if clinic.subscription_status == "active":
         if clinic.subscription_ends_at:
-            if datetime.utcnow() < clinic.subscription_ends_at:
-                days_left = (clinic.subscription_ends_at - datetime.utcnow()).days + 1
+            if datetime.now(timezone.utc).replace(tzinfo=None) < clinic.subscription_ends_at:
+                days_left = (clinic.subscription_ends_at - datetime.now(timezone.utc).replace(tzinfo=None)).days + 1
                 return {
                     "active": True,
                     "status": "paid_active",

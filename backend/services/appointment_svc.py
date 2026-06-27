@@ -10,7 +10,7 @@ mocks/payments.py until real API integrations are added.
 import logging
 import re
 import uuid
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -291,7 +291,7 @@ def book_appointment(
     providers    = _parse_providers(clinic)
     chosen_prov  = _select_provider(providers, provider)
     prefix       = (clinic.name[:3].upper().replace(" ", "") if clinic else "APT")
-    conf_num     = f"{prefix}-{datetime.utcnow().strftime('%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+    conf_num     = f"{prefix}-{datetime.now(timezone.utc).replace(tzinfo=None).strftime('%m%d')}-{uuid.uuid4().hex[:4].upper()}"
 
     # Parse datetime_str to a proper timestamp for conflict checking
     appt_ts = _parse_datetime_str(datetime_str)
@@ -406,7 +406,7 @@ def reschedule_appointment(
     else:
         # No existing record found — create a new rescheduled entry
         prefix   = (clinic.name[:3].upper().replace(" ", "") if clinic else "APT")
-        conf_num = f"{prefix}-{datetime.utcnow().strftime('%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+        conf_num = f"{prefix}-{datetime.now(timezone.utc).replace(tzinfo=None).strftime('%m%d')}-{uuid.uuid4().hex[:4].upper()}"
         provider = _select_provider(providers, None)
         try:
             from backend.db.crud import create_appointment

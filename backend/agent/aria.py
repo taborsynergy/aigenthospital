@@ -10,7 +10,7 @@ import os
 import platform
 import ssl
 from collections import OrderedDict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import anthropic
@@ -70,14 +70,14 @@ class _LRUCache:
         if key not in self._store:
             return None
         history, ts = self._store[key]
-        if datetime.utcnow() - ts > timedelta(minutes=_CACHE_TTL_MINUTES):
+        if datetime.now(timezone.utc).replace(tzinfo=None) - ts > timedelta(minutes=_CACHE_TTL_MINUTES):
             del self._store[key]
             return None
         self._store.move_to_end(key)
         return history
 
     def set(self, key: str, history: list) -> None:
-        self._store[key] = (history, datetime.utcnow())
+        self._store[key] = (history, datetime.now(timezone.utc).replace(tzinfo=None))
         self._store.move_to_end(key)
         if len(self._store) > self._maxsize:
             self._store.popitem(last=False)

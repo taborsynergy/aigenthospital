@@ -2,7 +2,7 @@
 JWT token management for clinic users.
 """
 import hmac
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import jwt
 from typing import Optional
 
@@ -46,9 +46,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode = data.copy()
 
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc).replace(tzinfo=None) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(days=30)
+        expire = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=30)
 
     to_encode.update({"exp": expire})
 

@@ -9,7 +9,7 @@ Schedule (days since signup):
   Day 12 → Trial ending soon + activate CTA
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 from backend.db.crud import get_db_clinics_for_onboarding
@@ -37,7 +37,7 @@ def run_onboarding_email_sequence(db: Session) -> dict:
     email in sequence based on how many days since they signed up.
     """
     stats = {"sent": 0, "skipped": 0, "errors": 0}
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     try:
         clinics = get_db_clinics_for_onboarding(db)

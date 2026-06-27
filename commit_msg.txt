@@ -1,0 +1,25 @@
+fix: signup returns token + portal auto-login + JSON rate-limit (REG-005)
+
+Root cause of "login nothing is happening" after creating account:
+1. POST /api/signup returned no token — users had to manually log in with
+   no guidance, many entered wrong credentials silently rejected.
+2. Rate-limit 429 used plain-text slowapi handler — r.json() threw in the
+   portal login JS, swallowed by .catch() as a silent connection error.
+3. No URLSearchParams handling in portal — ?token= from signup redirect ignored.
+
+Fixes:
+- POST /api/signup now generates a session token and returns token + portal_url
+  (landing page redirects to /c/{slug}?token=xxx for instant auto-login)
+- Portal init IIFE reads ?token= from URL, stores in localStorage, cleans URL
+  (users from signup redirect are auto-logged in — no manual login needed)
+- Replaced _rate_limit_exceeded_handler with _json_rate_limit_handler (JSON 429)
+  so the portal login form can show rate-limit errors to users
+- Login error div gets scrollIntoView() so it is visible on small screens
+
+Added 11 tests in test_login_flow.py (REG-005):
+signup token, portal_url with ?token=, auto API access, correct/wrong creds,
+full E2E signup to profile, portal URL param code, JSON rate-limit handler.
+
+Full suite: 371 pass, 2 skip, 0 fail (was 360).
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>

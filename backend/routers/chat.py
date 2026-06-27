@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
@@ -32,7 +32,7 @@ _CONTACT = "admin@tabor.taborsynergy.com"
 
 def _access_blocked(clinic, db=None) -> str | None:
     """Return a block message if the clinic cannot use the chat, else None."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     if clinic.subscription_status == "trial":
         if clinic.trial_ends_at and now > clinic.trial_ends_at:
             return (
@@ -300,7 +300,7 @@ async def get_monthly_report(
     else:
         if month < 1 or month > 12:
             return JSONResponse(status_code=400, content={"error": "Month must be 1-12"})
-        if year < 2020 or year > datetime.utcnow().year:
+        if year < 2020 or year > datetime.now(timezone.utc).replace(tzinfo=None).year:
             return JSONResponse(status_code=400, content={"error": "Invalid year"})
         report = generate_monthly_report(clinic.id, db, year, month)
 

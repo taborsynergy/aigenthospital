@@ -4,7 +4,7 @@ Tracks setup progress (Day 1-5): clinic info, branding, email reminders, EMR, tr
 """
 import json
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -244,7 +244,7 @@ async def update_onboarding_step(
 
     elif step == "staff_training":
         checklist.staff_training_completed = True
-        checklist.staff_training_date = datetime.utcnow()
+        checklist.staff_training_date = datetime.now(timezone.utc).replace(tzinfo=None)
 
     else:
         raise HTTPException(status_code=400, detail=f"Unknown step: {step}")
@@ -390,7 +390,7 @@ async def mark_go_live(
         )
 
     # Mark as go-live
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     checklist.go_live_date = now
     checklist.completed_at = now
     clinic.is_active = True
