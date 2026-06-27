@@ -241,6 +241,63 @@ TOOLS: list[dict] = [
         },
     },
     {
+        "name": "get_patient_chart_summary",
+        "description": (
+            "Retrieve a returning patient's clinical chart summary from the EHR — "
+            "their active diagnoses, current medications, and known allergies. "
+            "Use this for Enterprise plan clinics when a patient mentions a chronic condition, "
+            "asks about their medications, or needs clinical context before a visit. "
+            "ONLY call after verifying patient identity (name + DOB). "
+            "NEVER read or recite clinical notes aloud — use only to provide context. "
+            "Requires Enterprise plan with EHR connected."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ehr_patient_id": {
+                    "type": "string",
+                    "description": "The patient's EHR ID (from lookup_patient_in_ehr or prefill_intake_from_ehr).",
+                },
+                "ehr_system": {
+                    "type": "string",
+                    "description": "EHR system name: 'epic', 'cerner', 'athenahealth', or 'eclinicalworks'.",
+                },
+            },
+            "required": ["ehr_patient_id", "ehr_system"],
+        },
+    },
+    {
+        "name": "sync_note_to_ehr",
+        "description": (
+            "Sync a summary of this Aria conversation back to the clinic's EHR as a clinical note. "
+            "Call this at the END of a completed encounter — after booking, answering questions, "
+            "or handling an escalation — when the patient is about to disconnect. "
+            "Requires Enterprise plan. One note per session (idempotent)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ehr_patient_id": {
+                    "type": "string",
+                    "description": "The patient's EHR ID (from lookup_patient_in_ehr or prefill_intake_from_ehr).",
+                },
+                "note_content": {
+                    "type": "string",
+                    "description": (
+                        "Plain-text summary of the encounter: chief complaint, what was discussed, "
+                        "appointment booked (if any), and any escalation details. Max 2000 characters."
+                    ),
+                },
+                "note_type": {
+                    "type": "string",
+                    "enum": ["encounter_summary", "appointment_note", "triage_note", "escalation_note"],
+                    "description": "Category of clinical note.",
+                },
+            },
+            "required": ["ehr_patient_id", "note_content"],
+        },
+    },
+    {
         "name": "prefill_intake_from_ehr",
         "description": (
             "Look up a returning patient in the EHR and return pre-filled intake form data "
@@ -465,6 +522,62 @@ async def dispatch_tool(
                 patient_dob=inputs.get("patient_dob"),
                 reason=inputs.get("reason"),
             )
+
+        case "get_patient_chart_summary":
+            from backend.plans import can_read_patient_chart
+            if not can_read_patient_chart(clinic):
+                return {
+                    "error": "Chart read is available on Enterprise plans only.",
+                    "found": False,
+                }
+            from backend.services.ehr_svc import fetch_patient_chart
+            chart = fetch_patient_chart(
+                clinic_id=clinic.id,
+                ehr_patient_id=inputs["ehr_patient_id"],
+                ehr_system=inputs["ehr_system"],
+                db=db,
+            )
+            if chart:
+                diag_count = len(chart.get("diagnoses", []))
+                med_count  = len(chart.get("medications", []))
+                allergy_count = len(chart.get("allergies", []))
+                return {
+                    "found": True,
+                    "chart": chart,
+                    "summary": (
+                        f"Chart loaded: {diag_count} active diagnoses, "
+                        f"{med_count} active medications, {allergy_count} known allergies."
+                    ),
+                }
+            return {"found": False, "message": "Chart not available or patient not found."}
+
+        case "sync_note_to_ehr":
+            from backend.plans import can_sync_notes
+            if not can_sync_notes(clinic):
+                return {
+                    "success": False,
+                    "error": "Note sync is available on Enterprise plans only.",
+                }
+            from backend.services.ehr_svc import sync_note_to_ehr
+            note_content = inputs["note_content"][:2000]
+            success, doc_id = sync_note_to_ehr(
+                clinic_id=clinic.id,
+                session_id=session_id,
+                ehr_patient_id=inputs["ehr_patient_id"],
+                note_content=note_content,
+                note_type=inputs.get("note_type", "encounter_summary"),
+                db=db,
+            )
+            if success:
+                return {
+                    "success": True,
+                    "ehr_document_id": doc_id,
+                    "message": "Encounter summary synced to EHR.",
+                }
+            return {
+                "success": False,
+                "message": "Note sync failed. The clinic administrator has been notified.",
+            }
 
         case "verify_insurance":
             return insurance.verify_insurance(**inputs)

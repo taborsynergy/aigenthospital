@@ -51,6 +51,9 @@ PLANS = {
         "custom_insurance":    True,
         "location_routing":    True,
         "ehr_integration":     True,
+        "chart_read":          True,      # Phase 4: read past diagnoses/meds/allergies
+        "note_sync":           True,      # Phase 4: sync conversation notes back to EHR
+        "ecw_integration":     True,      # Phase 4: eClinicalWorks adapter
         "custom_ai_training":  True,
         "support":             "Dedicated account manager + 24/7 priority",
         "color":               "#7C3AED",
@@ -116,6 +119,16 @@ def can_use_location_routing(clinic) -> bool:
 def can_use_ehr_integration(clinic) -> bool:
     """Check if clinic plan supports EHR system integration."""
     return get_plan(clinic).get("ehr_integration", False)
+
+
+def can_read_patient_chart(clinic) -> bool:
+    """Phase 4 — Enterprise only: read past diagnoses, medications, allergies from EHR."""
+    return get_plan(clinic).get("chart_read", False)
+
+
+def can_sync_notes(clinic) -> bool:
+    """Phase 4 — Enterprise only: sync Aria conversation notes back to EHR."""
+    return get_plan(clinic).get("note_sync", False)
 
 
 def can_use_custom_ai_training(clinic) -> bool:

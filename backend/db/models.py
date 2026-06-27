@@ -602,3 +602,54 @@ class EMRAppointment(Base):
 
 Index("ix_emr_appointments_clinic_dt", EMRAppointment.clinic_id, EMRAppointment.slot_datetime)
 Index("ix_emr_appointments_clinic_ehr", EMRAppointment.clinic_id, EMRAppointment.ehr_slot_id, unique=True)
+
+
+# ── EMR / EHR Phase 4 tables ─────────────────────────────────────────────────
+
+class EMRChartSummary(Base):
+    """
+    Phase 4 — Enterprise only.
+    Cached chart summary for a patient: past diagnoses, active medications, allergies.
+    TTL = 1 hour. HIPAA minimum necessary — no free-text clinical notes, only coded data.
+    Aria uses this to avoid asking patients to repeat chronic conditions.
+    """
+    __tablename__ = "emr_chart_summaries"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    ehr_patient_id  = Column(String,   nullable=False)
+    ehr_system      = Column(String,   nullable=False)
+    # Structured clinical data (JSON arrays stored as Text)
+    diagnoses       = Column(Text,     default="[]")   # [{"code":"E11.9","display":"Type 2 diabetes"}]
+    medications     = Column(Text,     default="[]")   # [{"name":"Metformin","dose":"500mg","status":"active"}]
+    allergies       = Column(Text,     default="[]")   # [{"substance":"Penicillin","reaction":"Rash","severity":"moderate"}]
+    # Cache management
+    fetched_at      = Column(DateTime, default=datetime.utcnow)
+    expires_at      = Column(DateTime, nullable=True)   # fetched_at + 1 hour
+    created_at      = Column(DateTime, default=datetime.utcnow)
+
+Index("ix_emr_chart_clinic_patient", EMRChartSummary.clinic_id, EMRChartSummary.ehr_patient_id, unique=True)
+
+
+class EMRNoteSync(Base):
+    """
+    Phase 4 — Enterprise only.
+    Tracks Aria conversation notes synced back to the EHR as clinical documents.
+    Each row = one conversation session whose summary was pushed to the EHR.
+    Prevents duplicate note syncs for the same session.
+    """
+    __tablename__ = "emr_note_syncs"
+
+    id              = Column(Integer,  primary_key=True, index=True)
+    clinic_id       = Column(Integer,  ForeignKey("clinics.id", ondelete="CASCADE"), index=True)
+    session_id      = Column(String,   nullable=False, index=True)
+    ehr_patient_id  = Column(String,   default="")
+    ehr_system      = Column(String,   nullable=False)
+    ehr_document_id = Column(String,   default="")   # ID returned by EHR after note creation
+    note_type       = Column(String,   default="encounter_summary")
+    note_preview    = Column(Text,     default="")   # First 200 chars of the note (for UI display)
+    status          = Column(String,   default="success")   # success | error | skipped
+    error_message   = Column(Text,     default="")
+    synced_at       = Column(DateTime, default=datetime.utcnow, index=True)
+
+Index("ix_emr_note_syncs_clinic_session", EMRNoteSync.clinic_id, EMRNoteSync.session_id, unique=True)

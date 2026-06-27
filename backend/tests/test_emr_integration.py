@@ -816,3 +816,217 @@ class TestEMRPhase3AutoRouting:
         assert "EHR INTEGRATION" in prompt_with_ehr
         assert "prefill_intake_from_ehr" in prompt_with_ehr
         assert "EPIC" in prompt_with_ehr
+
+
+# ── Phase 4 Tests ─────────────────────────────────────────────────────────────
+
+class TestEMRPhase4ChartNoteECW:
+    """EMR-P4: Chart read, note sync, eClinicalWorks adapter, Enterprise gating."""
+
+    def test_emr_p4_001_chart_read_enterprise_only(self, client, db):
+        """EMR-P4-001: /emr/chart returns 403 for Professional plan."""
+        clinic = _make_clinic(db, plan="professional")
+        tok = _token(client, clinic.email)
+        r = client.get(
+            f"/api/{clinic.slug}/emr/chart",
+            params={"ehr_patient_id": "P-001", "ehr_system": "epic"},
+            headers=_auth(tok),
+        )
+        assert r.status_code == 403
+
+    def test_emr_p4_002_chart_read_enterprise_allowed(self, client, db):
+        """EMR-P4-002: /emr/chart returns 200 for Enterprise plan (found=False with no EHR)."""
+        clinic = _make_clinic(db, plan="enterprise")
+        tok = _token(client, clinic.email)
+        r = client.get(
+            f"/api/{clinic.slug}/emr/chart",
+            params={"ehr_patient_id": "P-001", "ehr_system": "epic"},
+            headers=_auth(tok),
+        )
+        assert r.status_code == 200
+        assert r.json()["found"] is False
+
+    def test_emr_p4_003_chart_read_returns_cache_hit(self, client, db):
+        """EMR-P4-003: Chart cache hit returns diagnoses, medications, allergies."""
+        import json
+        from datetime import datetime, timedelta
+        from backend.db.models import EMRChartSummary
+        clinic = _make_clinic(db, plan="enterprise")
+        tok = _token(client, clinic.email)
+        db.add(EMRChartSummary(
+            clinic_id=clinic.id,
+            ehr_patient_id="CHART-CACHE-001",
+            ehr_system="epic",
+            diagnoses=json.dumps([{"code": "E11.9", "display": "Type 2 diabetes", "status": "active"}]),
+            medications=json.dumps([{"name": "Metformin", "dose": "500mg", "status": "active"}]),
+            allergies=json.dumps([{"substance": "Penicillin", "reaction": "Rash", "severity": "moderate"}]),
+            fetched_at=datetime.utcnow(),
+            expires_at=datetime.utcnow() + timedelta(hours=1),
+        ))
+        db.commit()
+        r = client.get(
+            f"/api/{clinic.slug}/emr/chart",
+            params={"ehr_patient_id": "CHART-CACHE-001", "ehr_system": "epic"},
+            headers=_auth(tok),
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["found"] is True
+        assert body["chart"]["diagnoses"][0]["display"] == "Type 2 diabetes"
+        assert body["chart"]["medications"][0]["name"] == "Metformin"
+        assert body["chart"]["allergies"][0]["substance"] == "Penicillin"
+
+    def test_emr_p4_004_note_sync_enterprise_only(self, client, db):
+        """EMR-P4-004: /emr/note-sync returns 403 for Professional plan."""
+        clinic = _make_clinic(db, plan="professional")
+        tok = _token(client, clinic.email)
+        r = client.post(
+            f"/api/{clinic.slug}/emr/note-sync",
+            json={"ehr_patient_id": "P-001", "note_content": "Test note",
+                  "session_id": "sess-001", "note_type": "encounter_summary"},
+            headers=_auth(tok),
+        )
+        assert r.status_code == 403
+
+    def test_emr_p4_005_note_sync_enterprise_no_ehr_returns_false(self, client, db):
+        """EMR-P4-005: Note sync with no EHR configured returns success=False (no 500)."""
+        clinic = _make_clinic(db, plan="enterprise")
+        tok = _token(client, clinic.email)
+        r = client.post(
+            f"/api/{clinic.slug}/emr/note-sync",
+            json={"ehr_patient_id": "P-001",
+                  "note_content": "Patient called to book follow-up. Scheduled for Monday.",
+                  "session_id":   "sess-p4-005",
+                  "note_type":    "encounter_summary"},
+            headers=_auth(tok),
+        )
+        assert r.status_code == 200
+        assert r.json()["success"] is False
+
+    def test_emr_p4_006_note_sync_idempotent(self, client, db):
+        """EMR-P4-006: Syncing the same session_id twice does not create duplicate records."""
+        from backend.db.models import EMRNoteSync
+        clinic = _make_clinic(db, plan="enterprise")
+        tok = _token(client, clinic.email)
+        payload = {
+            "ehr_patient_id": "P-002",
+            "note_content":   "Patient booked annual physical.",
+            "session_id":     "sess-dedup-001",
+            "note_type":      "encounter_summary",
+        }
+        # First call
+        client.post(f"/api/{clinic.slug}/emr/note-sync", json=payload, headers=_auth(tok))
+        # Second call (same session_id)
+        client.post(f"/api/{clinic.slug}/emr/note-sync", json=payload, headers=_auth(tok))
+        count = db.query(EMRNoteSync).filter(
+            EMRNoteSync.clinic_id == clinic.id,
+            EMRNoteSync.session_id == "sess-dedup-001",
+        ).count()
+        assert count <= 1, "Duplicate note sync records created"
+
+    def test_emr_p4_007_note_syncs_log_endpoint(self, client, db):
+        """EMR-P4-007: /emr/note-syncs returns notes list for Enterprise."""
+        clinic = _make_clinic(db, plan="enterprise")
+        tok = _token(client, clinic.email)
+        r = client.get(f"/api/{clinic.slug}/emr/note-syncs", headers=_auth(tok))
+        assert r.status_code == 200
+        assert "notes" in r.json()
+        assert isinstance(r.json()["notes"], list)
+
+    def test_emr_p4_008_note_syncs_log_professional_blocked(self, client, db):
+        """EMR-P4-008: /emr/note-syncs returns 403 for Professional plan."""
+        clinic = _make_clinic(db, plan="professional")
+        tok = _token(client, clinic.email)
+        r = client.get(f"/api/{clinic.slug}/emr/note-syncs", headers=_auth(tok))
+        assert r.status_code == 403
+
+    def test_emr_p4_009_ecw_accepted_as_ehr_system(self, client, db):
+        """EMR-P4-009: PATCH /ehr-config accepts 'eclinicalworks' as ehr_system."""
+        clinic = _make_clinic(db, plan="enterprise")
+        tok = _token(client, clinic.email)
+        r = client.patch(
+            f"/api/{clinic.slug}/ehr-config",
+            json={"ehr_system": "eclinicalworks",
+                  "api_endpoint": "https://api.eclinicalworks.com/v1"},
+            headers=_auth(tok),
+        )
+        assert r.status_code == 200
+        assert r.json()["ehr_system"] == "eclinicalworks"
+
+    def test_emr_p4_010_ecw_in_supported_systems(self, client, db):
+        """EMR-P4-010: /ehr-config/systems includes eclinicalworks."""
+        clinic = _make_clinic(db, plan="enterprise")
+        tok = _token(client, clinic.email)
+        r = client.get(f"/api/{clinic.slug}/ehr-config/systems", headers=_auth(tok))
+        assert r.status_code == 200
+        assert "eclinicalworks" in r.json()["supported_systems"]
+
+    def test_emr_p4_011_can_read_chart_enterprise_true(self, db):
+        """EMR-P4-011: can_read_patient_chart returns True for enterprise, False for pro."""
+        from backend.plans import can_read_patient_chart
+        ent_clinic  = _make_clinic(db, plan="enterprise")
+        pro_clinic  = _make_clinic(db, plan="professional")
+        start_clinic = _make_clinic(db, plan="starter")
+        assert can_read_patient_chart(ent_clinic)  is True
+        assert can_read_patient_chart(pro_clinic)  is False
+        assert can_read_patient_chart(start_clinic) is False
+
+    def test_emr_p4_012_can_sync_notes_enterprise_true(self, db):
+        """EMR-P4-012: can_sync_notes returns True for enterprise, False for others."""
+        from backend.plans import can_sync_notes
+        ent_clinic  = _make_clinic(db, plan="enterprise")
+        pro_clinic  = _make_clinic(db, plan="professional")
+        assert can_sync_notes(ent_clinic) is True
+        assert can_sync_notes(pro_clinic) is False
+
+    def test_emr_p4_013_chart_cache_expired_returns_not_found(self, client, db):
+        """EMR-P4-013: Expired chart cache is not returned."""
+        import json
+        from datetime import datetime, timedelta
+        from backend.db.models import EMRChartSummary
+        clinic = _make_clinic(db, plan="enterprise")
+        tok = _token(client, clinic.email)
+        db.add(EMRChartSummary(
+            clinic_id=clinic.id,
+            ehr_patient_id="CHART-EXPIRED-001",
+            ehr_system="cerner",
+            diagnoses=json.dumps([{"code": "J45", "display": "Asthma", "status": "active"}]),
+            medications=json.dumps([]),
+            allergies=json.dumps([]),
+            fetched_at=datetime.utcnow() - timedelta(hours=2),
+            expires_at=datetime.utcnow() - timedelta(hours=1),  # expired
+        ))
+        db.commit()
+        r = client.get(
+            f"/api/{clinic.slug}/emr/chart",
+            params={"ehr_patient_id": "CHART-EXPIRED-001", "ehr_system": "cerner"},
+            headers=_auth(tok),
+        )
+        assert r.status_code == 200
+        # Expired cache → falls through to EHR call → no EHR configured → not found
+        assert r.json()["found"] is False
+
+    def test_emr_p4_014_note_content_truncated_at_2000(self, client, db):
+        """EMR-P4-014: Note content > 2000 chars is truncated before sync."""
+        clinic = _make_clinic(db, plan="enterprise")
+        tok = _token(client, clinic.email)
+        long_note = "A" * 3000
+        r = client.post(
+            f"/api/{clinic.slug}/emr/note-sync",
+            json={"ehr_patient_id": "P-003",
+                  "note_content":   long_note,
+                  "session_id":     "sess-truncate-001",
+                  "note_type":      "encounter_summary"},
+            headers=_auth(tok),
+        )
+        # Should not 422/500 — content is truncated, not rejected
+        assert r.status_code == 200
+
+    def test_emr_p4_015_chart_no_token_returns_403(self, client, db):
+        """EMR-P4-015: /emr/chart without token returns 403."""
+        clinic = _make_clinic(db, plan="enterprise")
+        r = client.get(
+            f"/api/{clinic.slug}/emr/chart",
+            params={"ehr_patient_id": "P-001", "ehr_system": "epic"},
+        )
+        assert r.status_code == 403

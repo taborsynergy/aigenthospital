@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from backend.db.database import get_db
 from backend.db.crud import get_clinic_by_token, get_or_create_ehr_configuration, update_ehr_configuration
-from backend.plans import can_use_ehr_integration
+from backend.plans import can_use_ehr_integration, can_read_patient_chart, can_sync_notes
 from backend.services.ehr_svc import test_ehr_connection, get_supported_ehr_systems
 
 router = APIRouter(prefix="/api")
@@ -218,4 +218,105 @@ def get_supported_systems(
     return {
         "supported_systems": get_supported_ehr_systems(),
         "note": "Additional EHR systems can be integrated upon request"
+    }
+
+
+# ── Phase 4: Chart read ───────────────────────────────────────────────────────
+
+@router.get("/{clinic_slug}/emr/chart")
+def emr_chart_read(
+    clinic_slug: str,
+    ehr_patient_id: str,
+    ehr_system: str,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Phase 4 (Enterprise): Fetch a patient's chart summary from the EHR."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    if not can_read_patient_chart(clinic):
+        return JSONResponse(status_code=403, content={
+            "error": "Chart read is available on Enterprise plans only."
+        })
+    from backend.services.ehr_svc import fetch_patient_chart
+    chart = fetch_patient_chart(clinic.id, ehr_patient_id, ehr_system, db)
+    if chart:
+        return {"found": True, "chart": chart}
+    return {"found": False}
+
+
+# ── Phase 4: Note sync ────────────────────────────────────────────────────────
+
+class NoteSyncRequest(BaseModel):
+    ehr_patient_id: str
+    note_content:   str
+    note_type:      Optional[str] = "encounter_summary"
+    session_id:     str
+
+
+@router.post("/{clinic_slug}/emr/note-sync")
+def emr_note_sync(
+    clinic_slug: str,
+    body: NoteSyncRequest,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Phase 4 (Enterprise): Sync an Aria conversation summary to the EHR."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    if not can_sync_notes(clinic):
+        return JSONResponse(status_code=403, content={
+            "error": "Note sync is available on Enterprise plans only."
+        })
+    from backend.services.ehr_svc import sync_note_to_ehr
+    success, doc_id = sync_note_to_ehr(
+        clinic_id=clinic.id,
+        session_id=body.session_id,
+        ehr_patient_id=body.ehr_patient_id,
+        note_content=body.note_content[:2000],
+        note_type=body.note_type or "encounter_summary",
+        db=db,
+    )
+    return {"success": success, "ehr_document_id": doc_id}
+
+
+# ── Phase 4: Note sync log ────────────────────────────────────────────────────
+
+@router.get("/{clinic_slug}/emr/note-syncs")
+def emr_note_sync_log(
+    clinic_slug: str,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """Phase 4 (Enterprise): List recent note syncs for this clinic."""
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    if not can_sync_notes(clinic):
+        return JSONResponse(status_code=403, content={
+            "error": "Note sync is available on Enterprise plans only."
+        })
+    from backend.db.models import EMRNoteSync
+    rows = (
+        db.query(EMRNoteSync)
+        .filter(EMRNoteSync.clinic_id == clinic.id)
+        .order_by(EMRNoteSync.synced_at.desc())
+        .limit(20)
+        .all()
+    )
+    return {
+        "notes": [
+            {
+                "session_id":      r.session_id,
+                "ehr_patient_id":  r.ehr_patient_id,
+                "ehr_document_id": r.ehr_document_id,
+                "note_type":       r.note_type,
+                "note_preview":    r.note_preview,
+                "status":          r.status,
+                "synced_at":       r.synced_at.isoformat() if r.synced_at else None,
+            }
+            for r in rows
+        ]
     }

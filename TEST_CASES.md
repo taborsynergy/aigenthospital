@@ -9,7 +9,7 @@ python -m pytest backend/tests --collect-only -q
 
 | Track | Location | Count | Runner |
 |---|---|---:|---|
-| **Core suite** (unit/integration/security) | `backend/tests/` | **670** (668 pass + 2 skip*) | `pytest` |
+| **Core suite** (unit/integration/security) | `backend/tests/` | **685** (683 pass + 2 skip*) | `pytest` |
 | **Live smoke tests** (positive + negative + corner + security + perf + DB + EMR + URL regression) | `e2e/test_live_smoke.py` | **142** (36 positive + 48 negative/corner + 15 security + 11 perf + 15 DB + 17 EMR + 4 URL) | `pytest` + `httpx` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
 | Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
@@ -62,7 +62,7 @@ Run the core suite: `python -m pytest backend/tests -q`
 | test_landing_links.py | 83 | Landing page link integrity: section anchors, nav/footer hrefs, announcement bar, specialty tabs (6 IDs × 2), all 4 modals + close buttons, 10 JS functions defined, mailto correctness, bare-# onclick guard, external resource https, onclick→function coverage, 17 form element IDs | LNK-001..012 |
 | test_demo_request.py | 29 | Demo request feature: POST /api/demo-request happy path + validation, send_demo_request_email (SendGrid recipient, reply-to, subject, unconfigured graceful, HTML slot), frontend modal presence + form wiring + button wiring | DMO-001..004 |
 | test_e2e_journeys.py | 71 | End-to-end journeys: Doctor onboarding (signup→login→portal), clinic setup (profile/providers/apt-types), patient chat+booking, information queries (insurance/hours/location/cancellation), appointment management (confirm/complete/cancel/isolation), safety (911/988/crisis), visitor/lead (demo/trial/quote), complete 10-step flow, multi-patient concurrent booking, plan gating | E2E-001..010 |
-| test_emr_integration.py | 49 | EMR/EHR Phase 1-3: plan gating, config CRUD, sync-log, patient cache, slot fetch, cross-tenant, secret masking, SQL injection, HIPAA audit, perf SLAs + Phase 2: intake pre-population, Cerner/Athena adapter contract, field-skip logic, Athena slot normalizer + Phase 3: appt type resolver (Epic/Athena/Cerner), slot conflict check, mark-slot-booked, provider NPI token-match, auto-routing fallback, EHR system-prompt injection | EMR-FUNC / EMR-SEC / EMR-PERF / EMR-P2 / EMR-P3-001..015 |
+| test_emr_integration.py | 64 | EMR/EHR Phase 1-4: plan gating, config CRUD, sync-log, patient cache, slot fetch, cross-tenant, secret masking, SQL injection, HIPAA audit, perf SLAs + Phase 2: intake pre-population, Cerner/Athena adapter contract, field-skip logic, Athena slot normalizer + Phase 3: appt type resolver (Epic/Athena/Cerner), slot conflict check, mark-slot-booked, provider NPI token-match, auto-routing fallback, EHR system-prompt injection | EMR-FUNC / EMR-SEC / EMR-PERF / EMR-P2 / EMR-P3-001..015 / EMR-P4-001..015 |
 | test_live_smoke.py | 142 | Live smoke tests against https://aifrontdesk.taborsynergy.com — positive journeys (SMOKE-001..007, 36 tests) + negative validation (SMOKE-008..011, 27 tests) + corner/boundary (SMOKE-012..013, 21 tests) + security (SMOKE-014, 15 tests) + performance/SLA (SMOKE-015, 11 tests) + DB persistence/CRUD/isolation (SMOKE-016, 15 tests) + EMR integration (SMOKE-017, 17 tests) + upgrade/email URL regression (SMOKE-018, 4 tests) | SMOKE-001..018 |
 
 ---

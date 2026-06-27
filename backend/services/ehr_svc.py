@@ -139,6 +139,8 @@ def sync_appointment_to_ehr(
             success, ehr_id = _sync_cerner(config, clinic_id, appointment)
         elif system == "athenahealth":
             success, ehr_id = _sync_athenahealth(config, clinic_id, appointment)
+        elif system == "eclinicalworks":
+            success, ehr_id = _sync_ecw(config, clinic_id, appointment)
         else:
             logger.warning("Unknown EHR system: %s", config.ehr_system)
             return False
@@ -221,6 +223,8 @@ def lookup_patient(
             patient_data = _fetch_patient_cerner(config, clinic_id, patient_name, date_of_birth)
         elif system == "athenahealth":
             patient_data = _fetch_patient_athenahealth(config, clinic_id, patient_name, date_of_birth)
+        elif system == "eclinicalworks":
+            patient_data = _fetch_patient_ecw(config, clinic_id, patient_name, date_of_birth)
         else:
             return None
     except Exception as exc:
@@ -288,6 +292,8 @@ def get_available_slots(
             slots = _fetch_slots_cerner(config, clinic_id, appointment_type, date_start, date_end, provider_name)
         elif system == "athenahealth":
             slots = _fetch_slots_athenahealth(config, clinic_id, appointment_type, date_start, date_end, provider_name)
+        elif system == "eclinicalworks":
+            slots = _fetch_slots_ecw(config, clinic_id, appointment_type, date_start, date_end, provider_name)
         else:
             return []
     except Exception as exc:
@@ -1242,6 +1248,12 @@ def test_ehr_connection(config: EHRConfiguration, clinic_id: int = 0) -> tuple[b
                 return True, "Athenahealth connection OK — OAuth token acquired"
             return False, "Athenahealth OAuth token fetch failed — check client_id and api_key"
 
+        elif system == "eclinicalworks":
+            token = _get_ecw_token(config, clinic_id)
+            if token:
+                return True, "eClinicalWorks connection OK — OAuth token acquired"
+            return False, "eClinicalWorks OAuth token fetch failed — check client_id and api_key"
+
         else:
             return False, f"Unknown EHR system: {config.ehr_system}"
 
@@ -1250,7 +1262,715 @@ def test_ehr_connection(config: EHRConfiguration, clinic_id: int = 0) -> tuple[b
 
 
 def get_supported_ehr_systems() -> list[str]:
-    return ["epic", "cerner", "athenahealth"]
+    return ["epic", "cerner", "athenahealth", "eclinicalworks"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Phase 4 — Enterprise only: Chart read + Note sync + eClinicalWorks adapter
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Public API: patient chart read ────────────────────────────────────────────
+
+def fetch_patient_chart(
+    clinic_id: int,
+    ehr_patient_id: str,
+    ehr_system: str,
+    db,
+) -> Optional[dict]:
+    """
+    Phase 4 — Fetch a patient's chart summary from the EHR.
+    Returns diagnoses, active medications, and allergies.
+    Caches result for 1 hour (HIPAA minimum necessary — no free-text notes).
+    """
+    from backend.db.models import EMRChartSummary
+    now = datetime.utcnow()
+
+    # Check cache
+    cached = (
+        db.query(EMRChartSummary)
+        .filter(
+            EMRChartSummary.clinic_id  == clinic_id,
+            EMRChartSummary.ehr_patient_id == ehr_patient_id,
+            EMRChartSummary.expires_at > now,
+        )
+        .first()
+    )
+    if cached:
+        import json as _json
+        return {
+            "ehr_patient_id": cached.ehr_patient_id,
+            "ehr_system":     cached.ehr_system,
+            "diagnoses":      _json.loads(cached.diagnoses  or "[]"),
+            "medications":    _json.loads(cached.medications or "[]"),
+            "allergies":      _json.loads(cached.allergies   or "[]"),
+        }
+
+    config = get_ehr_configuration(db, clinic_id)
+    if not config or not config.ehr_system or not config.api_endpoint:
+        return None
+
+    t0 = time.monotonic()
+    try:
+        system = ehr_system.lower()
+        if system == "epic":
+            chart = _fetch_chart_epic(config, clinic_id, ehr_patient_id)
+        elif system == "cerner":
+            chart = _fetch_chart_cerner(config, clinic_id, ehr_patient_id)
+        elif system == "athenahealth":
+            chart = _fetch_chart_athena(config, clinic_id, ehr_patient_id)
+        elif system == "eclinicalworks":
+            chart = _fetch_chart_ecw(config, clinic_id, ehr_patient_id)
+        else:
+            return None
+    except Exception as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        logger.error("Chart fetch error clinic=%d patient=%s: %s", clinic_id, ehr_patient_id, exc)
+        _log_sync(db, clinic_id, ehr_system, "chart_read", "inbound", "error",
+                  ehr_resource_id=ehr_patient_id, error_message=str(exc), duration_ms=duration_ms)
+        return None
+
+    duration_ms = int((time.monotonic() - t0) * 1000)
+    if chart:
+        _upsert_chart_summary(db, clinic_id, ehr_patient_id, ehr_system, chart)
+        _log_sync(db, clinic_id, ehr_system, "chart_read", "inbound", "success",
+                  ehr_resource_id=ehr_patient_id, duration_ms=duration_ms)
+    return chart
+
+
+# ── Public API: note sync ─────────────────────────────────────────────────────
+
+def sync_note_to_ehr(
+    clinic_id: int,
+    session_id: str,
+    ehr_patient_id: str,
+    note_content: str,
+    note_type: str = "encounter_summary",
+    db = None,
+) -> tuple[bool, str]:
+    """
+    Phase 4 — Push an Aria conversation summary as a clinical note to the EHR.
+    One note per session (idempotent — second call returns the existing document ID).
+    Returns (success, ehr_document_id).
+    """
+    from backend.db.models import EMRNoteSync
+
+    # Idempotency: skip if already synced for this session
+    existing = (
+        db.query(EMRNoteSync)
+        .filter(EMRNoteSync.clinic_id == clinic_id, EMRNoteSync.session_id == session_id)
+        .first()
+    )
+    if existing:
+        logger.debug("Note already synced for session %s: doc=%s", session_id, existing.ehr_document_id)
+        return True, existing.ehr_document_id
+
+    config = get_ehr_configuration(db, clinic_id)
+    if not config or not config.ehr_system or not config.api_endpoint:
+        return False, ""
+
+    system = config.ehr_system.lower()
+    t0     = time.monotonic()
+
+    try:
+        if system == "epic":
+            success, doc_id = _post_note_epic(config, clinic_id, ehr_patient_id, note_content, note_type)
+        elif system == "cerner":
+            success, doc_id = _post_note_cerner(config, clinic_id, ehr_patient_id, note_content, note_type)
+        elif system == "athenahealth":
+            success, doc_id = _post_note_athena(config, clinic_id, ehr_patient_id, note_content)
+        elif system == "eclinicalworks":
+            success, doc_id = _post_note_ecw(config, clinic_id, ehr_patient_id, note_content)
+        else:
+            return False, ""
+    except Exception as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        logger.error("Note sync error clinic=%d session=%s: %s", clinic_id, session_id, exc)
+        _write_note_sync_record(db, clinic_id, session_id, ehr_patient_id, system,
+                                "", note_type, note_content[:200], "error", str(exc))
+        _log_sync(db, clinic_id, system, "note_sync", "outbound", "error",
+                  error_message=str(exc), duration_ms=duration_ms)
+        return False, ""
+
+    duration_ms = int((time.monotonic() - t0) * 1000)
+    status      = "success" if success else "error"
+    _write_note_sync_record(db, clinic_id, session_id, ehr_patient_id, system,
+                            doc_id, note_type, note_content[:200], status, "")
+    _log_sync(db, clinic_id, system, "note_sync", "outbound", status,
+              ehr_resource_id=doc_id, duration_ms=duration_ms)
+    return success, doc_id
+
+
+# ── Epic chart reader ─────────────────────────────────────────────────────────
+
+def _fetch_chart_epic(config: EHRConfiguration, clinic_id: int, patient_id: str) -> Optional[dict]:
+    """Fetch Condition + MedicationRequest + AllergyIntolerance for a patient from Epic FHIR R4."""
+    token = _get_epic_token(config, clinic_id)
+    if not token:
+        return None
+
+    base    = config.api_endpoint.rstrip("/")
+    headers = _fhir_headers(token)
+    chart   = {"ehr_patient_id": patient_id, "ehr_system": "epic",
+                "diagnoses": [], "medications": [], "allergies": []}
+
+    # Conditions (active problems)
+    try:
+        r = httpx.get(f"{base}/Condition",
+                      params={"patient": patient_id, "clinical-status": "active", "_count": "50"},
+                      headers=headers, timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        for entry in r.json().get("entry", []):
+            res  = entry.get("resource", {})
+            code = res.get("code", {})
+            chart["diagnoses"].append({
+                "code":    (code.get("coding", [{}])[0].get("code", "")),
+                "display": (code.get("text") or
+                            code.get("coding", [{}])[0].get("display", "Unknown")),
+                "status":  res.get("clinicalStatus", {}).get("coding", [{}])[0].get("code", "active"),
+            })
+    except Exception as exc:
+        logger.warning("Epic Condition fetch failed for patient %s: %s", patient_id, exc)
+
+    # Active medications
+    try:
+        r = httpx.get(f"{base}/MedicationRequest",
+                      params={"patient": patient_id, "status": "active", "_count": "50"},
+                      headers=headers, timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        for entry in r.json().get("entry", []):
+            res  = entry.get("resource", {})
+            med  = res.get("medicationCodeableConcept", {})
+            dose = ""
+            if res.get("dosageInstruction"):
+                dose = res["dosageInstruction"][0].get("text", "")
+            chart["medications"].append({
+                "name":   med.get("text") or med.get("coding", [{}])[0].get("display", "Unknown"),
+                "dose":   dose,
+                "status": res.get("status", "active"),
+            })
+    except Exception as exc:
+        logger.warning("Epic MedicationRequest fetch failed for patient %s: %s", patient_id, exc)
+
+    # Allergies
+    try:
+        r = httpx.get(f"{base}/AllergyIntolerance",
+                      params={"patient": patient_id, "_count": "50"},
+                      headers=headers, timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        for entry in r.json().get("entry", []):
+            res  = entry.get("resource", {})
+            subst = res.get("code", {})
+            react = ""
+            if res.get("reaction"):
+                manif = res["reaction"][0].get("manifestation", [{}])
+                react = manif[0].get("text") or manif[0].get("coding", [{}])[0].get("display", "")
+            chart["allergies"].append({
+                "substance": subst.get("text") or subst.get("coding", [{}])[0].get("display", "Unknown"),
+                "reaction":  react,
+                "severity":  res.get("reaction", [{}])[0].get("severity", "") if res.get("reaction") else "",
+            })
+    except Exception as exc:
+        logger.warning("Epic AllergyIntolerance fetch failed for patient %s: %s", patient_id, exc)
+
+    return chart
+
+
+def _post_note_epic(config, clinic_id, patient_id, note_content, note_type) -> tuple[bool, str]:
+    """Create a FHIR DocumentReference in Epic for the Aria conversation summary."""
+    token = _get_epic_token(config, clinic_id)
+    if not token:
+        return False, ""
+
+    import base64 as _b64
+    base    = config.api_endpoint.rstrip("/")
+    encoded = _b64.b64encode(note_content.encode()).decode()
+
+    doc_ref = {
+        "resourceType": "DocumentReference",
+        "status":       "current",
+        "type": {
+            "coding": [{
+                "system":  "http://loinc.org",
+                "code":    "11488-4",
+                "display": "Consult note",
+            }],
+            "text": "Aria AI Encounter Summary",
+        },
+        "subject": {"reference": f"Patient/{patient_id}"},
+        "date":    datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "content": [{
+            "attachment": {
+                "contentType": "text/plain",
+                "data":        encoded,
+                "title":       f"Aria AI {note_type.replace('_', ' ').title()}",
+            }
+        }],
+        "description": f"Automated encounter summary generated by Aria AI front desk.",
+    }
+
+    try:
+        r = httpx.post(f"{base}/DocumentReference", json=doc_ref,
+                       headers=_fhir_headers(token), timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        return True, r.json().get("id", "")
+    except Exception as exc:
+        logger.error("Epic DocumentReference POST failed: %s", exc)
+        return False, ""
+
+
+# ── Cerner chart reader ───────────────────────────────────────────────────────
+
+def _fetch_chart_cerner(config: EHRConfiguration, clinic_id: int, patient_id: str) -> Optional[dict]:
+    """Fetch Condition + MedicationRequest + AllergyIntolerance from Cerner FHIR R4."""
+    token = _get_cerner_token(config, clinic_id)
+    if not token:
+        return None
+
+    base    = config.api_endpoint.rstrip("/")
+    headers = _fhir_headers(token)
+    chart   = {"ehr_patient_id": patient_id, "ehr_system": "cerner",
+                "diagnoses": [], "medications": [], "allergies": []}
+
+    for resource, key, params in [
+        ("Condition",          "diagnoses",  {"patient": patient_id, "clinical-status": "active"}),
+        ("MedicationRequest",  "medications", {"patient": patient_id, "status": "active"}),
+        ("AllergyIntolerance", "allergies",  {"patient": patient_id}),
+    ]:
+        try:
+            r = httpx.get(f"{base}/{resource}", params={**params, "_count": "50"},
+                          headers=headers, timeout=_HTTP_TIMEOUT)
+            r.raise_for_status()
+            for entry in r.json().get("entry", []):
+                res = entry.get("resource", {})
+                if resource == "Condition":
+                    code = res.get("code", {})
+                    chart[key].append({
+                        "code":    code.get("coding", [{}])[0].get("code", ""),
+                        "display": code.get("text") or code.get("coding", [{}])[0].get("display", ""),
+                        "status":  "active",
+                    })
+                elif resource == "MedicationRequest":
+                    med  = res.get("medicationCodeableConcept", {})
+                    dose = ""
+                    if res.get("dosageInstruction"):
+                        dose = res["dosageInstruction"][0].get("text", "")
+                    chart[key].append({
+                        "name":   med.get("text") or med.get("coding", [{}])[0].get("display", ""),
+                        "dose":   dose,
+                        "status": res.get("status", "active"),
+                    })
+                elif resource == "AllergyIntolerance":
+                    subst = res.get("code", {})
+                    react = ""
+                    if res.get("reaction"):
+                        manif = res["reaction"][0].get("manifestation", [{}])
+                        react = manif[0].get("text") or manif[0].get("coding", [{}])[0].get("display", "")
+                    chart[key].append({
+                        "substance": subst.get("text") or subst.get("coding", [{}])[0].get("display", ""),
+                        "reaction":  react,
+                        "severity":  res.get("reaction", [{}])[0].get("severity", "") if res.get("reaction") else "",
+                    })
+        except Exception as exc:
+            logger.warning("Cerner %s fetch failed for patient %s: %s", resource, patient_id, exc)
+
+    return chart
+
+
+def _post_note_cerner(config, clinic_id, patient_id, note_content, note_type) -> tuple[bool, str]:
+    """Create a FHIR DocumentReference in Cerner."""
+    token = _get_cerner_token(config, clinic_id)
+    if not token:
+        return False, ""
+
+    import base64 as _b64
+    base    = config.api_endpoint.rstrip("/")
+    encoded = _b64.b64encode(note_content.encode()).decode()
+
+    doc_ref = {
+        "resourceType": "DocumentReference",
+        "status":       "current",
+        "type": {"coding": [{"system": "http://loinc.org", "code": "11488-4"}],
+                 "text": "Aria AI Encounter Summary"},
+        "subject":  {"reference": f"Patient/{patient_id}"},
+        "date":     datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "content":  [{"attachment": {"contentType": "text/plain", "data": encoded,
+                                     "title": "Aria AI Encounter Summary"}}],
+    }
+
+    try:
+        r = httpx.post(f"{base}/DocumentReference", json=doc_ref,
+                       headers=_fhir_headers(token), timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        return True, r.json().get("id", "")
+    except Exception as exc:
+        logger.error("Cerner DocumentReference POST failed: %s", exc)
+        return False, ""
+
+
+# ── Athenahealth chart reader ─────────────────────────────────────────────────
+
+def _fetch_chart_athena(config: EHRConfiguration, clinic_id: int, patient_id: str) -> Optional[dict]:
+    """Fetch problems + medications + allergies from Athenahealth REST API."""
+    token = _get_athena_token(config, clinic_id)
+    if not token:
+        return None
+
+    base    = config.api_endpoint.rstrip("/")
+    headers = _athena_headers(token)
+    chart   = {"ehr_patient_id": patient_id, "ehr_system": "athenahealth",
+                "diagnoses": [], "medications": [], "allergies": []}
+
+    # Problems (diagnoses)
+    try:
+        r = httpx.get(f"{base}/patients/{patient_id}/problems",
+                      params={"status": "ACTIVE"}, headers=headers, timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        body = r.json()
+        for prob in (body.get("problems") or body if isinstance(body, list) else []):
+            chart["diagnoses"].append({
+                "code":    prob.get("icd10code", prob.get("icd9code", "")),
+                "display": prob.get("name", ""),
+                "status":  prob.get("status", "ACTIVE").lower(),
+            })
+    except Exception as exc:
+        logger.warning("Athenahealth problems fetch failed for patient %s: %s", patient_id, exc)
+
+    # Medications
+    try:
+        r = httpx.get(f"{base}/patients/{patient_id}/medications",
+                      headers=headers, timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        body = r.json()
+        for med in (body.get("medications", [{}])[0].get("medications", [])
+                    if isinstance(body, dict) else []):
+            chart["medications"].append({
+                "name":   med.get("medicationname", ""),
+                "dose":   med.get("sig", ""),
+                "status": med.get("medicationentrytype", "active").lower(),
+            })
+    except Exception as exc:
+        logger.warning("Athenahealth medications fetch failed for patient %s: %s", patient_id, exc)
+
+    # Allergies
+    try:
+        r = httpx.get(f"{base}/patients/{patient_id}/allergies",
+                      headers=headers, timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        body = r.json()
+        for allergy in (body.get("allergies") or body if isinstance(body, list) else []):
+            chart["allergies"].append({
+                "substance": allergy.get("allergenname", ""),
+                "reaction":  allergy.get("reactions", [{"reactionname": ""}])[0].get("reactionname", ""),
+                "severity":  allergy.get("severity", "").lower(),
+            })
+    except Exception as exc:
+        logger.warning("Athenahealth allergies fetch failed for patient %s: %s", patient_id, exc)
+
+    return chart
+
+
+def _post_note_athena(config, clinic_id, patient_id, note_content) -> tuple[bool, str]:
+    """Upload Aria conversation summary as a patient document in Athenahealth."""
+    token = _get_athena_token(config, clinic_id)
+    if not token:
+        return False, ""
+
+    base = config.api_endpoint.rstrip("/")
+    try:
+        r = httpx.post(
+            f"{base}/patients/{patient_id}/documents",
+            data={
+                "documentsubclass": "ENCOUNTERDOCUMENT",
+                "internalnote":     note_content[:4000],
+                "documenttypeid":   "1",
+            },
+            headers=_athena_headers(token),
+            timeout=_HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        body   = r.json()
+        doc_id = str(body[0].get("documentid", "")) if isinstance(body, list) and body else ""
+        return True, doc_id
+    except Exception as exc:
+        logger.error("Athenahealth document POST failed: %s", exc)
+        return False, ""
+
+
+# ── eClinicalWorks (eCW) adapter ──────────────────────────────────────────────
+# eCW uses its own REST API (not standard FHIR) with OAuth2 client_credentials.
+# API base: {api_endpoint}  (e.g. https://api.eclinicalworks.com/v1)
+# Token endpoint: {api_endpoint}/oauth/token
+# Docs: eCW FHIR R4 API (newer) or eCW SOAP API (legacy); we target the FHIR R4 variant.
+
+_ECW_TOKEN_KEY = "ecw_{clinic_id}"
+
+
+def _get_ecw_token(config: EHRConfiguration, clinic_id: int) -> Optional[str]:
+    """Fetch (or return cached) an eClinicalWorks OAuth2 bearer token."""
+    cache_key = f"ecw_{clinic_id}"
+    cached = _TOKEN_CACHE.get(cache_key)
+    if cached and cached["expires_at"] > time.time():
+        return cached["token"]
+
+    token_url = config.api_endpoint.rstrip("/") + "/oauth/token"
+    try:
+        r = httpx.post(
+            token_url,
+            data={
+                "grant_type":    "client_credentials",
+                "client_id":     config.client_id,
+                "client_secret": config.api_key,
+                "scope":         "patient/*.read document/*.write appointment/*.write",
+            },
+            timeout=_HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        body  = r.json()
+        token = body["access_token"]
+        ttl   = int(body.get("expires_in", _TOKEN_TTL_SECONDS))
+        _TOKEN_CACHE[cache_key] = {
+            "token":      token,
+            "expires_at": time.time() + min(ttl - 60, _TOKEN_TTL_SECONDS),
+        }
+        logger.debug("eClinicalWorks OAuth token fetched for clinic %d", clinic_id)
+        return token
+    except Exception as exc:
+        logger.error("eClinicalWorks OAuth token fetch failed for clinic %d: %s", clinic_id, exc)
+        return None
+
+
+def _ecw_headers(token: str) -> dict:
+    return {
+        "Authorization": f"Bearer {token}",
+        "Accept":        "application/fhir+json",
+        "Content-Type":  "application/fhir+json",
+    }
+
+
+def _sync_ecw(config: EHRConfiguration, clinic_id: int, appointment: Appointment) -> tuple[bool, str]:
+    """Create a FHIR Appointment in eClinicalWorks."""
+    token = _get_ecw_token(config, clinic_id)
+    if not token:
+        return False, ""
+
+    base = config.api_endpoint.rstrip("/")
+    fhir_appt = {
+        "resourceType": "Appointment",
+        "status":       "booked",
+        "serviceType": [{"text": appointment.appointment_type}],
+        "description": appointment.chief_complaint or appointment.appointment_type,
+        "start":       _human_to_iso(appointment.appointment_datetime),
+        "participant": [
+            {"actor": {"display": appointment.patient_name}, "status": "accepted"},
+            *(
+                [{"actor": {"display": appointment.provider}, "status": "accepted"}]
+                if appointment.provider else []
+            ),
+        ],
+        "comment": f"Booked via Aria AI — conf #{appointment.confirmation_number}",
+    }
+
+    try:
+        r = httpx.post(f"{base}/Appointment", json=fhir_appt,
+                       headers=_ecw_headers(token), timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        return True, r.json().get("id", "")
+    except Exception as exc:
+        logger.error("eClinicalWorks Appointment POST failed: %s", exc)
+        return False, ""
+
+
+def _fetch_patient_ecw(config, clinic_id, patient_name, date_of_birth) -> Optional[dict]:
+    """Search eClinicalWorks for a patient via FHIR Patient search."""
+    token = _get_ecw_token(config, clinic_id)
+    if not token:
+        return None
+
+    parts  = patient_name.strip().split()
+    family = parts[-1] if parts else patient_name
+    given  = parts[0]  if len(parts) > 1 else ""
+    base   = config.api_endpoint.rstrip("/")
+    params: dict = {"family": family, "birthdate": date_of_birth, "_count": "5"}
+    if given:
+        params["given"] = given
+
+    try:
+        r = httpx.get(f"{base}/Patient", params=params,
+                      headers=_ecw_headers(token), timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        entries = r.json().get("entry", [])
+        if not entries:
+            return None
+        return _parse_fhir_patient(entries[0].get("resource", {}), "eclinicalworks")
+    except Exception as exc:
+        logger.error("eClinicalWorks Patient search failed: %s", exc)
+        return None
+
+
+def _fetch_slots_ecw(config, clinic_id, appointment_type, date_start, date_end,
+                     provider_name) -> list[dict]:
+    """Fetch FHIR Slots from eClinicalWorks."""
+    token = _get_ecw_token(config, clinic_id)
+    if not token:
+        return []
+
+    base = config.api_endpoint.rstrip("/")
+    try:
+        r = httpx.get(f"{base}/Slot",
+                      params={"status": "free", "start": f"ge{date_start}",
+                              "end": f"le{date_end}", "_count": "50"},
+                      headers=_ecw_headers(token), timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        slots = []
+        for entry in r.json().get("entry", []):
+            slot = _parse_fhir_slot(entry.get("resource", {}), "eclinicalworks", appointment_type)
+            if slot:
+                slots.append(slot)
+        return slots
+    except Exception as exc:
+        logger.error("eClinicalWorks Slot search failed: %s", exc)
+        return []
+
+
+def _fetch_chart_ecw(config, clinic_id, patient_id) -> Optional[dict]:
+    """Fetch Condition + MedicationRequest + AllergyIntolerance from eClinicalWorks FHIR R4."""
+    token = _get_ecw_token(config, clinic_id)
+    if not token:
+        return None
+
+    # eCW FHIR R4 follows same structure as Epic/Cerner
+    base    = config.api_endpoint.rstrip("/")
+    headers = _ecw_headers(token)
+    chart   = {"ehr_patient_id": patient_id, "ehr_system": "eclinicalworks",
+                "diagnoses": [], "medications": [], "allergies": []}
+
+    for resource, key, params in [
+        ("Condition",          "diagnoses",   {"patient": patient_id, "clinical-status": "active"}),
+        ("MedicationRequest",  "medications", {"patient": patient_id, "status": "active"}),
+        ("AllergyIntolerance", "allergies",   {"patient": patient_id}),
+    ]:
+        try:
+            r = httpx.get(f"{base}/{resource}", params={**params, "_count": "50"},
+                          headers=headers, timeout=_HTTP_TIMEOUT)
+            r.raise_for_status()
+            for entry in r.json().get("entry", []):
+                res = entry.get("resource", {})
+                if resource == "Condition":
+                    code = res.get("code", {})
+                    chart[key].append({
+                        "code":    code.get("coding", [{}])[0].get("code", ""),
+                        "display": code.get("text") or code.get("coding", [{}])[0].get("display", ""),
+                        "status":  "active",
+                    })
+                elif resource == "MedicationRequest":
+                    med  = res.get("medicationCodeableConcept", {})
+                    dose = res.get("dosageInstruction", [{}])[0].get("text", "") if res.get("dosageInstruction") else ""
+                    chart[key].append({
+                        "name":   med.get("text") or med.get("coding", [{}])[0].get("display", ""),
+                        "dose":   dose,
+                        "status": "active",
+                    })
+                elif resource == "AllergyIntolerance":
+                    subst = res.get("code", {})
+                    react = ""
+                    if res.get("reaction"):
+                        manif = res["reaction"][0].get("manifestation", [{}])
+                        react = manif[0].get("text") or manif[0].get("coding", [{}])[0].get("display", "")
+                    chart[key].append({
+                        "substance": subst.get("text") or subst.get("coding", [{}])[0].get("display", ""),
+                        "reaction":  react,
+                        "severity":  res.get("reaction", [{}])[0].get("severity", "") if res.get("reaction") else "",
+                    })
+        except Exception as exc:
+            logger.warning("eCW %s fetch failed for patient %s: %s", resource, patient_id, exc)
+
+    return chart
+
+
+def _post_note_ecw(config, clinic_id, patient_id, note_content) -> tuple[bool, str]:
+    """Post a FHIR DocumentReference to eClinicalWorks."""
+    token = _get_ecw_token(config, clinic_id)
+    if not token:
+        return False, ""
+
+    import base64 as _b64
+    base    = config.api_endpoint.rstrip("/")
+    encoded = _b64.b64encode(note_content.encode()).decode()
+    doc_ref = {
+        "resourceType": "DocumentReference",
+        "status":       "current",
+        "type":         {"coding": [{"system": "http://loinc.org", "code": "11488-4"}],
+                         "text": "Aria AI Encounter Summary"},
+        "subject":      {"reference": f"Patient/{patient_id}"},
+        "date":         datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "content":      [{"attachment": {"contentType": "text/plain", "data": encoded,
+                                         "title": "Aria AI Encounter Summary"}}],
+    }
+
+    try:
+        r = httpx.post(f"{base}/DocumentReference", json=doc_ref,
+                       headers=_ecw_headers(token), timeout=_HTTP_TIMEOUT)
+        r.raise_for_status()
+        return True, r.json().get("id", "")
+    except Exception as exc:
+        logger.error("eCW DocumentReference POST failed: %s", exc)
+        return False, ""
+
+
+# ── Phase 4 cache helpers ─────────────────────────────────────────────────────
+
+def _upsert_chart_summary(db, clinic_id, ehr_patient_id, ehr_system, chart) -> None:
+    import json as _json
+    from datetime import timedelta
+    from backend.db.models import EMRChartSummary
+    expires = datetime.utcnow() + timedelta(hours=1)
+    existing = (
+        db.query(EMRChartSummary)
+        .filter(EMRChartSummary.clinic_id == clinic_id,
+                EMRChartSummary.ehr_patient_id == ehr_patient_id)
+        .first()
+    )
+    if existing:
+        existing.diagnoses   = _json.dumps(chart.get("diagnoses", []))
+        existing.medications = _json.dumps(chart.get("medications", []))
+        existing.allergies   = _json.dumps(chart.get("allergies", []))
+        existing.fetched_at  = datetime.utcnow()
+        existing.expires_at  = expires
+    else:
+        from backend.db.models import EMRChartSummary as _CS
+        db.add(_CS(
+            clinic_id=clinic_id,
+            ehr_patient_id=ehr_patient_id,
+            ehr_system=ehr_system,
+            diagnoses=_json.dumps(chart.get("diagnoses", [])),
+            medications=_json.dumps(chart.get("medications", [])),
+            allergies=_json.dumps(chart.get("allergies", [])),
+            expires_at=expires,
+        ))
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
+def _write_note_sync_record(db, clinic_id, session_id, ehr_patient_id, ehr_system,
+                             doc_id, note_type, note_preview, status, error_msg) -> None:
+    from backend.db.models import EMRNoteSync
+    try:
+        db.add(EMRNoteSync(
+            clinic_id=clinic_id, session_id=session_id,
+            ehr_patient_id=ehr_patient_id, ehr_system=ehr_system,
+            ehr_document_id=doc_id, note_type=note_type,
+            note_preview=note_preview, status=status, error_message=error_msg,
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
+# Wire eCW into the main sync/lookup/slot routing
+# (patch the existing _send_to_ehr dispatcher)
+_ORIG_SEND_TO_EHR = None   # kept for reference; routing is done inline in sync_appointment_to_ehr
 
 
 # ── Phase 3: Appointment type resolver ───────────────────────────────────────

@@ -957,7 +957,8 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
           <h2>🏥 EHR / EMR Integration</h2>
           <p style="color:#6B7280;font-size:13px;margin:0 0 16px;">
             Connect Aria to your EHR so appointments are automatically synced and Aria can look up existing patients in real time.
-            Supported: <strong>Epic (FHIR R4)</strong>, Cerner, Athenahealth.
+            Supported: <strong>Epic (FHIR R4)</strong>, Cerner, Athenahealth, eClinicalWorks.
+            Chart read &amp; note sync available on Enterprise plan.
           </p>
           <div id="ehr-status-badge" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:99px;font-size:13px;font-weight:600;background:#F3F4F6;color:#374151;margin-bottom:0;">
             <span id="ehr-status-dot" style="width:8px;height:8px;border-radius:50%;background:#9CA3AF;display:inline-block;"></span>
@@ -974,8 +975,9 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
               <select id="ehr-system" class="setup-inp">
                 <option value="">— Select your EHR —</option>
                 <option value="epic">Epic (FHIR R4)</option>
-                <option value="cerner">Cerner</option>
+                <option value="cerner">Cerner (FHIR R4)</option>
                 <option value="athenahealth">Athenahealth</option>
+                <option value="eclinicalworks">eClinicalWorks (Enterprise)</option>
               </select>
             </div>
             <div>
