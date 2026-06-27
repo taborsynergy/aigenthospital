@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from backend.db import crud
 from backend.services import email_svc
+from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ def check_trial_expiry_and_remind(db: Session) -> dict:
                 email_svc.send_trial_expired_to_clinic({
                     "clinic_name": clinic.name,
                     "clinic_email": clinic.email,
-                    "upgrade_url": f"https://app.taborsynergy.com/clinic/{clinic.slug}/upgrade",
+                    "upgrade_url": f"{settings.base_url.rstrip('/')}/c/{clinic.slug}",
                 })
             except Exception as e:
                 logger.error(f"Failed to expire trial for clinic {clinic.id}: {e}")
@@ -64,7 +65,7 @@ def check_trial_expiry_and_remind(db: Session) -> dict:
                     "clinic_email": clinic.email,
                     "days_remaining": max(days_left, 0),
                     "trial_ends_at": clinic.trial_ends_at.strftime("%B %d, %Y"),
-                    "upgrade_url": f"https://app.taborsynergy.com/clinic/{clinic.slug}/upgrade",
+                    "upgrade_url": f"{settings.base_url.rstrip('/')}/c/{clinic.slug}",
                 })
                 if ok:
                     clinic.trial_reminder_day = bucket

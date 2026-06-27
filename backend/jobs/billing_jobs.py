@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from backend.db import crud
 from backend.plans import get_plan
 from backend.services import email_svc
+from backend.config import settings
 from backend.jobs.trial_jobs import reminder_bucket, _should_send, REMINDER_THRESHOLDS
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ def check_renewals_and_remind(db: Session) -> dict:
                     "renews_on": clinic.subscription_ends_at.strftime("%B %d, %Y"),
                     "plan": plan.get("name", clinic.plan or "your plan"),
                     "amount": f"${int(rate)}/mo" if rate else "",
-                    "manage_url": f"https://app.taborsynergy.com/clinic/{clinic.slug}/billing",
+                    "manage_url": f"{settings.base_url.rstrip('/')}/c/{clinic.slug}",
                 })
                 if ok:
                     clinic.renewal_reminder_day = bucket

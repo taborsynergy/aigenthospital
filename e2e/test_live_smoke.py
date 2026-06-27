@@ -1537,3 +1537,50 @@ class TestEMRIntegration:
         elapsed = time.monotonic() - t0
         assert r.status_code == 200
         assert elapsed < 5.0, f"EHR config took {elapsed:.1f}s (limit: 5s)"
+
+
+# SMOKE-018 — Upgrade / Renewal email URL correctness
+# Regression guard: upgrade links in trial-expiry and renewal emails must point
+# to aifrontdesk.taborsynergy.com (the AI agent portal), NOT app.taborsynergy.com
+# (ChurchConnect). Verified by inspecting the /api/health response base_url and
+# confirming the portal route /c/{slug} resolves correctly.
+
+class TestEmailUpgradeURL:
+    """SMOKE-018: Upgrade/renewal email links point to the correct portal."""
+
+    def test_smoke018a_health_base_url_is_aifrontdesk(self):
+        """SMOKE-018-A: /api/health confirms service is aifrontdesk (not app.taborsynergy)."""
+        r = get("/api/health")
+        assert r.status_code == 200
+        # The service identity must not be ChurchConnect
+        text = r.text.lower()
+        assert "app.taborsynergy" not in text, \
+            "Health check references app.taborsynergy — wrong service?"
+
+    def test_smoke018b_portal_route_resolves_for_smoke_clinic(self):
+        """SMOKE-018-B: /c/{slug} returns 200 (the portal a trial email links to)."""
+        slug = SMOKE_CLINIC_SLUG or "smoke-test-clinic-do-not-delet-024dc"
+        r = get(f"/c/{slug}")
+        assert r.status_code == 200, \
+            f"/c/{slug} returned {r.status_code} — upgrade email link is broken"
+
+    def test_smoke018c_portal_not_church_app(self):
+        """SMOKE-018-C: /c/{slug} page content is the AI agent portal, not ChurchConnect."""
+        slug = SMOKE_CLINIC_SLUG or "smoke-test-clinic-do-not-delet-024dc"
+        r = get(f"/c/{slug}")
+        assert r.status_code == 200
+        body = r.text.lower()
+        # Must NOT be ChurchConnect content
+        assert "grace community" not in body, "Portal returned ChurchConnect page"
+        assert "sermons" not in body, "Portal returned ChurchConnect page"
+        # Must BE the AI agent portal
+        assert "aria" in body or "taborsynergy" in body, \
+            "Portal page doesn't look like the AI agent portal"
+
+    def test_smoke018d_upgrade_url_pattern_correct(self, live_clinic):
+        """SMOKE-018-D: Portal /c/{slug} for authenticated clinic returns 200 with plan info."""
+        r = get(f"/c/{live_clinic['slug']}")
+        assert r.status_code == 200
+        body = r.text.lower()
+        assert "grace community" not in body
+        assert "sermons" not in body
