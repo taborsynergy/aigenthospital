@@ -2401,6 +2401,23 @@ Reply STOP to opt out.`;
     document.body.appendChild(s);
     window._widgetLoaded = true;
   }}
+
+  // Fetch plan immediately on dashboard load so plan-gated tabs (EHR, White Label)
+  // are shown without requiring the user to click "Plan & Billing" first.
+  (function() {{
+    var tok = localStorage.getItem(TKEY);
+    fetch("/api/" + SLUG + "/plan", {{ headers: {{ "X-Clinic-Token": tok || "" }} }})
+      .then(function(r) {{ return r.ok ? r.json() : null; }})
+      .then(function(p) {{
+        if (p && p.plan_key) {{
+          _currentPlanKey   = p.plan_key;
+          _currentSubStatus = p.subscription_status || "active";
+          _currentEndsAt    = p.subscription_ends_at || null;
+          maybeShowWlTab(p.plan_key);
+        }}
+      }})
+      .catch(function() {{}});
+  }})();
 }}
 
 function doLogin(e) {{
