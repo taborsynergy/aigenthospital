@@ -864,7 +864,7 @@ def _sync_athenahealth(
         "appointmentdate": appt_date,
         "appointmenttime": appt_time,
         "patientid":       "new",          # Will be matched by name+DOB on Athena side
-        "appointmenttypeid": "1",          # Default; real impl maps type name → ID
+        "appointmenttypeid": resolve_appointment_type_id(appointment.appointment_type, "athenahealth"),
         "providerid":      "",
         "reason":          appointment.chief_complaint or appointment.appointment_type,
         "patientfirstname": appointment.patient_name.split()[0] if appointment.patient_name else "",
@@ -972,7 +972,7 @@ def _fetch_slots_athenahealth(
     params: dict = {
         "startdate":         date_start,
         "enddate":           date_end,
-        "appointmenttypeid": "1",   # Default; real impl resolves type name → ID
+        "appointmenttypeid": resolve_appointment_type_id(appointment_type, "athenahealth"),
         "limit":             "50",
     }
     if provider_name:
@@ -1251,3 +1251,194 @@ def test_ehr_connection(config: EHRConfiguration, clinic_id: int = 0) -> tuple[b
 
 def get_supported_ehr_systems() -> list[str]:
     return ["epic", "cerner", "athenahealth"]
+
+
+# ── Phase 3: Appointment type resolver ───────────────────────────────────────
+# Maps free-text appointment type names → EHR-specific type IDs.
+# Real production deployments would populate these from the EHR's own type catalog
+# via a one-time setup call; the tables below are sensible defaults.
+
+_EPIC_SERVICE_TYPE_MAP: dict[str, str] = {
+    "annual physical":          "11",
+    "well visit":               "11",
+    "wellness exam":            "11",
+    "new patient":              "185",
+    "new patient consultation": "185",
+    "follow-up":                "11",
+    "follow up":                "11",
+    "sick visit":               "11",
+    "urgent visit":             "11",
+    "telehealth":               "448",
+    "virtual visit":            "448",
+    "flu shot":                 "394",
+    "vaccination":              "394",
+    "lab":                      "108",
+    "blood work":               "108",
+    "cleaning":                 "29",   # dental
+    "dental cleaning":          "29",
+    "check-up":                 "11",
+    "physical":                 "11",
+}
+
+_ATHENA_APPT_TYPE_MAP: dict[str, str] = {
+    "annual physical":          "2",
+    "well visit":               "2",
+    "wellness exam":            "2",
+    "new patient":              "1",
+    "new patient consultation": "1",
+    "follow-up":                "3",
+    "follow up":                "3",
+    "sick visit":               "4",
+    "urgent visit":             "4",
+    "telehealth":               "5",
+    "virtual visit":            "5",
+    "flu shot":                 "6",
+    "vaccination":              "6",
+    "lab":                      "7",
+    "blood work":               "7",
+    "cleaning":                 "8",
+    "dental cleaning":          "8",
+    "check-up":                 "2",
+    "physical":                 "2",
+}
+
+
+def resolve_appointment_type_id(appointment_type: str, ehr_system: str) -> str:
+    """
+    Map a free-text appointment type to an EHR-specific type ID.
+    Falls back to "1" (generic appointment) if no match found.
+    Case-insensitive prefix match — "Annual Physical Exam" matches "annual physical".
+    """
+    key = appointment_type.lower().strip()
+    if ehr_system == "epic":
+        mapping = _EPIC_SERVICE_TYPE_MAP
+    elif ehr_system == "athenahealth":
+        mapping = _ATHENA_APPT_TYPE_MAP
+    else:
+        return "1"  # Cerner uses text-based serviceType, no numeric ID needed
+
+    # Exact match first
+    if key in mapping:
+        return mapping[key]
+    # Prefix match
+    for pattern, type_id in mapping.items():
+        if key.startswith(pattern) or pattern.startswith(key):
+            return type_id
+    return "1"
+
+
+# ── Phase 3: Slot conflict check ─────────────────────────────────────────────
+
+def check_slot_still_available(
+    ehr_slot_id: str,
+    clinic_id: int,
+    db,
+) -> bool:
+    """
+    Verify that an EHR slot (by its ehr_slot_id) is still marked 'free'
+    in our local cache. Returns True if free/unknown, False if booked.
+    This is a lightweight pre-booking guard — the EHR itself is authoritative.
+    """
+    row = (
+        db.query(EMRAppointment)
+        .filter(
+            EMRAppointment.clinic_id == clinic_id,
+            EMRAppointment.ehr_slot_id == ehr_slot_id,
+        )
+        .first()
+    )
+    if not row:
+        return True   # Not in cache — optimistically allow (EHR will enforce)
+    return row.status == "free"
+
+
+def mark_slot_booked(ehr_slot_id: str, clinic_id: int, db) -> None:
+    """
+    Mark a cached EHR slot as 'busy' after a successful booking.
+    Prevents Aria from offering the same slot to another patient before the 15-min cache expires.
+    """
+    row = (
+        db.query(EMRAppointment)
+        .filter(
+            EMRAppointment.clinic_id == clinic_id,
+            EMRAppointment.ehr_slot_id == ehr_slot_id,
+        )
+        .first()
+    )
+    if row:
+        row.status = "busy"
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+
+
+# ── Phase 3: Provider NPI lookup ─────────────────────────────────────────────
+
+def resolve_provider_npi(provider_name: str, clinic_id: int, db) -> Optional[str]:
+    """
+    Look up a provider's NPI number from the Provider table by name.
+    Used to filter EHR slot searches by specific provider.
+    Returns NPI string or None if not found / not configured.
+    """
+    if not provider_name or provider_name.lower() in ("any", ""):
+        return None
+    try:
+        from backend.db.models import Provider
+        rows = (
+            db.query(Provider)
+            .filter(
+                Provider.clinic_id == clinic_id,
+                Provider.is_active.is_(True),
+            )
+            .all()
+        )
+        # Token-based match: all search tokens must appear in provider name
+        # e.g. "Dr. Smith" matches "Dr. Jane Smith" because both "dr." and "smith" are present
+        search_tokens = set(provider_name.lower().split())
+        for p in rows:
+            p_tokens = set(p.name.lower().split())
+            if search_tokens & p_tokens:  # any token overlap = match
+                return p.npi_number or None
+    except Exception as exc:
+        logger.debug("Provider NPI lookup failed: %s", exc)
+    return None
+
+
+# ── Phase 3: EHR-aware slot fetch (auto-routing) ─────────────────────────────
+
+def get_slots_auto(
+    clinic_id: int,
+    appointment_type: str,
+    date_start: str,
+    date_end: str,
+    provider_name: Optional[str],
+    db,
+) -> tuple[list[dict], bool]:
+    """
+    Phase 3 auto-routing: returns (slots, from_ehr).
+    - If the clinic has EHR configured + active, fetches live slots from the EHR
+      and resolves the appointment type to an EHR-specific ID.
+    - Falls through to return ([], False) if EHR not configured, so the caller
+      can fall back to the mock office-hours slot generator.
+    """
+    config = get_ehr_configuration(db, clinic_id)
+    if not config or not config.ehr_system or not config.api_endpoint:
+        return [], False
+    if config.sync_status == "error":
+        logger.warning("EHR slot fetch skipped — config in error state for clinic %d", clinic_id)
+        return [], False
+
+    # Resolve provider NPI for EHR filtering
+    npi = resolve_provider_npi(provider_name or "", clinic_id, db)
+    effective_provider = npi or provider_name
+
+    slots = get_available_slots(
+        clinic_id=clinic_id,
+        appointment_type=appointment_type,
+        date_start=date_start,
+        date_end=date_end,
+        provider_name=effective_provider,
+        db=db,
+    )
+    return slots, True

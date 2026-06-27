@@ -127,6 +127,47 @@ def _build_location_section(clinic) -> str:
     return ""
 
 
+def _build_ehr_section(clinic) -> str:
+    """
+    Phase 3 — Inject EHR awareness into Aria's system prompt when EHR is active.
+    Tells Aria to use prefill_intake_from_ehr for returning patients and
+    get_available_slots_from_ehr for live slot availability.
+    Only injected when the clinic has an EHR system configured.
+    """
+    try:
+        if not (hasattr(clinic, "_db") and clinic._db):
+            return ""
+        from backend.db.crud import get_ehr_configuration
+        from backend.plans import can_use_ehr_integration
+        if not can_use_ehr_integration(clinic):
+            return ""
+        config = get_ehr_configuration(clinic._db, clinic.id)
+        if not config or not config.ehr_system:
+            return ""
+        system_name = config.ehr_system.upper()
+        return f"""
+
+## EHR INTEGRATION — {system_name} CONNECTED
+This clinic has a live {system_name} EHR integration. Use these tools proactively:
+
+1. RETURNING PATIENTS: At the start of any booking for a patient who says they have \
+been to this clinic before, call `prefill_intake_from_ehr` with their name and date of birth. \
+If found, use the `pre_filled` data (name, DOB, phone, email, provider) and skip \
+those questions entirely — just confirm: "I have your details on file — shall we use those?"
+
+2. SLOT AVAILABILITY: `check_appointment_availability` automatically fetches live slots \
+from {system_name} when available. If EHR slots are returned, present those to the patient \
+as the real available times — do NOT make up times.
+
+3. CONFLICT GUARD: If a patient selects a slot and you get a `slot_taken` error, \
+apologize briefly ("That slot was just taken — here are the next available options") \
+and call `check_appointment_availability` again to refresh the list.
+
+Do NOT mention the EHR system name to patients — they don't need to know the technology."""
+    except Exception:
+        return ""
+
+
 def build_system_prompt(clinic, db=None) -> str:
     """Build a system prompt from a Clinic DB model or any object with the same attributes."""
     # Attach db to clinic temporarily so helper functions can use it
@@ -154,6 +195,7 @@ def build_system_prompt(clinic, db=None) -> str:
     location_section      = _build_location_section(clinic)
     appt_types_section    = _build_appointment_types_section(clinic)
     holidays_section      = _build_holidays_section(clinic)
+    ehr_section           = _build_ehr_section(clinic)
 
     from datetime import date as _date
     _today_str = _date.today().strftime("%A, %B %d, %Y")
@@ -339,4 +381,4 @@ our team will follow up within 15 minutes. Is there anything else I can help you
 - Confirm details back before taking action
 - After completing any task, always end with: "Is there anything else I can help you with today?"
 - Keep responses to 2–4 sentences unless listing options or analytics data
-{location_section}{custom_training}"""
+{location_section}{custom_training}{ehr_section}"""

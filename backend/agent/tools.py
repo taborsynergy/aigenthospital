@@ -113,6 +113,7 @@ TOOLS: list[dict] = [
                 "patient_dob":     {"type": "string", "description": "YYYY-MM-DD"},
                 "is_new_patient":  {"type": "boolean"},
                 "chief_complaint": {"type": "string", "description": "Reason for visit in lay terms"},
+                "ehr_slot_id":     {"type": "string", "description": "EHR slot ID from get_available_slots_from_ehr or check_appointment_availability (source=ehr). Pass this when the patient selected an EHR slot to enable conflict detection."},
             },
             "required": ["patient_name", "appointment_type", "datetime"],
         },
@@ -375,18 +376,55 @@ async def dispatch_tool(
 
     match name:
         case "check_appointment_availability":
+            from backend.plans import can_use_ehr_integration
+            from datetime import date, timedelta
+            appt_type  = inputs.get("appointment_type", "")
+            date_start = inputs.get("date_range_start") or (date.today() + timedelta(days=1)).isoformat()
+            date_end   = inputs.get("date_range_end")   or (date.fromisoformat(date_start) + timedelta(days=6)).isoformat()
+
+            # Phase 3 auto-routing: use live EHR slots when EHR is configured + plan allows
+            if db and clinic and can_use_ehr_integration(clinic):
+                from backend.services.ehr_svc import get_slots_auto
+                ehr_slots, from_ehr = get_slots_auto(
+                    clinic_id=clinic.id,
+                    appointment_type=appt_type,
+                    date_start=date_start,
+                    date_end=date_end,
+                    provider_name=inputs.get("provider"),
+                    db=db,
+                )
+                if from_ehr and ehr_slots:
+                    return {
+                        "available_slots": ehr_slots,
+                        "appointment_type": appt_type,
+                        "source": "ehr",
+                    }
+                # EHR configured but returned no slots — fall through to mock schedule
             slots = generate_slots(
                 clinic=clinic,
-                date_start=inputs.get("date_range_start"),
-                date_end=inputs.get("date_range_end"),
+                date_start=date_start,
+                date_end=date_end,
                 duration_minutes=inputs.get("duration_minutes", 30),
                 db=db,
                 provider_filter=inputs.get("provider"),
             )
-            return {"available_slots": slots, "appointment_type": inputs.get("appointment_type", "")}
+            return {"available_slots": slots, "appointment_type": appt_type, "source": "local"}
 
         case "book_appointment":
-            return book_appointment(
+            # Phase 3 slot conflict check: if patient selected an EHR slot, verify it's still free
+            ehr_slot_id = inputs.get("ehr_slot_id", "")
+            if ehr_slot_id and db and clinic:
+                from backend.services.ehr_svc import check_slot_still_available, mark_slot_booked
+                if not check_slot_still_available(ehr_slot_id, clinic.id, db):
+                    return {
+                        "error": "slot_taken",
+                        "message": (
+                            "That time slot was just booked by another patient. "
+                            "Let me show you the next available options."
+                        ),
+                    }
+
+            result = book_appointment(
                 clinic=clinic,
                 db=db,
                 session_id=session_id,
@@ -401,6 +439,11 @@ async def dispatch_tool(
                 is_new_patient=inputs.get("is_new_patient", False),
                 chief_complaint=inputs.get("chief_complaint"),
             )
+            # Mark EHR slot as busy so it won't be offered to another patient
+            if ehr_slot_id and db and clinic and result.get("success"):
+                from backend.services.ehr_svc import mark_slot_booked
+                mark_slot_booked(ehr_slot_id, clinic.id, db)
+            return result
 
         case "reschedule_appointment":
             return reschedule_appointment(

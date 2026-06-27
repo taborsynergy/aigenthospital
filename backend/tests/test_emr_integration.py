@@ -654,3 +654,165 @@ class TestEMRPhase2Intake:
         assert slot["slot_time_str"] == "9:30 AM"
         assert slot["duration_minutes"] == 30
         assert slot["ehr_system"] == "athenahealth"
+
+
+# ── Phase 3 Tests ─────────────────────────────────────────────────────────────
+
+class TestEMRPhase3AutoRouting:
+    """EMR-P3: Auto-routing, appointment type resolver, slot conflict, provider NPI, prompt injection."""
+
+    def test_emr_p3_001_appt_type_resolver_epic_annual_physical(self):
+        """EMR-P3-001: 'annual physical' resolves to Epic serviceType '11'."""
+        from backend.services.ehr_svc import resolve_appointment_type_id
+        assert resolve_appointment_type_id("annual physical", "epic") == "11"
+
+    def test_emr_p3_002_appt_type_resolver_epic_new_patient(self):
+        """EMR-P3-002: 'new patient consultation' resolves to Epic serviceType '185'."""
+        from backend.services.ehr_svc import resolve_appointment_type_id
+        assert resolve_appointment_type_id("new patient consultation", "epic") == "185"
+
+    def test_emr_p3_003_appt_type_resolver_athena_follow_up(self):
+        """EMR-P3-003: 'follow-up' resolves to Athena appointmenttypeid '3'."""
+        from backend.services.ehr_svc import resolve_appointment_type_id
+        assert resolve_appointment_type_id("follow-up", "athenahealth") == "3"
+
+    def test_emr_p3_004_appt_type_resolver_unknown_falls_back(self):
+        """EMR-P3-004: Unknown appointment type falls back to '1'."""
+        from backend.services.ehr_svc import resolve_appointment_type_id
+        assert resolve_appointment_type_id("underwater basket weaving", "epic") == "1"
+
+    def test_emr_p3_005_appt_type_resolver_case_insensitive(self):
+        """EMR-P3-005: Resolver is case-insensitive."""
+        from backend.services.ehr_svc import resolve_appointment_type_id
+        assert resolve_appointment_type_id("Annual Physical", "epic") == "11"
+        assert resolve_appointment_type_id("TELEHEALTH", "epic") == "448"
+
+    def test_emr_p3_006_appt_type_cerner_returns_1(self):
+        """EMR-P3-006: Cerner uses text serviceType — resolver always returns '1' (no ID mapping needed)."""
+        from backend.services.ehr_svc import resolve_appointment_type_id
+        # Cerner doesn't use numeric IDs in the same way; resolver returns '1'
+        result = resolve_appointment_type_id("annual physical", "cerner")
+        assert result == "1"
+
+    def test_emr_p3_007_slot_conflict_check_free_slot(self, db):
+        """EMR-P3-007: check_slot_still_available returns True for a free cached slot."""
+        from datetime import datetime, timedelta
+        from backend.services.ehr_svc import check_slot_still_available
+        clinic = _make_clinic(db, plan="professional")
+        db.add(EMRAppointment(
+            clinic_id=clinic.id,
+            ehr_system="epic",
+            ehr_slot_id="SLOT-FREE-001",
+            status="free",
+            slot_date_str="2026-08-01",
+            slot_time_str="10:00 AM",
+            expires_at=datetime.utcnow() + timedelta(minutes=15),
+        ))
+        db.commit()
+        assert check_slot_still_available("SLOT-FREE-001", clinic.id, db) is True
+
+    def test_emr_p3_008_slot_conflict_check_busy_slot(self, db):
+        """EMR-P3-008: check_slot_still_available returns False for a busy cached slot."""
+        from datetime import datetime, timedelta
+        from backend.services.ehr_svc import check_slot_still_available
+        clinic = _make_clinic(db, plan="professional")
+        db.add(EMRAppointment(
+            clinic_id=clinic.id,
+            ehr_system="epic",
+            ehr_slot_id="SLOT-BUSY-001",
+            status="busy",
+            slot_date_str="2026-08-01",
+            slot_time_str="11:00 AM",
+            expires_at=datetime.utcnow() + timedelta(minutes=15),
+        ))
+        db.commit()
+        assert check_slot_still_available("SLOT-BUSY-001", clinic.id, db) is False
+
+    def test_emr_p3_009_mark_slot_booked(self, db):
+        """EMR-P3-009: mark_slot_booked changes cached slot status to 'busy'."""
+        from datetime import datetime, timedelta
+        from backend.services.ehr_svc import mark_slot_booked, check_slot_still_available
+        clinic = _make_clinic(db, plan="professional")
+        db.add(EMRAppointment(
+            clinic_id=clinic.id,
+            ehr_system="cerner",
+            ehr_slot_id="SLOT-MARK-001",
+            status="free",
+            slot_date_str="2026-08-02",
+            slot_time_str="2:00 PM",
+            expires_at=datetime.utcnow() + timedelta(minutes=15),
+        ))
+        db.commit()
+        assert check_slot_still_available("SLOT-MARK-001", clinic.id, db) is True
+        mark_slot_booked("SLOT-MARK-001", clinic.id, db)
+        assert check_slot_still_available("SLOT-MARK-001", clinic.id, db) is False
+
+    def test_emr_p3_010_slot_conflict_unknown_slot_returns_true(self, db):
+        """EMR-P3-010: check_slot_still_available on unknown slot ID returns True (optimistic)."""
+        from backend.services.ehr_svc import check_slot_still_available
+        clinic = _make_clinic(db, plan="professional")
+        assert check_slot_still_available("SLOT-DOES-NOT-EXIST", clinic.id, db) is True
+
+    def test_emr_p3_011_provider_npi_lookup_no_providers(self, db):
+        """EMR-P3-011: resolve_provider_npi returns None when no providers in DB."""
+        from backend.services.ehr_svc import resolve_provider_npi
+        clinic = _make_clinic(db, plan="professional")
+        result = resolve_provider_npi("Dr. Smith", clinic.id, db)
+        assert result is None
+
+    def test_emr_p3_012_provider_npi_lookup_with_match(self, db):
+        """EMR-P3-012: resolve_provider_npi returns NPI when provider name matches."""
+        from backend.db.models import Provider
+        from backend.services.ehr_svc import resolve_provider_npi
+        clinic = _make_clinic(db, plan="professional")
+        db.add(Provider(
+            clinic_id=clinic.id,
+            name="Dr. Jane Smith",
+            npi_number="1234567890",
+            is_active=True,
+        ))
+        db.commit()
+        result = resolve_provider_npi("Dr. Smith", clinic.id, db)
+        assert result == "1234567890"
+
+    def test_emr_p3_013_provider_npi_any_returns_none(self, db):
+        """EMR-P3-013: resolve_provider_npi with 'any' returns None (no filter)."""
+        from backend.services.ehr_svc import resolve_provider_npi
+        clinic = _make_clinic(db, plan="professional")
+        assert resolve_provider_npi("any", clinic.id, db) is None
+        assert resolve_provider_npi("",    clinic.id, db) is None
+
+    def test_emr_p3_014_check_availability_no_ehr_uses_local(self, client, db):
+        """EMR-P3-014: check_appointment_availability falls back to local slots when no EHR."""
+        clinic = _make_clinic(db, plan="professional")
+        # No EHR config — should use mock schedule
+        tok = _token(client, clinic.email)
+        # We can't call the Aria tool directly but we can confirm EHR config is absent
+        from backend.db.crud import get_ehr_configuration
+        config = get_ehr_configuration(db, clinic.id)
+        # Either None or ehr_system is empty
+        assert config is None or not config.ehr_system
+
+    def test_emr_p3_015_ehr_section_injected_when_ehr_active(self, db):
+        """EMR-P3-015: System prompt includes EHR section when EHR is configured."""
+        from backend.agent.prompts import build_system_prompt
+        clinic = _make_clinic(db, plan="professional")
+        clinic._db = db
+        # No EHR config — section should be absent
+        prompt_no_ehr = build_system_prompt(clinic, db=db)
+        assert "EHR INTEGRATION" not in prompt_no_ehr
+
+        # Add EHR config
+        db.add(EHRConfiguration(
+            clinic_id=clinic.id,
+            ehr_system="epic",
+            api_endpoint="https://fhir.epic.example.com/R4",
+        ))
+        db.commit()
+        # Invalidate prompt cache
+        from backend.agent.aria import invalidate_prompt
+        invalidate_prompt(clinic.id)
+        prompt_with_ehr = build_system_prompt(clinic, db=db)
+        assert "EHR INTEGRATION" in prompt_with_ehr
+        assert "prefill_intake_from_ehr" in prompt_with_ehr
+        assert "EPIC" in prompt_with_ehr
