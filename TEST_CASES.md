@@ -10,7 +10,7 @@ python -m pytest backend/tests --collect-only -q
 | Track | Location | Count | Runner |
 |---|---|---:|---|
 | **Core suite** (unit/integration/security) | `backend/tests/` | **685** (683 pass + 2 skip*) | `pytest` |
-| **Live smoke tests** (positive + negative + corner + security + perf + DB + EMR + URL regression) | `e2e/test_live_smoke.py` | **142** (36 positive + 48 negative/corner + 15 security + 11 perf + 15 DB + 17 EMR + 4 URL) | `pytest` + `httpx` |
+| **Live smoke tests** (positive + negative + corner + security + perf + DB + EMR + URL + dead links + chat button) | `e2e/test_live_smoke.py` | **155** (36 positive + 48 negative/corner + 15 security + 11 perf + 15 DB + 17 EMR + 4 URL + 8 dead links + 5 chat button) | `pytest` + `httpx` |
 | Accessibility + cross-browser | `e2e/` | matrix | Playwright + axe-core |
 | Performance (load/stress/spike/soak) | `perf/k6_load.js` + `.github/workflows/perf-k6.yml` | 4 scenarios | k6 (CI) |
 

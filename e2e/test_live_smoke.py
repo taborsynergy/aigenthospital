@@ -1584,3 +1584,113 @@ class TestEmailUpgradeURL:
         body = r.text.lower()
         assert "grace community" not in body
         assert "sermons" not in body
+
+
+# SMOKE-019 — Dead Links: all nav and footer links must be functional
+# Regression guard for the 5 dead href="#" links found in enterprise audit.
+
+class TestDeadLinks:
+    """SMOKE-019: Navigation and footer links are not dead (#-only) hrefs."""
+
+    def test_smoke019a_enterprise_nav_link_not_dead(self):
+        """SMOKE-019-A: 'Enterprise' nav link points to #enterprise section, not bare #."""
+        r = get("/")
+        assert r.status_code == 200
+        # Must link to the enterprise section anchor, not a bare "#"
+        assert 'href="#enterprise"' in r.text, \
+            "Enterprise nav link is still a dead href='#'"
+
+    def test_smoke019b_white_label_footer_not_dead(self):
+        """SMOKE-019-B: White Label footer link points to #pricing, not bare #."""
+        r = get("/")
+        assert r.status_code == 200
+        assert 'href="#pricing"' in r.text, \
+            "White Label footer link is still a dead href='#'"
+
+    def test_smoke019c_licensing_faq_opens_modal(self):
+        """SMOKE-019-C: Licensing FAQ footer link calls openLicensingFaq(), not openQuoteForm()."""
+        r = get("/")
+        assert r.status_code == 200
+        body = r.text
+        assert "openLicensingFaq" in body, "openLicensingFaq function not present"
+        assert "licensing-faq-modal" in body, "Licensing FAQ modal element not present"
+
+    def test_smoke019d_enterprise_sales_calls_demo_form(self):
+        """SMOKE-019-D: Enterprise Sales footer link calls openDemoForm()."""
+        r = get("/")
+        assert r.status_code == 200
+        assert "openDemoForm" in r.text, "openDemoForm not referenced in Enterprise Sales link"
+
+    def test_smoke019e_onboarding_opens_guide_modal(self):
+        """SMOKE-019-E: Onboarding footer link calls openOnboardingGuide()."""
+        r = get("/")
+        assert r.status_code == 200
+        body = r.text
+        assert "openOnboardingGuide" in body, "openOnboardingGuide function not present"
+        assert "onboarding-guide-modal" in body, "Onboarding Guide modal element not present"
+
+    def test_smoke019f_enterprise_section_exists_on_page(self):
+        """SMOKE-019-F: #enterprise section exists on the homepage."""
+        r = get("/")
+        assert r.status_code == 200
+        assert 'id="enterprise"' in r.text, \
+            "#enterprise section missing from homepage — Enterprise nav link will scroll nowhere"
+
+    def test_smoke019g_licensing_faq_modal_has_content(self):
+        """SMOKE-019-G: Licensing FAQ modal contains real FAQ content (not empty)."""
+        r = get("/")
+        assert r.status_code == 200
+        assert "reseller" in r.text.lower(), "Licensing FAQ missing reseller rights content"
+        assert "one-time" in r.text.lower(), "Licensing FAQ missing one-time fee explanation"
+
+    def test_smoke019h_onboarding_modal_has_steps(self):
+        """SMOKE-019-H: Onboarding Guide modal contains numbered steps."""
+        r = get("/")
+        assert r.status_code == 200
+        body = r.text.lower()
+        assert "clinic setup" in body, "Onboarding guide missing Clinic Setup step"
+        assert "share" in body, "Onboarding guide missing Share link step"
+
+
+# SMOKE-020 — Chat Send Button: pointer events not blocked by page layout
+# Regression guard for div.body intercepting clicks on #aria-send-btn.
+
+class TestChatSendButton:
+    """SMOKE-020: Chat page send button is accessible and not blocked by page layout."""
+
+    def test_smoke020a_chat_page_uses_chat_main_not_body_class(self):
+        """SMOKE-020-A: Chat page uses .chat-main class, not .body (which intercepted pointer events)."""
+        r = get(f"/chat/smoke-test-clinic-do-not-delet-024dc")
+        assert r.status_code == 200
+        assert 'class="chat-main"' in r.text, \
+            "Chat page still uses div.body which blocked send button clicks"
+        assert 'class="body"' not in r.text, \
+            "Old div.body class still present — pointer event interception bug not fixed"
+
+    def test_smoke020b_chat_main_has_z_index_zero(self):
+        """SMOKE-020-B: .chat-main CSS has z-index:0 to yield pointer events to the widget."""
+        r = get(f"/chat/smoke-test-clinic-do-not-delet-024dc")
+        assert r.status_code == 200
+        body = r.text
+        assert "z-index: 0" in body or "z-index:0" in body, \
+            ".chat-main missing z-index: 0 — send button may still be blocked on some browsers"
+
+    def test_smoke020c_widget_css_has_isolation_isolate(self):
+        """SMOKE-020-C: widget.css has isolation:isolate on #aria-widget to own its stacking context."""
+        r = get("/widget.css")
+        assert r.status_code == 200
+        assert "isolation: isolate" in r.text, \
+            "#aria-widget missing isolation:isolate — external page CSS can still block widget clicks"
+
+    def test_smoke020d_widget_css_pointer_events_auto(self):
+        """SMOKE-020-D: widget.css forces pointer-events:auto on all widget children."""
+        r = get("/widget.css")
+        assert r.status_code == 200
+        assert "pointer-events: auto" in r.text, \
+            "Widget children missing pointer-events:auto defensive rule"
+
+    def test_smoke020e_chat_page_loads_widget_script(self):
+        """SMOKE-020-E: Chat page loads widget.js so Aria chat is available."""
+        r = get(f"/chat/smoke-test-clinic-do-not-delet-024dc")
+        assert r.status_code == 200
+        assert "widget.js" in r.text, "Chat page missing widget.js script tag"
