@@ -3115,10 +3115,12 @@ async def patient_chat_page(clinic_slug: str, db: Session = Depends(get_db)):
     }}
     .topbar-brand {{ font-weight: 700; font-size: 15px; }}
     .topbar-sub {{ font-size: 12px; opacity: .75; }}
-    .body {{
+    .chat-main {{
       display: flex; align-items: center; justify-content: center;
       min-height: calc(100vh - 54px); flex-direction: column;
       gap: 16px; padding: 32px 20px; text-align: center;
+      position: relative;   /* establish stacking context so z-index: 0 takes effect */
+      z-index: 0;           /* ensures fixed widget (z-index: 9999) always wins pointer events */
     }}
     .welcome-card {{
       background: #fff; border-radius: 16px; padding: 32px 28px;
@@ -3149,7 +3151,7 @@ async def patient_chat_page(clinic_slug: str, db: Session = Depends(get_db)):
     <div class="topbar-sub">{clinic.specialty}</div>
   </div>
 </div>
-<div class="body">
+<div class="chat-main">
   <div class="welcome-card">
     <div class="avatar">{_specialty_icon(clinic.specialty)}</div>
     <h1>Hi, I'm {clinic.agent_name}!</h1>

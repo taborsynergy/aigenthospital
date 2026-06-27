@@ -66,12 +66,16 @@
   flex-direction: column;
   overflow: hidden;
   z-index: 9999;
+  isolation: isolate;        /* creates own stacking context — nothing on the page can intercept */
   transition: opacity .2s, transform .2s;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 14px;
   color: var(--gray-800);
 }
 #aria-widget.hidden { opacity: 0; pointer-events: none; transform: translateY(12px); }
+
+/* Guarantee all interactive elements inside the widget are always clickable */
+#aria-widget * { pointer-events: auto; }
 
 /* ── Header ─────────────────────────────────────────────────────── */
 #aria-header {
