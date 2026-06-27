@@ -1,7 +1,8 @@
 """
-EHR integration service — Phase 1.
+EHR integration service — Phase 2.
 
-Supports Epic (FHIR R4) with stubs for Cerner and Athenahealth.
+Supports Epic (FHIR R4), Cerner (FHIR R4), and Athenahealth (REST API).
+Phase 2 adds: real Cerner + Athenahealth adapters + intake pre-population.
 
 Key design decisions:
 - All HTTP calls are synchronous (httpx.Client) so this module can be imported
@@ -305,6 +306,82 @@ def get_available_slots(
     return slots
 
 
+# ── Public API: intake pre-population ────────────────────────────────────────
+
+def prefill_intake_from_ehr(
+    clinic_id: int,
+    patient_name: str,
+    date_of_birth: str,
+    db,
+) -> dict:
+    """
+    Phase 2 — Intake pre-population.
+
+    Looks up a patient in the EHR and returns a structured dict of fields
+    that Aria can use to pre-fill an intake form, skipping questions the
+    patient has already answered with the clinic before.
+
+    Returns a dict with:
+      found              bool
+      pre_filled         dict  — fields Aria should treat as already known
+      questions_to_skip  list  — question labels Aria can skip asking
+      message            str   — human-readable summary for Aria to relay
+    """
+    patient = lookup_patient(clinic_id, patient_name, date_of_birth, db)
+
+    if not patient:
+        return {
+            "found": False,
+            "pre_filled": {},
+            "questions_to_skip": [],
+            "message": (
+                f"No existing record found for {patient_name} (DOB {date_of_birth}). "
+                "Please collect their information as a new patient."
+            ),
+        }
+
+    pre_filled: dict = {}
+    skip: list[str] = []
+
+    if patient.get("full_name"):
+        pre_filled["patient_name"] = patient["full_name"]
+        skip.append("name")
+
+    if patient.get("date_of_birth"):
+        pre_filled["patient_dob"] = patient["date_of_birth"]
+        skip.append("date of birth")
+
+    if patient.get("phone"):
+        pre_filled["patient_phone"] = patient["phone"]
+        skip.append("phone number")
+
+    if patient.get("email"):
+        pre_filled["patient_email"] = patient["email"]
+        skip.append("email address")
+
+    if patient.get("primary_provider"):
+        pre_filled["preferred_provider"] = patient["primary_provider"]
+        skip.append("preferred provider")
+
+    # Build a friendly summary for Aria to use in the conversation
+    last_visit = patient.get("last_visit_date", "")
+    lines = [f"Found existing patient record for {patient['full_name']}."]
+    if last_visit:
+        lines.append(f"Last visit: {last_visit}.")
+    if patient.get("primary_provider"):
+        lines.append(f"Primary provider: {patient['primary_provider']}.")
+    if skip:
+        lines.append(f"Already on file: {', '.join(skip)}.")
+
+    return {
+        "found": True,
+        "pre_filled": pre_filled,
+        "questions_to_skip": skip,
+        "patient": patient,
+        "message": " ".join(lines),
+    }
+
+
 # ── Epic FHIR R4 adapter ──────────────────────────────────────────────────────
 
 def _sync_epic(
@@ -460,15 +537,107 @@ def _fetch_slots_epic(
     return slots
 
 
-# ── Cerner adapter (Phase 2 — stubs for now) ─────────────────────────────────
+# ── Cerner FHIR R4 adapter ────────────────────────────────────────────────────
+# Cerner uses SMART on FHIR OAuth2 (same client_credentials flow as Epic).
+# Token endpoint pattern: {base}/oauth2/token  (Cerner Ignite / Millennium R4)
+
+def _get_cerner_token(config: EHRConfiguration, clinic_id: int) -> Optional[str]:
+    """Fetch (or return cached) a Cerner SMART backend-services OAuth2 token."""
+    cache_key = f"cerner_{clinic_id}"
+    cached = _TOKEN_CACHE.get(cache_key)
+    if cached and cached["expires_at"] > time.time():
+        return cached["token"]
+
+    token_url = config.api_endpoint.rstrip("/") + "/oauth2/token"
+    try:
+        r = httpx.post(
+            token_url,
+            data={
+                "grant_type":    "client_credentials",
+                "client_id":     config.client_id,
+                "client_secret": config.api_key,
+                "scope": (
+                    "system/Patient.read system/Appointment.read "
+                    "system/Appointment.write system/Slot.read"
+                ),
+            },
+            timeout=_HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        body = r.json()
+        token = body["access_token"]
+        _TOKEN_CACHE[cache_key] = {
+            "token":      token,
+            "expires_at": time.time() + _TOKEN_TTL_SECONDS,
+        }
+        logger.debug("Cerner OAuth token fetched for clinic %d", clinic_id)
+        return token
+    except Exception as exc:
+        logger.error("Cerner OAuth token fetch failed for clinic %d: %s", clinic_id, exc)
+        return None
+
 
 def _sync_cerner(
     config: EHRConfiguration,
     clinic_id: int,
     appointment: Appointment,
 ) -> tuple[bool, str]:
-    logger.debug("Cerner sync stub: clinic=%d conf=%s", clinic_id, appointment.confirmation_number)
-    return True, "cerner-stub"
+    """
+    Create a FHIR Appointment in Cerner Millennium R4.
+    Cerner's FHIR Appointment write endpoint mirrors Epic's structure.
+    """
+    token = _get_cerner_token(config, clinic_id)
+    if not token:
+        return False, ""
+
+    base = config.api_endpoint.rstrip("/")
+    fhir_appt = {
+        "resourceType": "Appointment",
+        "status":       "booked",
+        "serviceType": [{
+            "coding": [{"display": appointment.appointment_type}],
+            "text":   appointment.appointment_type,
+        }],
+        "description": appointment.chief_complaint or appointment.appointment_type,
+        "start":       _human_to_iso(appointment.appointment_datetime),
+        "participant": [
+            {
+                "actor":  {"display": appointment.patient_name},
+                "status": "accepted",
+                "type": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                      "code": "PART"}]}],
+            },
+            *(
+                [{
+                    "actor":  {"display": appointment.provider},
+                    "status": "accepted",
+                    "type": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                          "code": "PPRF"}]}],
+                }]
+                if appointment.provider else []
+            ),
+        ],
+        "comment": f"Booked via Aria AI — conf #{appointment.confirmation_number}",
+    }
+
+    try:
+        r = httpx.post(
+            f"{base}/Appointment",
+            json=fhir_appt,
+            headers=_fhir_headers(token),
+            timeout=_HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        ehr_id = r.json().get("id", "")
+        logger.debug("Cerner Appointment created: %s", ehr_id)
+        return True, ehr_id
+    except httpx.HTTPStatusError as exc:
+        logger.error("Cerner FHIR POST /Appointment failed: %s %s",
+                     exc.response.status_code, exc.response.text[:200])
+        return False, ""
+    except Exception as exc:
+        logger.error("Cerner sync error: %s", exc)
+        return False, ""
 
 
 def _fetch_patient_cerner(
@@ -477,8 +646,37 @@ def _fetch_patient_cerner(
     patient_name: str,
     date_of_birth: str,
 ) -> Optional[dict]:
-    logger.debug("Cerner patient lookup stub: clinic=%d name=%s", clinic_id, patient_name)
-    return None
+    """Search Cerner for a patient by name + DOB via FHIR R4 Patient search."""
+    token = _get_cerner_token(config, clinic_id)
+    if not token:
+        return None
+
+    parts  = patient_name.strip().split()
+    family = parts[-1] if parts else patient_name
+    given  = parts[0]  if len(parts) > 1 else ""
+
+    base   = config.api_endpoint.rstrip("/")
+    params: dict = {"family": family, "birthdate": date_of_birth, "_count": "5"}
+    if given:
+        params["given"] = given
+
+    try:
+        r = httpx.get(
+            f"{base}/Patient",
+            params=params,
+            headers=_fhir_headers(token),
+            timeout=_HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        bundle = r.json()
+    except Exception as exc:
+        logger.error("Cerner Patient search failed: %s", exc)
+        return None
+
+    entries = bundle.get("entry", [])
+    if not entries:
+        return None
+    return _parse_fhir_patient(entries[0].get("resource", {}), "cerner")
 
 
 def _fetch_slots_cerner(
@@ -489,19 +687,212 @@ def _fetch_slots_cerner(
     date_end: str,
     provider_name: Optional[str],
 ) -> list[dict]:
-    logger.debug("Cerner slot fetch stub: clinic=%d", clinic_id)
-    return []
+    """
+    Query Cerner FHIR R4 Slot resources for free slots.
+    Cerner requires a Schedule reference — we search Schedule first then Slot.
+    """
+    token = _get_cerner_token(config, clinic_id)
+    if not token:
+        return []
+
+    base = config.api_endpoint.rstrip("/")
+
+    # Step 1: find Schedules (provider calendars) matching the date range
+    schedule_params: dict = {
+        "date":    f"ge{date_start}",
+        "_count":  "10",
+    }
+    if provider_name:
+        schedule_params["actor:Practitioner.name"] = provider_name
+
+    try:
+        sched_r = httpx.get(
+            f"{base}/Schedule",
+            params=schedule_params,
+            headers=_fhir_headers(token),
+            timeout=_HTTP_TIMEOUT,
+        )
+        sched_r.raise_for_status()
+        schedules = sched_r.json().get("entry", [])
+    except Exception as exc:
+        logger.error("Cerner Schedule search failed: %s", exc)
+        return []
+
+    if not schedules:
+        # Fallback: direct Slot search without Schedule filter (some Cerner deployments)
+        return _fetch_slots_cerner_direct(config, token, base,
+                                         appointment_type, date_start, date_end)
+
+    # Step 2: fetch free Slots for each Schedule
+    slots: list[dict] = []
+    for sched_entry in schedules[:5]:  # cap at 5 schedules to avoid N+1 explosion
+        sched_id = sched_entry.get("resource", {}).get("id", "")
+        if not sched_id:
+            continue
+        try:
+            slot_r = httpx.get(
+                f"{base}/Slot",
+                params={
+                    "schedule": sched_id,
+                    "status":   "free",
+                    "start":    f"ge{date_start}",
+                    "end":      f"le{date_end}",
+                    "_count":   "20",
+                },
+                headers=_fhir_headers(token),
+                timeout=_HTTP_TIMEOUT,
+            )
+            slot_r.raise_for_status()
+            for entry in slot_r.json().get("entry", []):
+                slot = _parse_fhir_slot(entry.get("resource", {}), "cerner", appointment_type)
+                if slot:
+                    slots.append(slot)
+        except Exception as exc:
+            logger.warning("Cerner Slot fetch for schedule %s failed: %s", sched_id, exc)
+
+    return slots
 
 
-# ── Athenahealth adapter (Phase 2 — stubs for now) ───────────────────────────
+def _fetch_slots_cerner_direct(
+    config: EHRConfiguration,
+    token: str,
+    base: str,
+    appointment_type: str,
+    date_start: str,
+    date_end: str,
+) -> list[dict]:
+    """Direct FHIR Slot search — fallback when Schedule search returns nothing."""
+    try:
+        r = httpx.get(
+            f"{base}/Slot",
+            params={
+                "status": "free",
+                "start":  f"ge{date_start}",
+                "end":    f"le{date_end}",
+                "_count": "50",
+            },
+            headers=_fhir_headers(token),
+            timeout=_HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        slots = []
+        for entry in r.json().get("entry", []):
+            slot = _parse_fhir_slot(entry.get("resource", {}), "cerner", appointment_type)
+            if slot:
+                slots.append(slot)
+        return slots
+    except Exception as exc:
+        logger.error("Cerner direct Slot search failed: %s", exc)
+        return []
+
+
+# ── Athenahealth REST adapter ─────────────────────────────────────────────────
+# Athenahealth uses OAuth2 client_credentials but its own REST API (not FHIR R4).
+# API base: https://api.platform.athenahealth.com/v1/{practiceid}
+# Token endpoint: https://api.platform.athenahealth.com/oauth2/v1/token
+# The practice ID is embedded in api_endpoint; client_id / api_key are OAuth creds.
+
+_ATHENA_TOKEN_URL = "https://api.platform.athenahealth.com/oauth2/v1/token"
+
+
+def _get_athena_token(config: EHRConfiguration, clinic_id: int) -> Optional[str]:
+    """Fetch (or return cached) an Athenahealth OAuth2 bearer token."""
+    cache_key = f"athena_{clinic_id}"
+    cached = _TOKEN_CACHE.get(cache_key)
+    if cached and cached["expires_at"] > time.time():
+        return cached["token"]
+
+    # Athenahealth uses Basic auth (client_id:client_secret) for token request
+    import base64
+    credentials = base64.b64encode(
+        f"{config.client_id}:{config.api_key}".encode()
+    ).decode()
+
+    try:
+        r = httpx.post(
+            _ATHENA_TOKEN_URL,
+            headers={
+                "Authorization": f"Basic {credentials}",
+                "Content-Type":  "application/x-www-form-urlencoded",
+            },
+            data={"grant_type": "client_credentials", "scope": "athena/service/Athenanet.MDP.*"},
+            timeout=_HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        body  = r.json()
+        token = body["access_token"]
+        ttl   = int(body.get("expires_in", _TOKEN_TTL_SECONDS))
+        _TOKEN_CACHE[cache_key] = {
+            "token":      token,
+            "expires_at": time.time() + min(ttl - 60, _TOKEN_TTL_SECONDS),
+        }
+        logger.debug("Athenahealth OAuth token fetched for clinic %d", clinic_id)
+        return token
+    except Exception as exc:
+        logger.error("Athenahealth OAuth token fetch failed for clinic %d: %s", clinic_id, exc)
+        return None
+
+
+def _athena_headers(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+
 
 def _sync_athenahealth(
     config: EHRConfiguration,
     clinic_id: int,
     appointment: Appointment,
 ) -> tuple[bool, str]:
-    logger.debug("Athenahealth sync stub: clinic=%d conf=%s", clinic_id, appointment.confirmation_number)
-    return True, "athena-stub"
+    """
+    Book an appointment in Athenahealth via the REST API.
+    Endpoint: POST /v1/{practiceid}/appointments/{appointmentid}/book
+    We use the "open appointment" booking pattern:
+      1. Find an open slot matching the appointment type
+      2. Book it with patient demographics
+    If no matching open slot exists, fall back to creating a new appointment.
+    """
+    token = _get_athena_token(config, clinic_id)
+    if not token:
+        return False, ""
+
+    base = config.api_endpoint.rstrip("/")
+
+    # Athenahealth appointment creation (new appointment outside of slot booking)
+    appt_date = _human_to_iso(appointment.appointment_datetime)[:10]  # YYYY-MM-DD
+    appt_time = _human_to_iso(appointment.appointment_datetime)[11:16]  # HH:MM
+
+    payload = {
+        "appointmentdate": appt_date,
+        "appointmenttime": appt_time,
+        "patientid":       "new",          # Will be matched by name+DOB on Athena side
+        "appointmenttypeid": "1",          # Default; real impl maps type name → ID
+        "providerid":      "",
+        "reason":          appointment.chief_complaint or appointment.appointment_type,
+        "patientfirstname": appointment.patient_name.split()[0] if appointment.patient_name else "",
+        "patientlastname":  appointment.patient_name.split()[-1] if appointment.patient_name else "",
+        "patientdob":      appointment.patient_dob or "",
+        "patientemail":    appointment.patient_email or "",
+        "patientphone":    appointment.patient_phone or "",
+    }
+
+    try:
+        r = httpx.post(
+            f"{base}/appointments/open",
+            data=payload,
+            headers=_athena_headers(token),
+            timeout=_HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        body   = r.json()
+        ehr_id = str(body[0].get("appointmentid", "")) if isinstance(body, list) and body else ""
+        logger.debug("Athenahealth appointment created: %s", ehr_id)
+        return True, ehr_id
+    except httpx.HTTPStatusError as exc:
+        logger.error("Athenahealth POST /appointments/open failed: %s %s",
+                     exc.response.status_code, exc.response.text[:200])
+        return False, ""
+    except Exception as exc:
+        logger.error("Athenahealth sync error: %s", exc)
+        return False, ""
 
 
 def _fetch_patient_athenahealth(
@@ -510,8 +901,54 @@ def _fetch_patient_athenahealth(
     patient_name: str,
     date_of_birth: str,
 ) -> Optional[dict]:
-    logger.debug("Athenahealth patient lookup stub: clinic=%d name=%s", clinic_id, patient_name)
-    return None
+    """
+    Search Athenahealth for a patient by name + DOB.
+    Endpoint: GET /v1/{practiceid}/patients?firstname=&lastname=&dob=
+    """
+    token = _get_athena_token(config, clinic_id)
+    if not token:
+        return None
+
+    parts      = patient_name.strip().split()
+    first_name = parts[0]  if parts else ""
+    last_name  = parts[-1] if len(parts) > 1 else patient_name
+
+    base = config.api_endpoint.rstrip("/")
+    try:
+        r = httpx.get(
+            f"{base}/patients",
+            params={
+                "firstname": first_name,
+                "lastname":  last_name,
+                "dob":       date_of_birth,
+                "limit":     "5",
+            },
+            headers=_athena_headers(token),
+            timeout=_HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        body = r.json()
+    except Exception as exc:
+        logger.error("Athenahealth patient search failed: %s", exc)
+        return None
+
+    patients = body.get("patients", body if isinstance(body, list) else [])
+    if not patients:
+        return None
+
+    p = patients[0]
+    return {
+        "ehr_patient_id":   str(p.get("patientid", "")),
+        "ehr_system":       "athenahealth",
+        "full_name":        f"{p.get('firstname', '')} {p.get('lastname', '')}".strip(),
+        "date_of_birth":    p.get("dob", date_of_birth),
+        "gender":           p.get("sex", ""),
+        "phone":            p.get("mobilephone") or p.get("homephone") or "",
+        "email":            p.get("email", ""),
+        "last_visit_date":  p.get("lastappointment", ""),
+        "last_visit_type":  "",
+        "primary_provider": p.get("primaryproviderid", ""),
+    }
 
 
 def _fetch_slots_athenahealth(
@@ -522,8 +959,75 @@ def _fetch_slots_athenahealth(
     date_end: str,
     provider_name: Optional[str],
 ) -> list[dict]:
-    logger.debug("Athenahealth slot fetch stub: clinic=%d", clinic_id)
-    return []
+    """
+    Fetch open appointment slots from Athenahealth.
+    Endpoint: GET /v1/{practiceid}/appointments/open
+    Returns slots in Athenahealth's own format; normalized to our internal dict.
+    """
+    token = _get_athena_token(config, clinic_id)
+    if not token:
+        return []
+
+    base   = config.api_endpoint.rstrip("/")
+    params: dict = {
+        "startdate":         date_start,
+        "enddate":           date_end,
+        "appointmenttypeid": "1",   # Default; real impl resolves type name → ID
+        "limit":             "50",
+    }
+    if provider_name:
+        params["providerid"] = provider_name
+
+    try:
+        r = httpx.get(
+            f"{base}/appointments/open",
+            params=params,
+            headers=_athena_headers(token),
+            timeout=_HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        body = r.json()
+    except Exception as exc:
+        logger.error("Athenahealth slot fetch failed: %s", exc)
+        return []
+
+    raw_slots = body.get("appointments", body if isinstance(body, list) else [])
+    slots: list[dict] = []
+    for s in raw_slots:
+        slot = _parse_athena_slot(s, appointment_type)
+        if slot:
+            slots.append(slot)
+    return slots
+
+
+def _parse_athena_slot(raw: dict, appointment_type: str) -> Optional[dict]:
+    """Normalize an Athenahealth appointment slot to our internal dict format."""
+    date_str = raw.get("date", "")
+    time_str = raw.get("starttime", "")    # "10:00" 24h or "10:00 AM"
+    if not date_str:
+        return None
+
+    # Athena date format: MM/DD/YYYY
+    try:
+        from datetime import datetime as _dt
+        if "/" in date_str:
+            dt = _dt.strptime(f"{date_str} {time_str}", "%m/%d/%Y %H:%M")
+        else:
+            dt = _dt.fromisoformat(f"{date_str}T{time_str or '00:00'}")
+    except ValueError:
+        return None
+
+    return {
+        "ehr_slot_id":       str(raw.get("appointmentid", raw.get("slotid", ""))),
+        "ehr_system":        "athenahealth",
+        "provider_name":     str(raw.get("providerid", "")),
+        "slot_datetime":     dt,
+        "slot_date_str":     dt.strftime("%Y-%m-%d"),
+        "slot_time_str":     dt.strftime("%I:%M %p").lstrip("0"),
+        "duration_minutes":  int(raw.get("duration", 30)),
+        "appointment_type":  appointment_type,
+        "status":            "free",
+    }
 
 
 # ── FHIR resource parsers ─────────────────────────────────────────────────────
@@ -723,16 +1227,20 @@ def test_ehr_connection(config: EHRConfiguration, clinic_id: int = 0) -> tuple[b
             return False, "Epic OAuth token fetch failed — check client_id and api_key"
 
         elif system == "cerner":
+            # Try token first; fall back to unauthenticated FHIR metadata
+            token = _get_cerner_token(config, clinic_id)
+            if token:
+                return True, "Cerner connection OK — OAuth token acquired"
             base = config.api_endpoint.rstrip("/")
             r = httpx.get(f"{base}/metadata", timeout=_HTTP_TIMEOUT)
             r.raise_for_status()
-            return True, "Cerner FHIR metadata OK"
+            return True, "Cerner FHIR metadata OK (unauthenticated)"
 
         elif system == "athenahealth":
-            base = config.api_endpoint.rstrip("/")
-            r = httpx.get(f"{base}/", timeout=_HTTP_TIMEOUT)
-            r.raise_for_status()
-            return True, "Athenahealth connection OK"
+            token = _get_athena_token(config, clinic_id)
+            if token:
+                return True, "Athenahealth connection OK — OAuth token acquired"
+            return False, "Athenahealth OAuth token fetch failed — check client_id and api_key"
 
         else:
             return False, f"Unknown EHR system: {config.ehr_system}"

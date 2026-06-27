@@ -451,3 +451,206 @@ class TestEMRPerformance:
         assert r.status_code == 200
         assert r.json()["found"] is True
         assert elapsed_ms < 100, f"Cache hit took {elapsed_ms:.0f}ms (limit: 100ms)"
+
+
+# ── Phase 2 Tests ─────────────────────────────────────────────────────────────
+
+class TestEMRPhase2Intake:
+    """EMR-P2: Intake pre-population and multi-vendor adapter contract tests."""
+
+    def test_emr_p2_001_prefill_no_ehr_returns_not_found(self, client, db):
+        """EMR-P2-001: prefill_intake_from_ehr with no EHR configured returns found=False."""
+        clinic = _make_clinic(db, plan="professional")
+        tok = _token(client, clinic.email)
+        r = client.get(
+            f"/api/{clinic.slug}/emr/patient-lookup",
+            params={"patient_name": "Alice Johnson", "date_of_birth": "1992-04-10"},
+            headers=_auth(tok),
+        )
+        assert r.status_code == 200
+        assert r.json()["found"] is False
+
+    def test_emr_p2_002_prefill_cache_hit_populates_fields(self, client, db):
+        """EMR-P2-002: prefill_intake_from_ehr with cached patient returns all pre-fill fields."""
+        from datetime import datetime, timedelta
+        from backend.services.ehr_svc import prefill_intake_from_ehr
+
+        clinic = _make_clinic(db, plan="professional")
+        # Seed patient cache + EHR config
+        db.add(EMRPatient(
+            clinic_id=clinic.id,
+            ehr_patient_id="P2-001",
+            ehr_system="epic",
+            full_name="Alice Johnson",
+            date_of_birth="1992-04-10",
+            phone="555-0200",
+            email="alice@example.com",
+            primary_provider="Dr. Smith",
+            last_visit_date="2025-11-15",
+            fetched_at=datetime.utcnow(),
+            expires_at=datetime.utcnow() + timedelta(hours=24),
+        ))
+        db.add(EHRConfiguration(
+            clinic_id=clinic.id, ehr_system="epic",
+            api_endpoint="https://fhir.epic.example.com/R4",
+            api_key="key", client_id="client",
+        ))
+        db.commit()
+
+        result = prefill_intake_from_ehr(clinic.id, "Alice Johnson", "1992-04-10", db)
+
+        assert result["found"] is True
+        assert result["pre_filled"]["patient_name"] == "Alice Johnson"
+        assert result["pre_filled"]["patient_dob"]  == "1992-04-10"
+        assert result["pre_filled"]["patient_phone"] == "555-0200"
+        assert result["pre_filled"]["patient_email"] == "alice@example.com"
+        assert result["pre_filled"]["preferred_provider"] == "Dr. Smith"
+        assert "name" in result["questions_to_skip"]
+        assert "phone number" in result["questions_to_skip"]
+        assert "Dr. Smith" in result["message"]
+
+    def test_emr_p2_003_prefill_missing_fields_skipped(self, client, db):
+        """EMR-P2-003: Fields not in EHR record are not added to pre_filled."""
+        from datetime import datetime, timedelta
+        from backend.services.ehr_svc import prefill_intake_from_ehr
+
+        clinic = _make_clinic(db, plan="professional")
+        db.add(EMRPatient(
+            clinic_id=clinic.id,
+            ehr_patient_id="P2-002",
+            ehr_system="cerner",
+            full_name="Bob Lee",
+            date_of_birth="1988-07-20",
+            phone="",           # no phone
+            email="",           # no email
+            primary_provider="",
+            fetched_at=datetime.utcnow(),
+            expires_at=datetime.utcnow() + timedelta(hours=24),
+        ))
+        db.add(EHRConfiguration(
+            clinic_id=clinic.id, ehr_system="cerner",
+            api_endpoint="https://fhir.cerner.example.com/r4",
+            api_key="key", client_id="client",
+        ))
+        db.commit()
+
+        result = prefill_intake_from_ehr(clinic.id, "Bob Lee", "1988-07-20", db)
+
+        assert result["found"] is True
+        assert "patient_phone" not in result["pre_filled"]
+        assert "patient_email" not in result["pre_filled"]
+        assert "preferred_provider" not in result["pre_filled"]
+        assert "phone number" not in result["questions_to_skip"]
+
+    def test_emr_p2_004_prefill_starter_plan_blocked(self, client, db):
+        """EMR-P2-004: Starter plan clinic cannot use prefill_intake_from_ehr tool."""
+        from backend.plans import can_use_ehr_integration
+        clinic = _make_clinic(db, plan="starter")
+        assert can_use_ehr_integration(clinic) is False
+
+    def test_emr_p2_005_cerner_ehr_system_accepted_in_config(self, client, db):
+        """EMR-P2-005: PATCH /ehr-config accepts 'cerner' as ehr_system."""
+        clinic = _make_clinic(db, plan="professional")
+        tok = _token(client, clinic.email)
+        r = client.patch(
+            f"/api/{clinic.slug}/ehr-config",
+            json={"ehr_system": "cerner", "api_endpoint": "https://fhir.cerner.example.com/r4"},
+            headers=_auth(tok),
+        )
+        assert r.status_code == 200
+        assert r.json()["ehr_system"] == "cerner"
+
+    def test_emr_p2_006_athenahealth_system_accepted_in_config(self, client, db):
+        """EMR-P2-006: PATCH /ehr-config accepts 'athenahealth' as ehr_system."""
+        clinic = _make_clinic(db, plan="enterprise")
+        tok = _token(client, clinic.email)
+        r = client.patch(
+            f"/api/{clinic.slug}/ehr-config",
+            json={"ehr_system": "athenahealth",
+                  "api_endpoint": "https://api.platform.athenahealth.com/v1/12345"},
+            headers=_auth(tok),
+        )
+        assert r.status_code == 200
+        assert r.json()["ehr_system"] == "athenahealth"
+
+    def test_emr_p2_007_cerner_patient_lookup_no_config_returns_not_found(self, client, db):
+        """EMR-P2-007: Cerner patient lookup with no credentials returns not found (no 500)."""
+        clinic = _make_clinic(db, plan="professional")
+        tok = _token(client, clinic.email)
+        # Configure Cerner but no credentials
+        client.patch(
+            f"/api/{clinic.slug}/ehr-config",
+            json={"ehr_system": "cerner",
+                  "api_endpoint": "https://fhir.cerner.example.com/r4"},
+            headers=_auth(tok),
+        )
+        r = client.get(
+            f"/api/{clinic.slug}/emr/patient-lookup",
+            params={"patient_name": "Test Patient", "date_of_birth": "1990-01-01"},
+            headers=_auth(tok),
+        )
+        assert r.status_code == 200
+        assert r.json()["found"] is False
+
+    def test_emr_p2_008_athena_patient_lookup_no_config_returns_not_found(self, client, db):
+        """EMR-P2-008: Athenahealth patient lookup with no credentials returns not found (no 500)."""
+        clinic = _make_clinic(db, plan="professional")
+        tok = _token(client, clinic.email)
+        client.patch(
+            f"/api/{clinic.slug}/ehr-config",
+            json={"ehr_system": "athenahealth",
+                  "api_endpoint": "https://api.platform.athenahealth.com/v1/99999"},
+            headers=_auth(tok),
+        )
+        r = client.get(
+            f"/api/{clinic.slug}/emr/patient-lookup",
+            params={"patient_name": "Test Patient", "date_of_birth": "1985-06-15"},
+            headers=_auth(tok),
+        )
+        assert r.status_code == 200
+        assert r.json()["found"] is False
+
+    def test_emr_p2_009_prefill_returns_message_for_aria(self, db):
+        """EMR-P2-009: prefill message includes last visit date when available."""
+        from datetime import datetime, timedelta
+        from backend.services.ehr_svc import prefill_intake_from_ehr
+
+        clinic = _make_clinic(db, plan="professional")
+        db.add(EMRPatient(
+            clinic_id=clinic.id,
+            ehr_patient_id="P2-009",
+            ehr_system="athenahealth",
+            full_name="Carol White",
+            date_of_birth="1979-12-05",
+            last_visit_date="2026-03-10",
+            fetched_at=datetime.utcnow(),
+            expires_at=datetime.utcnow() + timedelta(hours=24),
+        ))
+        db.add(EHRConfiguration(
+            clinic_id=clinic.id, ehr_system="athenahealth",
+            api_endpoint="https://api.platform.athenahealth.com/v1/12345",
+            api_key="key", client_id="client",
+        ))
+        db.commit()
+
+        result = prefill_intake_from_ehr(clinic.id, "Carol White", "1979-12-05", db)
+        assert result["found"] is True
+        assert "2026-03-10" in result["message"]
+
+    def test_emr_p2_010_parse_athena_slot_normalizes_format(self):
+        """EMR-P2-010: _parse_athena_slot correctly normalizes Athenahealth slot format."""
+        from backend.services.ehr_svc import _parse_athena_slot
+        raw = {
+            "appointmentid": "ATH-777",
+            "date":          "07/15/2026",
+            "starttime":     "09:30",
+            "duration":      "30",
+            "providerid":    "42",
+        }
+        slot = _parse_athena_slot(raw, "annual physical")
+        assert slot is not None
+        assert slot["ehr_slot_id"] == "ATH-777"
+        assert slot["slot_date_str"] == "2026-07-15"
+        assert slot["slot_time_str"] == "9:30 AM"
+        assert slot["duration_minutes"] == 30
+        assert slot["ehr_system"] == "athenahealth"

@@ -240,6 +240,31 @@ TOOLS: list[dict] = [
         },
     },
     {
+        "name": "prefill_intake_from_ehr",
+        "description": (
+            "Look up a returning patient in the EHR and return pre-filled intake form data "
+            "so Aria can skip questions the patient has already answered with the clinic. "
+            "Use this at the START of a booking flow for any patient who says they have been "
+            "to this clinic before. If the patient is found, use the pre_filled data to skip "
+            "asking for name, DOB, phone, email, and preferred provider — just confirm the "
+            "details on file instead. Requires EHR integration (Pro/Enterprise plans)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "patient_name": {
+                    "type": "string",
+                    "description": "Full name the patient provided.",
+                },
+                "date_of_birth": {
+                    "type": "string",
+                    "description": "Patient date of birth in YYYY-MM-DD format.",
+                },
+            },
+            "required": ["patient_name", "date_of_birth"],
+        },
+    },
+    {
         "name": "lookup_patient_in_ehr",
         "description": (
             "Look up an existing patient in the clinic's EHR system by name and date of birth. "
@@ -420,6 +445,23 @@ async def dispatch_tool(
                 preferred_provider=inputs.get("preferred_provider"),
                 earliest_available=inputs.get("earliest_available"),
             )
+        case "prefill_intake_from_ehr":
+            from backend.plans import can_use_ehr_integration
+            if not can_use_ehr_integration(clinic):
+                return {
+                    "found": False,
+                    "pre_filled": {},
+                    "questions_to_skip": [],
+                    "message": "EHR integration is available on Professional and Enterprise plans only.",
+                }
+            from backend.services.ehr_svc import prefill_intake_from_ehr
+            return prefill_intake_from_ehr(
+                clinic_id=clinic.id,
+                patient_name=inputs["patient_name"],
+                date_of_birth=inputs["date_of_birth"],
+                db=db,
+            )
+
         case "lookup_patient_in_ehr":
             from backend.plans import can_use_ehr_integration
             if not can_use_ehr_integration(clinic):
