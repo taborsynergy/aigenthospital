@@ -209,7 +209,8 @@ class TestWhitelabelDomain:
         data = r.json()
         assert data["custom_domain"] == "clinic.yourdomain.com"
         assert data["domain_verified"] is False  # Needs DNS verification
-        assert "CNAME" in data["verification_instructions"]
+        assert "dns_instructions" in data
+        assert "cname_target" in data["dns_instructions"]
 
     def test_invalid_domain_format(self, client, enterprise_clinic, ent_token):
         """Invalid domain rejected."""
