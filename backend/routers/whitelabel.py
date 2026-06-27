@@ -2,6 +2,7 @@
 import re
 import socket
 import logging
+import httpx
 from datetime import datetime
 from fastapi import APIRouter, Depends, Header
 from fastapi.responses import JSONResponse
@@ -387,3 +388,172 @@ def grant_source_code_access(
             "5. Update custom domain DNS to point to your infrastructure"
         ),
     }
+
+
+# ── Custom Domain SSL via Render API ─────────────────────────────────────────
+
+_RENDER_API = "https://api.render.com/v1"
+_RENDER_TIMEOUT = httpx.Timeout(15.0, connect=5.0)
+
+
+def _render_headers() -> dict:
+    from backend.config import settings
+    return {"Authorization": f"Bearer {settings.render_api_key}",
+            "Accept": "application/json"}
+
+
+@router.post("/{clinic_slug}/whitelabel/provision-ssl")
+def provision_ssl(
+    clinic_slug: str,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """
+    Phase 3 custom domain — add the clinic's custom domain to Render and
+    trigger SSL provisioning via Let's Encrypt.
+
+    Render flow:
+      POST /services/{serviceId}/custom-domains  →  Render adds ACME challenge
+      Render auto-issues SSL once DNS is pointed correctly (usually <5 min).
+
+    Requires RENDER_API_KEY + RENDER_SERVICE_ID set in environment.
+    """
+    from backend.config import settings
+
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    if not can_use_custom_domain(clinic):
+        return JSONResponse(status_code=403, content={
+            "error": "Custom domain not available on your plan."
+        })
+
+    config = get_whitelabel_config(db, clinic.id)
+    if not config or not config.custom_domain:
+        return JSONResponse(status_code=400, content={
+            "error": "No custom domain configured. Set a domain first."
+        })
+
+    if not settings.render_api_key or not settings.render_service_id:
+        # Render API not configured — return manual instructions
+        return {
+            "provisioned": False,
+            "manual_required": True,
+            "domain": config.custom_domain,
+            "instructions": {
+                "step1": "Go to https://dashboard.render.com → your service → Settings → Custom Domains",
+                "step2": f"Click 'Add Custom Domain' and enter: {config.custom_domain}",
+                "step3": "Render will show you a DNS target (e.g. clinic-xyz.onrender.com)",
+                "step4": f"Add a CNAME record: {config.custom_domain} → <render-target>",
+                "step5": "Render automatically provisions SSL via Let's Encrypt once DNS is set.",
+                "note": "To automate this, set RENDER_API_KEY and RENDER_SERVICE_ID in your Render environment variables.",
+            },
+        }
+
+    # Call Render API to add the custom domain
+    try:
+        r = httpx.post(
+            f"{_RENDER_API}/services/{settings.render_service_id}/custom-domains",
+            headers=_render_headers(),
+            json={"name": config.custom_domain},
+            timeout=_RENDER_TIMEOUT,
+        )
+
+        if r.status_code == 201:
+            body = r.json()
+            render_target = body.get("server", {}).get("host", "taborsynergy-agent.onrender.com")
+            logger.info("Render custom domain added: clinic=%s domain=%s",
+                        clinic_slug, config.custom_domain)
+            return {
+                "provisioned": True,
+                "domain": config.custom_domain,
+                "render_target": render_target,
+                "ssl_status": body.get("verificationStatus", "pending"),
+                "next_step": (
+                    f"Add CNAME: {config.custom_domain} → {render_target}. "
+                    "Render will auto-provision SSL via Let's Encrypt once DNS propagates (usually <10 min)."
+                ),
+            }
+
+        if r.status_code == 409:
+            # Already registered — fetch existing
+            existing = httpx.get(
+                f"{_RENDER_API}/services/{settings.render_service_id}/custom-domains",
+                headers=_render_headers(), timeout=_RENDER_TIMEOUT,
+            )
+            domains = existing.json() if existing.ok else []
+            match = next((d for d in domains if d.get("name") == config.custom_domain), {})
+            return {
+                "provisioned": True,
+                "domain": config.custom_domain,
+                "ssl_status": match.get("verificationStatus", "unknown"),
+                "note": "Domain already registered with Render.",
+            }
+
+        logger.error("Render API error %d: %s", r.status_code, r.text[:300])
+        return JSONResponse(status_code=502, content={
+            "error": f"Render API returned {r.status_code}. Check RENDER_API_KEY and RENDER_SERVICE_ID.",
+            "detail": r.text[:200],
+        })
+
+    except Exception as exc:
+        logger.error("Render SSL provisioning failed for clinic %s: %s", clinic_slug, exc)
+        return JSONResponse(status_code=502, content={
+            "error": f"Failed to reach Render API: {exc}"
+        })
+
+
+@router.get("/{clinic_slug}/whitelabel/ssl-status")
+def ssl_status(
+    clinic_slug: str,
+    db: Session = Depends(get_db),
+    x_clinic_token: str = Header(None),
+):
+    """
+    Check SSL provisioning status for the clinic's custom domain via Render API.
+    Returns verificationStatus: pending | verified | failed
+    """
+    from backend.config import settings
+
+    clinic = get_clinic_by_token(db, x_clinic_token)
+    if not clinic or clinic.slug != clinic_slug:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    if not can_use_custom_domain(clinic):
+        return JSONResponse(status_code=403, content={"error": "Custom domain not available."})
+
+    config = get_whitelabel_config(db, clinic.id)
+    if not config or not config.custom_domain:
+        return {"ssl_status": "not_configured", "domain": ""}
+
+    if not settings.render_api_key or not settings.render_service_id:
+        return {
+            "ssl_status": "manual_check_required",
+            "domain": config.custom_domain,
+            "note": "Set RENDER_API_KEY + RENDER_SERVICE_ID to enable auto status checks.",
+        }
+
+    try:
+        r = httpx.get(
+            f"{_RENDER_API}/services/{settings.render_service_id}/custom-domains",
+            headers=_render_headers(), timeout=_RENDER_TIMEOUT,
+        )
+        r.raise_for_status()
+        domains = r.json()
+        match = next((d for d in domains if d.get("name") == config.custom_domain), None)
+        if not match:
+            return {"ssl_status": "not_registered", "domain": config.custom_domain}
+
+        status = match.get("verificationStatus", "unknown")
+        if status == "verified" and not config.domain_verified:
+            config.domain_verified = True
+            db.commit()
+
+        return {
+            "ssl_status":     status,
+            "domain":         config.custom_domain,
+            "domain_verified": config.domain_verified,
+            "render_id":      match.get("id", ""),
+        }
+    except Exception as exc:
+        logger.error("SSL status check failed for clinic %s: %s", clinic_slug, exc)
+        return {"ssl_status": "error", "domain": config.custom_domain, "error": str(exc)}

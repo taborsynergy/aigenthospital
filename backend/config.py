@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     admin_password: str
     admin_panel_path: str = "/ts-mgmt"   # Secret URL — change via ADMIN_PANEL_PATH env var
 
+    # ── Render API (for custom domain SSL automation) ─────────────────
+    # Set RENDER_API_KEY in Render env vars (get from dashboard.render.com → Account → API Keys)
+    # Set RENDER_SERVICE_ID to the service ID of this deployment (starts with "srv-")
+    render_api_key:    str = ""
+    render_service_id: str = ""
+
     # ── Clinic user JWT auth ─────────────────────────────────────────
     # Signing key for clinic-user JWT tokens. Falls back to admin_password
     # in auth.py if left blank, so no new env var is strictly required.

@@ -901,13 +901,22 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
             </button>
           </div>
           <div id="wl-domain-instructions" style="display:none;margin-top:14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:12px;font-size:13px;line-height:1.6;"></div>
-          <div style="margin-top:12px;display:flex;align-items:center;gap:12px;">
+          <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <button onclick="verifyWlDomain()"
               style="background:#1E40AF;color:#fff;padding:9px 18px;border-radius:8px;font-weight:600;border:none;cursor:pointer;font-size:13px;">
               🔍 Verify DNS
             </button>
+            <button onclick="provisionSsl()"
+              style="background:#059669;color:#fff;padding:9px 18px;border-radius:8px;font-weight:600;border:none;cursor:pointer;font-size:13px;">
+              🔒 Provision SSL
+            </button>
+            <button onclick="checkSslStatus()"
+              style="background:#0F172A;color:#fff;padding:9px 18px;border-radius:8px;font-weight:600;border:none;cursor:pointer;font-size:13px;">
+              📊 SSL Status
+            </button>
             <span id="wl-verify-msg" style="font-size:13px;"></span>
           </div>
+          <div id="wl-ssl-result" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:13px;"></div>
           <span id="wl-domain-msg" style="display:block;margin-top:8px;font-size:13px;"></span>
         </div>
 
@@ -983,7 +992,8 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
                 <option value="">— Select your EHR —</option>
                 <option value="epic">Epic (FHIR R4)</option>
                 <option value="cerner">Cerner (FHIR R4)</option>
-                <option value="athenahealth">Athenahealth</option>
+                <option value="athenahealth">Athenahealth (Production)</option>
+                <option value="athenahealth-sandbox">Athenahealth (Sandbox)</option>
                 <option value="eclinicalworks">eClinicalWorks (Enterprise)</option>
               </select>
             </div>
@@ -1019,6 +1029,62 @@ async def clinic_page(clinic_slug: str, db: Session = Depends(get_db)):
           <p style="color:#6B7280;font-size:13px;margin:0 0 16px;">Last 10 EHR sync operations. All activity is logged for HIPAA compliance.</p>
           <div id="ehr-sync-log" style="font-size:13px;color:#374151;">
             <p style="color:#9CA3AF;text-align:center;padding:20px 0;">No sync activity yet.</p>
+          </div>
+        </div>
+
+        <!-- Phase 4: Chart Read (Enterprise only) -->
+        <div id="ehr-chart-card" class="share-card" style="display:none;">
+          <h2 style="margin-bottom:4px;">🩺 Patient Chart Lookup <span style="font-size:11px;background:#7C3AED;color:#fff;padding:2px 8px;border-radius:99px;margin-left:8px;font-weight:600;">Enterprise</span></h2>
+          <p style="color:#6B7280;font-size:13px;margin:0 0 16px;">
+            Fetch a patient's active diagnoses, medications, and allergies from the EHR.
+            Aria uses this to provide context without asking patients to repeat their history.
+          </p>
+          <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="flex:1;min-width:180px;">
+              <label class="setup-lbl">Patient Name</label>
+              <input id="chart-patient-name" type="text" class="setup-inp" placeholder="Jane Smith"/>
+            </div>
+            <div style="flex:1;min-width:160px;">
+              <label class="setup-lbl">Date of Birth (YYYY-MM-DD)</label>
+              <input id="chart-patient-dob" type="text" class="setup-inp" placeholder="1980-06-15"/>
+            </div>
+            <div style="flex:1;min-width:180px;">
+              <label class="setup-lbl">EHR Patient ID</label>
+              <input id="chart-patient-id" type="text" class="setup-inp" placeholder="EPIC-P-12345"/>
+            </div>
+            <button onclick="fetchPatientChart()"
+              style="background:#7C3AED;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-weight:600;cursor:pointer;font-size:14px;white-space:nowrap;">
+              📥 Fetch Chart
+            </button>
+          </div>
+          <div id="chart-result" style="margin-top:16px;display:none;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px;">
+              <div style="background:#F0FDF4;border:1px solid #86EFAC;border-radius:8px;padding:12px;">
+                <h3 style="font-size:12px;font-weight:700;color:#065F46;margin:0 0 8px;">🔬 Diagnoses</h3>
+                <div id="chart-diagnoses" style="font-size:12px;color:#374151;"></div>
+              </div>
+              <div style="background:#EFF6FF;border:1px solid #93C5FD;border-radius:8px;padding:12px;">
+                <h3 style="font-size:12px;font-weight:700;color:#1E40AF;margin:0 0 8px;">💊 Medications</h3>
+                <div id="chart-medications" style="font-size:12px;color:#374151;"></div>
+              </div>
+              <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:12px;">
+                <h3 style="font-size:12px;font-weight:700;color:#92400E;margin:0 0 8px;">⚠️ Allergies</h3>
+                <div id="chart-allergies" style="font-size:12px;color:#374151;"></div>
+              </div>
+            </div>
+          </div>
+          <div id="chart-msg" style="margin-top:10px;font-size:13px;"></div>
+        </div>
+
+        <!-- Phase 4: Note Syncs (Enterprise only) -->
+        <div id="ehr-note-syncs-card" class="share-card" style="display:none;">
+          <h2 style="margin-bottom:4px;">📝 Note Sync Log <span style="font-size:11px;background:#7C3AED;color:#fff;padding:2px 8px;border-radius:99px;margin-left:8px;font-weight:600;">Enterprise</span></h2>
+          <p style="color:#6B7280;font-size:13px;margin:0 0 16px;">
+            Aria conversation summaries synced back to the EHR as clinical notes.
+            One note per patient session — idempotent, HIPAA-logged.
+          </p>
+          <div id="ehr-note-syncs-list" style="font-size:13px;color:#374151;">
+            <p style="color:#9CA3AF;text-align:center;padding:20px 0;">No notes synced yet.</p>
           </div>
         </div>
 
@@ -2319,6 +2385,77 @@ function verifyWlDomain() {{
   .catch(function() {{ vmsg.textContent = "⚠️ Network error."; vmsg.style.color = "#DC2626"; }});
 }}
 
+function provisionSsl() {{
+  var token   = localStorage.getItem(TKEY);
+  var vmsg    = document.getElementById("wl-verify-msg");
+  var sslDiv  = document.getElementById("wl-ssl-result");
+  vmsg.textContent = "Provisioning SSL…"; vmsg.style.color = "#6B7280";
+  if (sslDiv) sslDiv.style.display = "none";
+  fetch("/api/" + SLUG + "/whitelabel/provision-ssl", {{
+    method: "POST",
+    headers: {{ "X-Clinic-Token": token || "" }}
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    var d = res.data;
+    vmsg.textContent = "";
+    if (!res.ok) {{
+      if (sslDiv) {{ sslDiv.style.display="block"; sslDiv.style.background="#FEE2E2";
+        sslDiv.style.border="1px solid #FCA5A5";
+        sslDiv.innerHTML = "⚠️ " + (d.error || "Provisioning failed."); }}
+      return;
+    }}
+    if (d.manual_required) {{
+      // No Render API key — show step-by-step manual instructions
+      var ins = d.instructions || {{}};
+      if (sslDiv) {{
+        sslDiv.style.display="block"; sslDiv.style.background="#FFFBEB"; sslDiv.style.border="1px solid #FDE68A";
+        sslDiv.innerHTML = "<strong>Manual SSL Setup Required:</strong><br>" +
+          Object.values(ins).map(function(v) {{ return "• " + v; }}).join("<br>") +
+          "<br><small style='color:#92400E'>Add RENDER_API_KEY + RENDER_SERVICE_ID to automate this.</small>";
+      }}
+      vmsg.textContent = "⚠️ Render API not configured — see manual steps below."; vmsg.style.color = "#92400E";
+      return;
+    }}
+    if (sslDiv) {{
+      sslDiv.style.display="block"; sslDiv.style.background="#F0FDF4"; sslDiv.style.border="1px solid #86EFAC";
+      sslDiv.innerHTML = "✅ <strong>Domain registered with Render.</strong><br>" +
+        "CNAME: <code>" + (d.domain||"") + "</code> → <code>" + (d.render_target||"taborsynergy-agent.onrender.com") + "</code><br>" +
+        "SSL status: <strong>" + (d.ssl_status||"pending") + "</strong><br>" +
+        "<small>" + (d.next_step||"") + "</small>";
+    }}
+    vmsg.textContent = "✅ SSL provisioning started."; vmsg.style.color = "#059669";
+  }})
+  .catch(function() {{ vmsg.textContent = "⚠️ Network error."; vmsg.style.color = "#DC2626"; }});
+}}
+
+function checkSslStatus() {{
+  var token  = localStorage.getItem(TKEY);
+  var vmsg   = document.getElementById("wl-verify-msg");
+  var sslDiv = document.getElementById("wl-ssl-result");
+  vmsg.textContent = "Checking SSL…"; vmsg.style.color = "#6B7280";
+  fetch("/api/" + SLUG + "/whitelabel/ssl-status", {{
+    headers: {{ "X-Clinic-Token": token || "" }}
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    var d = res.data;
+    vmsg.textContent = "";
+    var statusColors = {{ verified:"#059669", pending:"#92400E", failed:"#DC2626",
+                          not_registered:"#6B7280", manual_check_required:"#6B7280" }};
+    var col = statusColors[d.ssl_status] || "#374151";
+    if (sslDiv) {{
+      sslDiv.style.display="block"; sslDiv.style.background="#F9FAFB"; sslDiv.style.border="1px solid #E5E7EB";
+      sslDiv.innerHTML = "SSL Status for <strong>" + (d.domain||"—") + "</strong>: " +
+        '<span style="font-weight:700;color:' + col + ';">' + (d.ssl_status||"unknown") + '</span>' +
+        (d.note ? "<br><small>" + d.note + "</small>" : "") +
+        (d.error ? "<br><small style='color:#DC2626'>" + d.error + "</small>" : "");
+    }}
+    vmsg.textContent = "SSL: " + (d.ssl_status||"unknown"); vmsg.style.color = col;
+  }})
+  .catch(function() {{ vmsg.textContent = "⚠️ Network error."; vmsg.style.color = "#DC2626"; }});
+}}
+
 function enableReseller() {{
   var token = localStorage.getItem(TKEY);
   var msg = document.getElementById("wl-reseller-msg");
@@ -2565,6 +2702,14 @@ function loadEhrConfig() {{
     document.getElementById("ehr-auto-sync").checked = !!d.auto_sync;
     _updateEhrStatusBadge(d.sync_status, d.last_sync_at);
     _loadEhrSyncLog(token);
+    // Phase 4: show chart + note sync cards for Enterprise plan
+    if (_currentPlanKey === "enterprise") {{
+      var chartCard = document.getElementById("ehr-chart-card");
+      var noteCard  = document.getElementById("ehr-note-syncs-card");
+      if (chartCard) chartCard.style.display = "block";
+      if (noteCard)  noteCard.style.display  = "block";
+      _loadNoteSyncs(token);
+    }}
   }})
   .catch(function() {{
     document.getElementById("ehr-loading").textContent = "⚠️ Network error loading EHR settings.";
@@ -2620,7 +2765,8 @@ function saveEhrConfig() {{
   var token = localStorage.getItem(TKEY);
   var msg   = document.getElementById("ehr-save-msg");
   var body  = {{
-    ehr_system:   document.getElementById("ehr-system").value,
+    // Normalize athenahealth-sandbox → athenahealth (backend detects sandbox from URL)
+    ehr_system:   document.getElementById("ehr-system").value.replace("-sandbox", ""),
     api_endpoint: document.getElementById("ehr-endpoint").value.trim(),
     client_id:    document.getElementById("ehr-client-id").value.trim(),
     api_key:      document.getElementById("ehr-api-key").value.trim(),
@@ -2666,6 +2812,92 @@ function testEhrConnection() {{
   }})
   .catch(function() {{ msg.textContent = "⚠️ Network error"; msg.className = "setup-msg err"; }});
 }}
+
+// ── Phase 4: Chart Read ────────────────────────────────────────────────────
+function fetchPatientChart() {{
+  var token    = localStorage.getItem(TKEY);
+  var patId    = document.getElementById("chart-patient-id").value.trim();
+  var ehrSys   = document.getElementById("ehr-system").value;
+  var msg      = document.getElementById("chart-msg");
+  var resultEl = document.getElementById("chart-result");
+
+  if (!patId) {{
+    msg.textContent = "⚠️ Enter the EHR Patient ID (from a previous patient lookup).";
+    msg.style.color = "#DC2626"; return;
+  }}
+  msg.textContent = "Fetching chart from EHR…"; msg.style.color = "#6B7280";
+  resultEl.style.display = "none";
+
+  fetch("/api/" + SLUG + "/emr/chart?ehr_patient_id=" + encodeURIComponent(patId) +
+        "&ehr_system=" + encodeURIComponent(ehrSys || "epic"), {{
+    headers: {{ "X-Clinic-Token": token || "" }}
+  }})
+  .then(function(r) {{ return r.json().then(function(d) {{ return {{ ok: r.ok, data: d }}; }}); }})
+  .then(function(res) {{
+    if (!res.ok || !res.data.found) {{
+      msg.textContent = "⚠️ " + (res.data.error || "Chart not found for this patient.");
+      msg.style.color = "#DC2626"; return;
+    }}
+    var chart = res.data.chart;
+    msg.textContent = ""; resultEl.style.display = "block";
+
+    var diagHtml = (chart.diagnoses || []).map(function(d) {{
+      return '<div style="padding:3px 0;border-bottom:1px solid #D1FAE5;">' +
+             (d.display || d.code || "Unknown") + '</div>';
+    }}).join("") || '<span style="color:#9CA3AF">None on file</span>';
+
+    var medHtml = (chart.medications || []).map(function(m) {{
+      return '<div style="padding:3px 0;border-bottom:1px solid #BFDBFE;">' +
+             (m.name || "Unknown") + (m.dose ? ' — ' + m.dose : '') + '</div>';
+    }}).join("") || '<span style="color:#9CA3AF">None on file</span>';
+
+    var algHtml = (chart.allergies || []).map(function(a) {{
+      return '<div style="padding:3px 0;border-bottom:1px solid #FDE68A;">' +
+             (a.substance || "Unknown") + (a.reaction ? ' → ' + a.reaction : '') + '</div>';
+    }}).join("") || '<span style="color:#9CA3AF">None on file</span>';
+
+    document.getElementById("chart-diagnoses").innerHTML  = diagHtml;
+    document.getElementById("chart-medications").innerHTML = medHtml;
+    document.getElementById("chart-allergies").innerHTML  = algHtml;
+    msg.textContent = "Chart loaded from " + (chart.ehr_system || ehrSys) + ".";
+    msg.style.color = "#059669";
+  }})
+  .catch(function() {{ msg.textContent = "⚠️ Network error fetching chart"; msg.style.color = "#DC2626"; }});
+}}
+
+// ── Phase 4: Note Sync Log ─────────────────────────────────────────────────
+function _loadNoteSyncs(token) {{
+  fetch("/api/" + SLUG + "/emr/note-syncs", {{
+    headers: {{ "X-Clinic-Token": token || "" }}
+  }})
+  .then(function(r) {{ return r.ok ? r.json() : null; }})
+  .then(function(data) {{
+    var el = document.getElementById("ehr-note-syncs-list");
+    if (!el || !data || !data.notes || !data.notes.length) return;
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+      '<thead><tr style="background:#F9FAFB;">' +
+      '<th style="padding:6px 10px;text-align:left;color:#6B7280;">Synced</th>' +
+      '<th style="padding:6px 10px;text-align:left;color:#6B7280;">Type</th>' +
+      '<th style="padding:6px 10px;text-align:left;color:#6B7280;">EHR Doc ID</th>' +
+      '<th style="padding:6px 10px;text-align:left;color:#6B7280;">Preview</th>' +
+      '<th style="padding:6px 10px;text-align:left;color:#6B7280;">Status</th>' +
+      '</tr></thead><tbody>';
+    data.notes.forEach(function(n) {{
+      var sc = n.status === "success" ? "#059669" : "#DC2626";
+      html += '<tr style="border-bottom:1px solid #F3F4F6;">' +
+        '<td style="padding:6px 10px;">' + (n.synced_at ? new Date(n.synced_at).toLocaleString() : "—") + '</td>' +
+        '<td style="padding:6px 10px;">' + (n.note_type || "—").replace(/_/g," ") + '</td>' +
+        '<td style="padding:6px 10px;font-family:monospace;font-size:11px;">' + (n.ehr_document_id || "—") + '</td>' +
+        '<td style="padding:6px 10px;color:#6B7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (n.note_preview || "—") + '</td>' +
+        '<td style="padding:6px 10px;font-weight:600;color:' + sc + ';">' + (n.status || "—") + '</td>' +
+        '</tr>';
+    }});
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }})
+  .catch(function() {{}});
+}}
+
 </script>
 </body>
 </html>""")

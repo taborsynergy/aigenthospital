@@ -794,21 +794,76 @@ def _fetch_slots_cerner_direct(
 
 # ── Athenahealth REST adapter ─────────────────────────────────────────────────
 # Athenahealth uses OAuth2 client_credentials but its own REST API (not FHIR R4).
-# API base: https://api.platform.athenahealth.com/v1/{practiceid}
-# Token endpoint: https://api.platform.athenahealth.com/oauth2/v1/token
-# The practice ID is embedded in api_endpoint; client_id / api_key are OAuth creds.
+#
+# Environments:
+#   Production: https://api.platform.athenahealth.com/v1/{practiceid}
+#   Sandbox:    https://api.preview.platform.athenahealth.com/v1/{practiceid}
+#
+# Token endpoints (auto-detected from api_endpoint):
+#   Production: https://api.platform.athenahealth.com/oauth2/v1/token
+#   Sandbox:    https://api.preview.platform.athenahealth.com/oauth2/v1/token
+#
+# The practice ID is embedded in api_endpoint. client_id / api_key are OAuth creds.
+# Auth: HTTP Basic (client_id:client_secret) — NOT bearer in the token request.
 
-_ATHENA_TOKEN_URL = "https://api.platform.athenahealth.com/oauth2/v1/token"
+_ATHENA_PROD_TOKEN_URL    = "https://api.platform.athenahealth.com/oauth2/v1/token"
+_ATHENA_SANDBOX_TOKEN_URL = "https://api.preview.platform.athenahealth.com/oauth2/v1/token"
+
+# Known Athena error codes and friendly messages
+_ATHENA_ERROR_HINTS: dict[int, str] = {
+    400: "Bad request — check practice ID and required fields",
+    401: "Unauthorized — client_id or client_secret is incorrect",
+    403: "Forbidden — API key does not have permission for this endpoint",
+    404: "Not found — practice ID may be wrong or patient does not exist",
+    429: "Rate limited — Athena allows ~200 req/min; retry after 60s",
+    500: "Athena internal server error — try again in a few minutes",
+    503: "Athena service unavailable — check status.athenahealth.com",
+}
+
+
+def _athena_is_sandbox(config: EHRConfiguration) -> bool:
+    """Return True if the configured endpoint is the Athena sandbox."""
+    return "preview" in config.api_endpoint.lower()
+
+
+def _athena_token_url(config: EHRConfiguration) -> str:
+    return _ATHENA_SANDBOX_TOKEN_URL if _athena_is_sandbox(config) else _ATHENA_PROD_TOKEN_URL
+
+
+def _athena_friendly_error(exc: Exception, status_code: int = 0) -> str:
+    hint = _ATHENA_ERROR_HINTS.get(status_code, "")
+    return f"HTTP {status_code}: {hint}" if hint else str(exc)
+
+
+def _athena_request_with_retry(
+    method: str, url: str, headers: dict, retry: int = 2, **kwargs
+) -> httpx.Response:
+    """
+    Make an Athena REST call with automatic retry on 429 (rate limit) and 503.
+    Retries up to `retry` times with 2s back-off.
+    """
+    for attempt in range(retry + 1):
+        r = httpx.request(method, url, headers=headers, timeout=_HTTP_TIMEOUT, **kwargs)
+        if r.status_code in (429, 503) and attempt < retry:
+            logger.warning("Athena %s %d — retrying in 2s (attempt %d/%d)",
+                           url, r.status_code, attempt + 1, retry)
+            time.sleep(2)
+            continue
+        return r
+    return r  # type: ignore[return-value]
 
 
 def _get_athena_token(config: EHRConfiguration, clinic_id: int) -> Optional[str]:
-    """Fetch (or return cached) an Athenahealth OAuth2 bearer token."""
+    """
+    Fetch (or return cached) an Athenahealth OAuth2 bearer token.
+    Auto-detects sandbox vs production from api_endpoint.
+    """
     cache_key = f"athena_{clinic_id}"
     cached = _TOKEN_CACHE.get(cache_key)
     if cached and cached["expires_at"] > time.time():
         return cached["token"]
 
-    # Athenahealth uses Basic auth (client_id:client_secret) for token request
+    token_url = _athena_token_url(config)
     import base64
     credentials = base64.b64encode(
         f"{config.client_id}:{config.api_key}".encode()
@@ -816,7 +871,7 @@ def _get_athena_token(config: EHRConfiguration, clinic_id: int) -> Optional[str]
 
     try:
         r = httpx.post(
-            _ATHENA_TOKEN_URL,
+            token_url,
             headers={
                 "Authorization": f"Basic {credentials}",
                 "Content-Type":  "application/x-www-form-urlencoded",
@@ -824,15 +879,20 @@ def _get_athena_token(config: EHRConfiguration, clinic_id: int) -> Optional[str]
             data={"grant_type": "client_credentials", "scope": "athena/service/Athenanet.MDP.*"},
             timeout=_HTTP_TIMEOUT,
         )
-        r.raise_for_status()
+        if not r.is_success:
+            err = _athena_friendly_error(None, r.status_code)
+            logger.error("Athena token request failed for clinic %d: %s — %s",
+                         clinic_id, err, r.text[:200])
+            return None
         body  = r.json()
         token = body["access_token"]
         ttl   = int(body.get("expires_in", _TOKEN_TTL_SECONDS))
+        env   = "sandbox" if _athena_is_sandbox(config) else "production"
         _TOKEN_CACHE[cache_key] = {
             "token":      token,
             "expires_at": time.time() + min(ttl - 60, _TOKEN_TTL_SECONDS),
         }
-        logger.debug("Athenahealth OAuth token fetched for clinic %d", clinic_id)
+        logger.debug("Athenahealth OAuth token fetched (%s) for clinic %d", env, clinic_id)
         return token
     except Exception as exc:
         logger.error("Athenahealth OAuth token fetch failed for clinic %d: %s", clinic_id, exc)
@@ -1043,9 +1103,12 @@ def _fetch_slots_athenahealth(
             params["providerid"] = provider_id
 
         try:
-            r = httpx.get(f"{base}/appointments/open",
-                          params=params, headers=headers, timeout=_HTTP_TIMEOUT)
-            r.raise_for_status()
+            r = _athena_request_with_retry("GET", f"{base}/appointments/open",
+                                           headers=headers, params=params)
+            if not r.is_success:
+                logger.error("Athena slot fetch offset=%d: %s",
+                             offset, _athena_friendly_error(None, r.status_code))
+                break
             body = r.json()
         except Exception as exc:
             logger.error("Athenahealth slot fetch failed (offset=%d): %s", offset, exc)
@@ -1706,49 +1769,61 @@ def _fetch_chart_athena(config: EHRConfiguration, clinic_id: int, patient_id: st
     chart   = {"ehr_patient_id": patient_id, "ehr_system": "athenahealth",
                 "diagnoses": [], "medications": [], "allergies": []}
 
-    # Problems (diagnoses)
+    env = "sandbox" if _athena_is_sandbox(config) else "production"
+    logger.debug("Athena chart read (%s) patient=%s", env, patient_id)
+
+    # Problems (diagnoses) — with retry
     try:
-        r = httpx.get(f"{base}/patients/{patient_id}/problems",
-                      params={"status": "ACTIVE"}, headers=headers, timeout=_HTTP_TIMEOUT)
-        r.raise_for_status()
-        body = r.json()
-        for prob in (body.get("problems") or body if isinstance(body, list) else []):
-            chart["diagnoses"].append({
-                "code":    prob.get("icd10code", prob.get("icd9code", "")),
-                "display": prob.get("name", ""),
-                "status":  prob.get("status", "ACTIVE").lower(),
-            })
+        r = _athena_request_with_retry("GET", f"{base}/patients/{patient_id}/problems",
+                                       headers=headers, params={"status": "ACTIVE"})
+        if r.is_success:
+            body = r.json()
+            for prob in (body.get("problems") or body if isinstance(body, list) else []):
+                chart["diagnoses"].append({
+                    "code":    prob.get("icd10code", prob.get("icd9code", "")),
+                    "display": prob.get("name", ""),
+                    "status":  prob.get("status", "ACTIVE").lower(),
+                })
+        else:
+            logger.warning("Athena problems %s: %s", patient_id,
+                           _athena_friendly_error(None, r.status_code))
     except Exception as exc:
         logger.warning("Athenahealth problems fetch failed for patient %s: %s", patient_id, exc)
 
-    # Medications
+    # Medications — with retry
     try:
-        r = httpx.get(f"{base}/patients/{patient_id}/medications",
-                      headers=headers, timeout=_HTTP_TIMEOUT)
-        r.raise_for_status()
-        body = r.json()
-        for med in (body.get("medications", [{}])[0].get("medications", [])
-                    if isinstance(body, dict) else []):
-            chart["medications"].append({
-                "name":   med.get("medicationname", ""),
-                "dose":   med.get("sig", ""),
-                "status": med.get("medicationentrytype", "active").lower(),
-            })
+        r = _athena_request_with_retry("GET", f"{base}/patients/{patient_id}/medications",
+                                       headers=headers)
+        if r.is_success:
+            body = r.json()
+            for med in (body.get("medications", [{}])[0].get("medications", [])
+                        if isinstance(body, dict) else []):
+                chart["medications"].append({
+                    "name":   med.get("medicationname", ""),
+                    "dose":   med.get("sig", ""),
+                    "status": med.get("medicationentrytype", "active").lower(),
+                })
+        else:
+            logger.warning("Athena medications %s: %s", patient_id,
+                           _athena_friendly_error(None, r.status_code))
     except Exception as exc:
         logger.warning("Athenahealth medications fetch failed for patient %s: %s", patient_id, exc)
 
-    # Allergies
+    # Allergies — with retry
     try:
-        r = httpx.get(f"{base}/patients/{patient_id}/allergies",
-                      headers=headers, timeout=_HTTP_TIMEOUT)
-        r.raise_for_status()
-        body = r.json()
-        for allergy in (body.get("allergies") or body if isinstance(body, list) else []):
-            chart["allergies"].append({
-                "substance": allergy.get("allergenname", ""),
-                "reaction":  allergy.get("reactions", [{"reactionname": ""}])[0].get("reactionname", ""),
-                "severity":  allergy.get("severity", "").lower(),
-            })
+        r = _athena_request_with_retry("GET", f"{base}/patients/{patient_id}/allergies",
+                                       headers=headers)
+        if r.is_success:
+            body = r.json()
+            for allergy in (body.get("allergies") or body if isinstance(body, list) else []):
+                chart["allergies"].append({
+                    "substance": allergy.get("allergenname", ""),
+                    "reaction":  allergy.get("reactions", [{"reactionname": ""}])[0].get("reactionname", ""),
+                    "severity":  allergy.get("severity", "").lower(),
+                })
+        else:
+            logger.warning("Athena allergies %s: %s", patient_id,
+                           _athena_friendly_error(None, r.status_code))
     except Exception as exc:
         logger.warning("Athenahealth allergies fetch failed for patient %s: %s", patient_id, exc)
 
