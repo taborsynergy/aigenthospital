@@ -1049,6 +1049,31 @@ footer {
   .footer-grid { grid-template-columns: 1fr; }
   .hero { padding: 60px 20px 40px; }
 }
+/* ── Enterprise section ─────────────────────────────────────────────── */
+.enterprise-section { padding:80px 40px; max-width:1160px; margin:0 auto; }
+.enterprise-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:24px;
+}
+.ent-card {
+  background:var(--card);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:16px;
+  padding:28px;
+  transition:border-color .2s;
+}
+.ent-card:hover { border-color:var(--teal); }
+.ent-card-cta { border-color:var(--teal); background:rgba(0,255,204,.04); }
+.ent-icon { font-size:28px; margin-bottom:12px; }
+.ent-card h4 { font-size:17px; font-weight:700; color:var(--text); margin:0 0 10px; }
+.ent-card p  { font-size:14px; color:var(--text2); line-height:1.65; margin:0 0 16px; }
+.ent-link { font-size:13px; font-weight:600; color:var(--teal); text-decoration:none; }
+.ent-link:hover { text-decoration:underline; }
+@media(max-width:768px){
+  .enterprise-section { padding:60px 20px; }
+  .enterprise-grid { grid-template-columns:1fr; }
+}
 </style>
 </head>
 <body>
@@ -1067,7 +1092,7 @@ footer {
     <li><a href="#how-it-works">How It Works</a></li>
     <li><a href="#specialties">Specialties</a></li>
     <li><a href="#pricing">Pricing</a></li>
-    <li><a href="#" onclick="openQuoteForm();return false;">Enterprise</a></li>
+    <li><a href="#enterprise">Enterprise</a></li>
   </ul>
   <div class="nav-ctas">
     <button class="btn-nav-demo" onclick="openDemoForm()">Book a Demo</button>
@@ -1617,6 +1642,53 @@ footer {
   </div>
 </div>
 
+<!-- ── Enterprise Section ────────────────────────────────────────────── -->
+<section id="enterprise" class="section enterprise-section">
+  <div style="text-align:center;margin-bottom:48px;">
+    <div class="section-badge">For Health Systems &amp; Groups</div>
+    <h2 class="section-h2">Built for enterprise healthcare,<br><span class="grad-text">not retrofitted for it</span></h2>
+    <p class="section-sub" style="max-width:600px;margin:0 auto;">Aria scales from solo practices to hospital chains. Pro and White Label plans include dedicated onboarding, custom EHR integration, and enterprise-grade security to satisfy your procurement and compliance teams.</p>
+  </div>
+  <div class="enterprise-grid">
+    <div class="ent-card">
+      <div class="ent-icon">🏥</div>
+      <h4>Hospital &amp; Health Systems</h4>
+      <p>Multi-location deployment with location-based routing, unlimited providers, and per-department Aria agents — all on one account.</p>
+      <a href="#" class="ent-link" onclick="openDemoForm();return false;">Talk to Enterprise Sales →</a>
+    </div>
+    <div class="ent-card">
+      <div class="ent-icon">🔒</div>
+      <h4>HIPAA &amp; Compliance</h4>
+      <p>BAA available with every plan. End-to-end encrypted. PHI never stored unnecessarily. Full audit trail on every conversation and action.</p>
+      <a href="mailto:admin@tabor.taborsynergy.com" class="ent-link">Request BAA →</a>
+    </div>
+    <div class="ent-card">
+      <div class="ent-icon">🔗</div>
+      <h4>EHR Integration</h4>
+      <p>Native connectors for Epic (FHIR R4), Cerner, Athenahealth, and eClinicalWorks. Live slot availability, patient lookup, and note sync — all in Aria's context.</p>
+      <a href="#pricing" class="ent-link">See Pro Plan →</a>
+    </div>
+    <div class="ent-card">
+      <div class="ent-icon">🎨</div>
+      <h4>White Label &amp; Reseller</h4>
+      <p>Full source code license. Deploy under your brand with your domain, your logo, and your support team. One-time fee, no per-seat royalties.</p>
+      <a href="#" class="ent-link" onclick="openLicensingFaq();return false;">Licensing FAQ →</a>
+    </div>
+    <div class="ent-card">
+      <div class="ent-icon">🚀</div>
+      <h4>Dedicated Onboarding</h4>
+      <p>Every Pro and White Label customer gets a live onboarding call, a dedicated setup guide, and direct access to the technical team for the first 30 days.</p>
+      <a href="#" class="ent-link" onclick="openOnboardingGuide();return false;">See Onboarding Guide →</a>
+    </div>
+    <div class="ent-card ent-card-cta">
+      <div class="ent-icon">📞</div>
+      <h4>Talk to Enterprise Sales</h4>
+      <p>Custom pricing for health systems with 10+ locations, hospital networks, and resellers. We'll build a commercial model that works for your procurement team.</p>
+      <button class="btn-primary" onclick="openDemoForm()" style="margin-top:16px;width:100%;">Book Enterprise Demo →</button>
+    </div>
+  </div>
+</section>
+
 <!-- ── Bottom CTA ─────────────────────────────────────────────────────── -->
 <div class="cta-banner reveal">
   <h2>Ready to give your patients a better experience?</h2>
@@ -1647,14 +1719,14 @@ footer {
     </div>
     <div class="footer-col">
       <h5>Enterprise</h5>
-      <a href="#" onclick="openQuoteForm();return false;">White Label</a>
-      <a href="#" onclick="openQuoteForm();return false;">Licensing FAQ</a>
-      <a href="#" onclick="openQuoteForm();return false;">Enterprise Sales</a>
+      <a href="#pricing">White Label</a>
+      <a href="#" onclick="openLicensingFaq();return false;">Licensing FAQ</a>
+      <a href="#" onclick="openDemoForm();return false;">Enterprise Sales</a>
     </div>
     <div class="footer-col">
       <h5>Support</h5>
       <a href="mailto:admin@tabor.taborsynergy.com">Contact Us</a>
-      <a href="#" onclick="openSignup('professional');return false;">Onboarding</a>
+      <a href="#" onclick="openOnboardingGuide();return false;">Onboarding</a>
       <a href="mailto:admin@tabor.taborsynergy.com">Billing Help</a>
     </div>
   </div>
@@ -2135,6 +2207,105 @@ function submitSignup(e) {
     }
   });
 }
+</script>
+
+<!-- ── Licensing FAQ Modal ────────────────────────────────────────────── -->
+<div id="licensing-faq-modal" class="modal-overlay" onclick="if(event.target===this)closeLicensingFaq()">
+  <div class="modal-box" style="max-width:640px;">
+    <button class="modal-close" onclick="closeLicensingFaq()">×</button>
+    <h2 style="margin:0 0 6px;">🎨 White Label Licensing FAQ</h2>
+    <p style="color:#6B7280;font-size:14px;margin:0 0 24px;">Everything you need to know before purchasing the source code license.</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+      <div>
+        <strong style="color:#111;display:block;margin-bottom:6px;">What do I get with the $2,999 White Label license?</strong>
+        <p style="color:#374151;font-size:14px;margin:0;">Full source code (FastAPI backend + frontend), Docker deployment setup, all EHR integration modules, 6 months of support, and the right to deploy as many instances as you need under your own brand. No per-seat royalties, ever.</p>
+      </div>
+      <div>
+        <strong style="color:#111;display:block;margin-bottom:6px;">Can I sell it to my own clients?</strong>
+        <p style="color:#374151;font-size:14px;margin:0;">Yes. The White Label license includes reseller rights. You can deploy Aria for your own healthcare clients, charge them whatever you like, and keep 100% of the revenue.</p>
+      </div>
+      <div>
+        <strong style="color:#111;display:block;margin-bottom:6px;">Is the $2,999 a one-time fee?</strong>
+        <p style="color:#374151;font-size:14px;margin:0;">Yes, one-time. You own the code. There are no recurring royalties or revenue shares. You will need to pay for your own hosting (Render, AWS, etc.) and your own OpenRouter/Anthropic API key.</p>
+      </div>
+      <div>
+        <strong style="color:#111;display:block;margin-bottom:6px;">Do I get future updates?</strong>
+        <p style="color:#374151;font-size:14px;margin:0;">Yes — the license includes all updates for 12 months from purchase date. After 12 months you can renew at a discounted rate or keep the version you have.</p>
+      </div>
+      <div>
+        <strong style="color:#111;display:block;margin-bottom:6px;">What's the BAA situation for White Label?</strong>
+        <p style="color:#374151;font-size:14px;margin:0;">We provide a BAA template. Since you self-host, you are the covered entity/business associate for your own deployments. We can provide the BAA template and HIPAA documentation package on request.</p>
+      </div>
+      <div>
+        <strong style="color:#111;display:block;margin-bottom:6px;">How do I get started?</strong>
+        <p style="color:#374151;font-size:14px;margin:0;">Book a 30-minute technical discovery call. We'll confirm your use case, answer any remaining questions, and send a commercial agreement to sign before payment.</p>
+      </div>
+    </div>
+    <div style="margin-top:28px;display:flex;gap:12px;">
+      <button class="btn-primary" onclick="closeLicensingFaq();openDemoForm();" style="flex:1;">Book a Discovery Call →</button>
+      <button onclick="closeLicensingFaq()" style="flex:1;padding:12px;border:1px solid #E5E7EB;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;color:#374151;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Onboarding Guide Modal ─────────────────────────────────────────── -->
+<div id="onboarding-guide-modal" class="modal-overlay" onclick="if(event.target===this)closeOnboardingGuide()">
+  <div class="modal-box" style="max-width:600px;">
+    <button class="modal-close" onclick="closeOnboardingGuide()">×</button>
+    <h2 style="margin:0 0 6px;">🚀 Getting Started with Aria</h2>
+    <p style="color:#6B7280;font-size:14px;margin:0 0 24px;">You can be live in under 30 minutes. Here's the exact sequence.</p>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <div style="min-width:32px;height:32px;border-radius:50%;background:#0F172A;color:#00FFCC;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">1</div>
+        <div>
+          <strong style="color:#111;display:block;margin-bottom:4px;">Sign up &amp; verify your email</strong>
+          <p style="color:#374151;font-size:13px;margin:0;">Create your account — no credit card needed. Check your inbox for a confirmation email. Your trial starts immediately.</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <div style="min-width:32px;height:32px;border-radius:50%;background:#0F172A;color:#00FFCC;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">2</div>
+        <div>
+          <strong style="color:#111;display:block;margin-bottom:4px;">Complete Clinic Setup (⚙️ tab)</strong>
+          <p style="color:#374151;font-size:13px;margin:0;">Fill in your practice name, specialty, address, phone, office hours, providers, and accepted insurance. This is how Aria learns about your clinic.</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <div style="min-width:32px;height:32px;border-radius:50%;background:#0F172A;color:#00FFCC;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">3</div>
+        <div>
+          <strong style="color:#111;display:block;margin-bottom:4px;">Test Aria (💬 Try Aria tab)</strong>
+          <p style="color:#374151;font-size:13px;margin:0;">Chat with Aria using your clinic's information. Ask it your most common patient questions. Tweak the setup until the answers feel right.</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <div style="min-width:32px;height:32px;border-radius:50%;background:#0F172A;color:#00FFCC;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">4</div>
+        <div>
+          <strong style="color:#111;display:block;margin-bottom:4px;">Share your patient link (📤 tab)</strong>
+          <p style="color:#374151;font-size:13px;margin:0;">Copy your unique chat URL and add it to your website, Google My Business listing, email signature, and any place patients look for you.</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <div style="min-width:32px;height:32px;border-radius:50%;background:#0F172A;color:#00FFCC;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">5</div>
+        <div>
+          <strong style="color:#111;display:block;margin-bottom:4px;">Monitor your dashboard (📋 Appointments)</strong>
+          <p style="color:#374151;font-size:13px;margin:0;">Watch appointments come in. Review conversations. You'll see within the first day that Aria is handling questions your front desk used to answer manually.</p>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:24px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:14px;">
+      <p style="margin:0;font-size:13px;color:#065F46;">💡 <strong>Pro tip:</strong> The most common setup mistake is leaving office hours blank. Always fill in your hours — Aria uses them to tell patients when they can book.</p>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:12px;">
+      <button class="btn-primary" onclick="closeOnboardingGuide();openSignup('professional');" style="flex:1;">Start Free Trial →</button>
+      <button onclick="closeOnboardingGuide()" style="flex:1;padding:12px;border:1px solid #E5E7EB;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;color:#374151;">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openLicensingFaq()    { document.getElementById('licensing-faq-modal').classList.add('open'); }
+function closeLicensingFaq()   { document.getElementById('licensing-faq-modal').classList.remove('open'); }
+function openOnboardingGuide() { document.getElementById('onboarding-guide-modal').classList.add('open'); }
+function closeOnboardingGuide(){ document.getElementById('onboarding-guide-modal').classList.remove('open'); }
 </script>
 
 </body>
